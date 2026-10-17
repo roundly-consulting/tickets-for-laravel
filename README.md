@@ -1,3 +1,11 @@
+<!-- roundly-hero:start -->
+<p align="center">
+  <a href="https://roundly-consulting.com/open-source/docs/tickets-for-laravel?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel">
+    <img src="art/hero.png" alt="Tickets for Laravel — Roundly open source" width="100%">
+  </a>
+</p>
+<!-- roundly-hero:end -->
+
 <!-- roundly-badges:start -->
 <p align="center">
   <a href="https://packagist.org/packages/roundly-consulting/tickets-for-laravel"><img src="https://img.shields.io/packagist/v/roundly-consulting/tickets-for-laravel?style=flat-square&label=release" alt="Latest release"></a>
