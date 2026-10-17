@@ -39,7 +39,8 @@ Initial public release.
 - A conversation lock driven by status categories: a ticket's comments lock when it enters a Closed
   state and unlock when it leaves one, for any lifecycle.
 - The conversation on comments-for-laravel: `reply()` (public, optionally with a transition applied
-  atomically) and `note()` (internal, agents only), `editComment()`, `deleteComment()` and
+  atomically) and `note()` (internal, agents only), `editComment()` and `deleteComment()` (each
+  left in the timeline as `comment_edited` / `comment_deleted`, as visible as the message) and
   `thread()`; author roles (requester, agent, participant, system); `first_responded_at`; host
   moderation respected (a `require_approval` hold is approved, a blocklist hold never is); mentions
   passed on only to people who may read the comment.
@@ -68,8 +69,8 @@ Initial public release.
   `inCategory`, `withStatus`, `withStatusCategory`, `unresolved`, `withPriority`, `taggedWith`,
   `watchedBy`, `whereField`, `whereFieldBetween`, `dueBefore`, `dueAfter`, `dueFrom`, `dueTo`,
   `createdFrom`, `createdTo`, `viaChannel`, `search`, `overdue`, `merged` and `orderByPriority`.
-- An append-only activity timeline (`tickets.activity.enabled`) and 32 after-commit events, from
-  `TicketCreated` to `GuestAccessRevoked`.
+- An append-only activity timeline (`tickets.activity.enabled`) and 34 after-commit events, from
+  `TicketCreated` to `TicketCommentUpdated`, `TicketCommentDeleted` and `GuestAccessRevoked`.
 - `Tickets::sweep()` and `php artisan tickets:sweep`: `TicketOverdue` and `TicketDueSoon`
   (`tickets.due.soon_window`) exactly once per due date, safe under concurrent sweeps, returning a
   `SweepResult`.

@@ -255,6 +255,22 @@ describe('conversation', function (): void {
         expect(collect($this->actingAs($requester)->getJson("/api/tickets/{$ticket->reference}/comments")->json('data'))->pluck('body')->all())->toBe(['Waiting on you.']);
     });
 
+    it('attributes an edit and a delete to the viewer', function (): void {
+        $requester = apiUser();
+        $agent = apiAgent();
+        $ticket = apiTicket($requester);
+        $reply = Tickets::for($ticket)->by($requester)->reply('Still jamed.');
+
+        $this->actingAs($requester)->patchJson("/api/tickets/{$ticket->reference}/comments/{$reply->getKey()}", ['body' => 'Still jammed.'])->assertOk();
+        $this->actingAs($agent)->deleteJson("/api/tickets/{$ticket->reference}/comments/{$reply->getKey()}")->assertNoContent();
+
+        $trail = $this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}/activity")->json('data');
+        $entries = collect($trail)->whereIn('type', ['comment_edited', 'comment_deleted'])->values();
+
+        expect($entries->pluck('type')->all())->toBe(['comment_edited', 'comment_deleted'])
+            ->and($entries->pluck('actor.id')->all())->toBe([$requester->getKey(), $agent->getKey()]);
+    });
+
     it('answers a message on a closed ticket with 409 ticket_closed', function (): void {
         $requester = apiUser();
         $ticket = apiTicket($requester);

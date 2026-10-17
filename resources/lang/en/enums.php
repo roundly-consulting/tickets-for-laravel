@@ -86,6 +86,8 @@ return [
         'attachment_removed' => 'Attachment removed',
         'replied' => 'Replied',
         'note_added' => 'Internal note',
+        'comment_edited' => 'Message edited',
+        'comment_deleted' => 'Message deleted',
         'requester_changed' => 'Requester changed',
         'guest_access_revoked' => 'Guest access revoked',
         'overdue' => 'Overdue',

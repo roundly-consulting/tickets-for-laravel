@@ -426,27 +426,29 @@ final readonly class TicketHandle
     }
 
     /**
-     * Edit a message of this ticket's conversation; a comment of another ticket is refused.
+     * Edit a message of this ticket's conversation, as this handle's actor; a comment of another
+     * ticket is refused. The edit is recorded (`comment_edited`, never the body).
      */
     public function editComment(Comment $comment, string $body): Comment
     {
         return $this->manager->perform(
             TicketOperation::UpdateComment,
             UpdateCommentAction::class,
-            fn (UpdateCommentAction $action): Comment => $action->execute($this->ticket, $comment, $body),
+            fn (UpdateCommentAction $action): Comment => $action->execute($this->ticket, $comment, $body, $this->actor, $this->system),
             $this->context(['comment' => $comment]),
         );
     }
 
     /**
-     * Delete a message of this ticket's conversation; a comment of another ticket is refused.
+     * Delete a message of this ticket's conversation, as this handle's actor; a comment of
+     * another ticket is refused. The delete is recorded (`comment_deleted`).
      */
     public function deleteComment(Comment $comment): static
     {
         $this->manager->perform(
             TicketOperation::DeleteComment,
             DeleteCommentAction::class,
-            fn (DeleteCommentAction $action): Comment => $action->execute($this->ticket, $comment),
+            fn (DeleteCommentAction $action): Comment => $action->execute($this->ticket, $comment, $this->actor, $this->system),
             $this->context(['comment' => $comment]),
         );
 

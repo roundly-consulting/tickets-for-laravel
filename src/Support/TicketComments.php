@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Support;
 
+use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Exceptions\TicketCommentNotFoundException;
 use RoundlyConsulting\Tickets\Models\Ticket;
@@ -54,6 +56,30 @@ final class TicketComments
         $role = $comment->meta(self::META.'.role');
 
         return is_string($role) ? AuthorRole::tryFrom($role) : null;
+    }
+
+    /**
+     * Who may see an entry about the comment: the requester side only when the comment is a
+     * published public reply — never for a note or a reply the host's moderation holds.
+     */
+    public static function visibility(Comment $comment): ActivityVisibility
+    {
+        return ! self::isInternal($comment) && $comment->status === CommentStatus::Approved
+            ? ActivityVisibility::Public
+            : ActivityVisibility::Internal;
+    }
+
+    /**
+     * The activity properties of an entry about the comment: its id and its author's role —
+     * never a body.
+     *
+     * @return array<string, mixed>
+     */
+    public static function trail(Comment $comment): array
+    {
+        $role = self::role($comment);
+
+        return ['comment' => $comment->getKey(), ...($role === null ? [] : ['role' => $role->value])];
     }
 
     /**

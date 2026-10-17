@@ -37,6 +37,8 @@ enum ActivityType: string implements HasColor
     case AttachmentRemoved = 'attachment_removed';
     case Replied = 'replied';
     case NoteAdded = 'note_added';
+    case CommentEdited = 'comment_edited';
+    case CommentDeleted = 'comment_deleted';
     case RequesterChanged = 'requester_changed';
     case GuestAccessRevoked = 'guest_access_revoked';
     case Overdue = 'overdue';
@@ -45,14 +47,15 @@ enum ActivityType: string implements HasColor
 
     /**
      * Whether an entry of this type is visible to the requester side by default. Notes,
-     * watcher lists and guest-access changes are agent-only.
+     * watcher lists and guest-access changes are agent-only. A message's edit or delete takes
+     * the message's own visibility when recorded; on its own it defaults to agent-only.
      */
     public function defaultVisibility(): ActivityVisibility
     {
         return match ($this) {
             self::NoteAdded, self::WatcherAdded, self::WatcherRemoved, self::GuestAccessRevoked,
             self::FieldsChanged, self::Linked, self::Unlinked, self::Tagged, self::Untagged,
-            self::Deleted, self::Restored => ActivityVisibility::Internal,
+            self::Deleted, self::Restored, self::CommentEdited, self::CommentDeleted => ActivityVisibility::Internal,
             default => ActivityVisibility::Public,
         };
     }

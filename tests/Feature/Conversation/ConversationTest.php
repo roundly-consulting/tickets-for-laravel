@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,10 @@ use RoundlyConsulting\Lifecycle\Exceptions\TransitionDeniedException;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
+use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
+use RoundlyConsulting\Tickets\Events\TicketCommentDeleted;
+use RoundlyConsulting\Tickets\Events\TicketCommentUpdated;
 use RoundlyConsulting\Tickets\Events\TicketFirstResponded;
 use RoundlyConsulting\Tickets\Events\TicketNoteAdded;
 use RoundlyConsulting\Tickets\Events\TicketReplied;
@@ -467,6 +471,16 @@ describe('internal_notes_never_reach_non_agents', function (): void {
         'the public activity' => [fn (Ticket $ticket): array => Tickets::for($ticket)->activity()
             ->filter(static fn (TicketActivity $entry): bool => isset($entry->properties['comment']))
             ->map(static fn (TicketActivity $entry): mixed => $entry->properties['comment'])->values()->all()],
+        'the public activity once the note is edited and deleted' => [function (Ticket $ticket): array {
+            $agent = User::query()->where('name', 'Grace')->firstOrFail();
+            $note = Tickets::for($ticket)->thread(internal: true)->firstOrFail(static fn (Comment $comment): bool => TicketComments::isInternal($comment));
+            Tickets::for($ticket)->by($agent)->editComment($note, 'Internal: edited.');
+            Tickets::for($ticket)->by($agent)->deleteComment($note);
+
+            return Tickets::for($ticket)->activity()
+                ->filter(static fn (TicketActivity $entry): bool => isset($entry->properties['comment']))
+                ->map(static fn (TicketActivity $entry): mixed => $entry->properties['comment'])->unique()->values()->all();
+        }],
     ]);
 
     it('shows every message in the internal thread, oldest first', function (): void {
@@ -578,6 +592,89 @@ describe('conversation edits', function (): void {
         expect($handle->deleteComment($reply))->toBe($handle)
             ->and($reply->fresh()?->trashed())->toBeTrue()
             ->and($handle->thread())->toHaveCount(0);
+    });
+
+    it('leaves a trail of edits and deletes, as visible as the message, never with a body', function (): void {
+        $agent = convAgent();
+        $requester = convRequester();
+        $ticket = convTicket($requester);
+        $reply = Tickets::for($ticket)->by($requester)->reply('Printer is jamed.');
+        $note = Tickets::for($ticket)->by($agent)->note('Vendor overcharged us.');
+
+        Tickets::for($ticket)->by($requester)->editComment($reply, 'Printer is jammed.');
+        Tickets::for($ticket)->by($agent)->editComment($note, 'The vendor overcharged us.');
+        Tickets::for($ticket)->by($agent)->deleteComment($note)->deleteComment($reply);
+
+        $trail = $ticket->activities()->whereIn('type', [ActivityType::CommentEdited->value, ActivityType::CommentDeleted->value])->get();
+
+        expect($trail->map(static fn (TicketActivity $entry): array => [
+            $entry->type, $entry->visibility, keySorted($entry->properties), $entry->actor?->getKey(),
+        ])->all())->toBe([
+            [ActivityType::CommentEdited, ActivityVisibility::Public, ['comment' => $reply->getKey(), 'role' => 'requester'], $requester->getKey()],
+            [ActivityType::CommentEdited, ActivityVisibility::Internal, ['comment' => $note->getKey(), 'role' => 'agent'], $agent->getKey()],
+            [ActivityType::CommentDeleted, ActivityVisibility::Internal, ['comment' => $note->getKey(), 'role' => 'agent'], $agent->getKey()],
+            [ActivityType::CommentDeleted, ActivityVisibility::Public, ['comment' => $reply->getKey(), 'role' => 'requester'], $agent->getKey()],
+        ])->and(Tickets::for($ticket)->activity()->pluck('type')->all())->not->toContain(ActivityType::NoteAdded);
+    });
+
+    it('keeps the trail of a held reply internal', function (): void {
+        config()->set('comments.blocklist', ['scam']);
+        config()->set('comments.blocklist_action', 'pending');
+        $requester = convRequester();
+        $ticket = convTicket($requester);
+        $held = Tickets::for($ticket)->by($requester)->reply('A scam link.');
+
+        Tickets::for($ticket)->asSystem()->editComment($held, 'Still a scam link.');
+        Tickets::for($ticket)->asSystem()->deleteComment($held);
+
+        expect($ticket->activities()->whereIn('type', ['comment_edited', 'comment_deleted'])->pluck('visibility')->unique()->all())
+            ->toBe([ActivityVisibility::Internal])
+            ->and($ticket->activities()->where('type', 'comment_edited')->sole()->is_system)->toBeTrue();
+    });
+
+    it('fires TicketCommentUpdated and TicketCommentDeleted after the commit only', function (): void {
+        $agent = convAgent();
+        $ticket = convTicket();
+        $reply = Tickets::for($ticket)->by($agent)->reply('Hello.');
+        $heard = [];
+        Event::listen([TicketCommentUpdated::class, TicketCommentDeleted::class], static function (TicketCommentUpdated|TicketCommentDeleted $event) use (&$heard): void {
+            $heard[] = [$event::class, $event->ticket->getKey(), $event->comment->getKey(), $event->actor?->getKey()];
+        });
+
+        rescue(static fn () => DB::transaction(static function () use ($ticket, $agent, $reply): void {
+            Tickets::for($ticket)->by($agent)->editComment($reply, 'Rolled back.');
+            Tickets::for($ticket)->by($agent)->deleteComment($reply);
+
+            throw new RuntimeException('Rolled back.');
+        }), report: false);
+
+        expect($heard)->toBe([])
+            ->and($ticket->activities()->whereIn('type', ['comment_edited', 'comment_deleted'])->count())->toBe(0);
+
+        DB::transaction(static function () use ($ticket, $agent, $reply, &$heard): void {
+            Tickets::for($ticket)->by($agent)->editComment($reply, 'Hello!');
+
+            expect($heard)->toBe([]);
+        });
+        Tickets::for($ticket)->by($agent)->deleteComment($reply);
+
+        expect($heard)->toBe([
+            [TicketCommentUpdated::class, $ticket->getKey(), $reply->getKey(), $agent->getKey()],
+            [TicketCommentDeleted::class, $ticket->getKey(), $reply->getKey(), $agent->getKey()],
+        ]);
+    });
+
+    it('records the actor of an edit and a delete in the fake', function (): void {
+        $fake = Tickets::fake();
+        $agent = convAgent();
+        $ticket = convTicket();
+        $reply = Tickets::for($ticket)->by($agent)->reply('Hello.');
+
+        Tickets::for($ticket)->by($agent)->editComment($reply, 'Hello!');
+        Tickets::for($ticket)->by($agent)->deleteComment($reply);
+
+        expect($fake->recorded(TicketOperation::UpdateComment)[0]->context['actor'])->toBe($agent)
+            ->and($fake->recorded(TicketOperation::DeleteComment)[0]->context['actor'])->toBe($agent);
     });
 
     it('refuses a comment of another ticket', function (Closure $act): void {

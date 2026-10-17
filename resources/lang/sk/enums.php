@@ -86,6 +86,8 @@ return [
         'attachment_removed' => 'Odobratá príloha',
         'replied' => 'Odpoveď',
         'note_added' => 'Interná poznámka',
+        'comment_edited' => 'Upravená správa',
+        'comment_deleted' => 'Odstránená správa',
         'requester_changed' => 'Zmena žiadateľa',
         'guest_access_revoked' => 'Zrušený prístup hosťa',
         'overdue' => 'Po termíne',
