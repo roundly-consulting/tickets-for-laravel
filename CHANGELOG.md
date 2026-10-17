@@ -15,6 +15,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - `DELETE /tickets/{ticket}/links/{link}` removes exactly the link it names. With two mutual
   `duplicates` links (A duplicates B and B duplicates A), deleting B → A from A's end removed
   A → B instead, and `TicketUnlinked` and the activity entries named the wrong direction.
+- `Tickets::fake()->assertGuestLinkIssued($ticket, $guest)` now matches a `guestLink()` or
+  `Tickets::guests()->linkFor()` call that named no guest when `$guest` is the ticket's guest
+  requester, the guest the link went to. It used to fail with "none matched".
 
 ## 1.0.0 - 2026-10-17
 

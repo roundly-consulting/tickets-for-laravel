@@ -326,6 +326,21 @@ describe('the fake', function (): void {
         $fake->assertGuestLinkIssued($ticket);
     });
 
+    it('matches a guest link that defaulted to the requester against the requester', function (Closure $issue): void {
+        $fake = Tickets::fake();
+        $ticket = fakeGuestTicket();
+        $requester = $ticket->requester;
+
+        $issue($ticket);
+
+        expect($requester)->toBeInstanceOf(TicketGuest::class);
+        $fake->assertGuestLinkIssued($ticket, $requester);
+        expect(fn () => $fake->assertGuestLinkIssued($ticket, TicketGuest::factory()->create()))->toThrow(ExpectationFailedException::class, 'none matched');
+    })->with([
+        'the handle' => [fn (Ticket $ticket) => Tickets::for($ticket)->guestLink()],
+        'the accessor' => [fn (Ticket $ticket) => Tickets::guests()->linkFor($ticket)],
+    ]);
+
     it('fails a work-management assertion whose operation ran on something else', function (): void {
         $fake = Tickets::fake();
         $ticket = fakeTicket();

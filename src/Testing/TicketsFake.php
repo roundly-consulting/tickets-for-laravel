@@ -20,6 +20,7 @@ use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Support\GuestAccess;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\TicketsManager;
 
@@ -621,12 +622,25 @@ final class TicketsFake extends TicketsManager
     }
 
     /**
-     * A guest link was issued — for `$ticket`, to `$guest` (null in the call = the requester).
+     * A guest link was issued — for `$ticket`, to `$guest`. A call that named no guest issued it
+     * to the ticket's guest requester, so it matches that guest.
      */
     public function assertGuestLinkIssued(Ticket|string|null $ticket = null, ?TicketGuest $guest = null): void
     {
-        $this->assertRecorded(TicketOperation::IssueGuestLink, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
-            && ($guest === null || ($recorded->model('guest')?->is($guest) ?? false)));
+        $this->assertRecorded(TicketOperation::IssueGuestLink, static function (RecordedTicketOperation $recorded) use ($ticket, $guest): bool {
+            if (! $recorded->concerns($ticket)) {
+                return false;
+            }
+
+            if ($guest === null) {
+                return true;
+            }
+
+            $issued = $recorded->ticket();
+            $recipient = $recorded->model('guest') ?? ($issued === null ? null : GuestAccess::requester($issued));
+
+            return $recipient?->is($guest) ?? false;
+        });
     }
 
     public function assertNoGuestLinkIssued(): void
