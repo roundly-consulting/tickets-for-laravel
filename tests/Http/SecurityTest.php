@@ -337,7 +337,9 @@ describe('guest_pii_is_agent_only', function (): void {
             ->and($asWatcher->json('data.requester'))->toBe(['type' => 'guest'])
             ->and($asWatcherThread->json('data.0.author'))->toBe(['type' => 'guest', 'name' => null])
             ->and($asGuest->json('data.requester'))->toBe(['type' => 'guest', 'name' => 'Jo'])
-            ->and((string) $asWatcher->getContent().$asWatcherThread->getContent().$asGuest->getContent())->not->toContain('jo@acme.test')->not->toContain('900');
+            // The phone's subscriber digits, stored and as entered — never a bare '900', which the
+            // guest link's `expires` timestamp carries now and then.
+            ->and((string) $asWatcher->getContent().$asWatcherThread->getContent().$asGuest->getContent())->not->toContain('jo@acme.test')->not->toContain('900000000')->not->toContain('900 000 000');
 
         Artisan::call('about', ['--only' => 'tickets']);
         expect(Artisan::output())->toContain('Routes')->not->toContain('jo@acme.test')->not->toContain('Jo');
