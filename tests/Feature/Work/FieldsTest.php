@@ -101,6 +101,31 @@ describe('custom_field_rules', function (): void {
         expect(Tickets::for($ticket)->fields()->all())->toBe(['asset_tag' => 'PRN-0042', 'impact' => 'low']);
     });
 
+    it('requires at creation only the fields the creator may write; agents fill the rest', function (): void {
+        Tickets::fields()->make('root_cause', FieldType::Text)->label('Root cause')->required()->agentOnly()->define();
+        Tickets::fields()->make('asset_tag', FieldType::Text)->required()->requesterEditable()->define();
+        Tickets::fields()->make('notes', FieldType::Text)->agentOnly()->define();
+        $customer = User::query()->create(['name' => 'Ada']);
+        $agent = fieldAgent();
+
+        // Self-service: the requester can neither see nor set the agent-only field, so it can't
+        // stop them — their own required field still does.
+        expect(fn () => fieldTicket(requester: $customer, system: false))->toThrow(ValidationException::class, 'The Asset Tag field is required.');
+        $ticket = fieldTicket(requester: $customer, fields: ['asset_tag' => 'PRN-1'], system: false);
+
+        // An agent filing, or the system, owes every required field.
+        expect(fn () => Tickets::make()->subject('x')->requester($customer)->fields(['asset_tag' => 'PRN-2'])->by($agent)->create())
+            ->toThrow(ValidationException::class, 'Root cause')
+            ->and(fn () => fieldTicket(fields: ['asset_tag' => 'PRN-3']))->toThrow(ValidationException::class, 'Root cause');
+
+        // An agent writing fields owes it too; the requester editing theirs does not.
+        expect(fn () => Tickets::for($ticket)->by($agent)->fields()->set('notes', 'Checked.'))->toThrow(ValidationException::class, 'Root cause');
+        Tickets::for($ticket)->by($customer)->fields()->set('asset_tag', 'PRN-9');
+        Tickets::for($ticket)->by($agent)->fields()->setMany(['notes' => 'Checked.', 'root_cause' => 'Toner']);
+
+        expect(Tickets::for($ticket)->fields()->all())->toBe(['root_cause' => 'Toner', 'asset_tag' => 'PRN-9', 'notes' => 'Checked.']);
+    });
+
     it('refuses a category change that brings a required field without a value', function (): void {
         $hardware = Tickets::categories()->make('Hardware')->create();
         $network = Tickets::categories()->make('Network')->create();

@@ -14,11 +14,14 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
  * Sets custom field values of a ticket — keys of its own field set only, each validated
  * against its field; a null clears a value. Someone who is not an agent may only set
- * `requester_editable` fields. The activity entry and the event name the keys, never a value.
+ * `requester_editable` fields. An agent (or the system) must leave every required field filled,
+ * the agent-only ones a self-service ticket was filed without included. The activity entry and
+ * the event name the keys, never a value.
  */
 final readonly class SetFieldValuesAction
 {
@@ -39,6 +42,12 @@ final readonly class SetFieldValuesAction
             TicketLocker::lock($ticket);
 
             $keys = $this->write->execute($ticket, $values, $actor);
+
+            // An agent (or the system) writing fields owes every required one — the agent-only
+            // ones a self-service ticket was filed without included.
+            if ($actor === null || TicketVisibility::isAgentFor($actor, $ticket)) {
+                $this->write->assertRequiredFilled($ticket);
+            }
 
             if ($keys !== []) {
                 $this->record->execute($ticket, ActivityType::FieldsChanged, $actor, ['keys' => $keys], $system);

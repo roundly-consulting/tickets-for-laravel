@@ -21,7 +21,8 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * Moves a ticket to another category (or, with null, out of every category). The category
  * must be active and global or of the ticket's project. Category defaults are applied at
  * creation only — never again on a move. A field the new category makes required must already
- * hold a value, or the move is refused. The same category again is a no-op.
+ * hold a value (for a mover who is no agent, only the requester-editable ones), or the move is
+ * refused. The same category again is a no-op.
  */
 final readonly class ChangeCategoryAction
 {
@@ -50,7 +51,7 @@ final readonly class ChangeCategoryAction
             $ticket->unsetRelation('category');
 
             // The new category may bring required fields the ticket has no value for.
-            $this->fields->assertRequiredFilled($ticket);
+            $this->fields->assertRequiredFilled($ticket, $actor);
 
             $this->record->execute($ticket, ActivityType::CategoryChanged, $actor, ['from' => $from, 'to' => $toKey], $system);
             $this->events->dispatch(new TicketCategoryChanged($ticket, $from, $toKey, $actor));

@@ -472,6 +472,19 @@ describe('admin endpoints', function (): void {
         expect(TicketField::query()->count())->toBe(1);
     });
 
+    it('lets a requester file a ticket while an agent-only field is required', function (): void {
+        Tickets::fields()->make('root_cause', FieldType::Text)->label('Root cause')->required()->agentOnly()->define();
+        $customer = apiUser();
+        $agent = apiAgent();
+
+        expect(collect($this->actingAs($customer)->getJson('/api/ticket-fields')->json('data'))->pluck('key')->all())->not->toContain('root_cause');
+        $reference = $this->actingAs($customer)->postJson('/api/tickets', ['subject' => 'Printer jammed'])->assertCreated()->json('data.reference');
+        $this->actingAs($customer)->postJson('/api/tickets', ['subject' => 'x', 'fields' => ['root_cause' => 'x']])->assertUnprocessable()->assertJson(['code' => 'field_not_editable']);
+
+        $this->actingAs($agent)->postJson('/api/tickets', ['subject' => 'Filed by an agent'])->assertUnprocessable()->assertJsonValidationErrors('fields.root_cause');
+        $this->actingAs($agent)->putJson("/api/tickets/{$reference}/fields", ['fields' => ['root_cause' => 'Toner']])->assertOk();
+    });
+
     it('refuses a default its own field would refuse, so the intake never breaks', function (array $definition): void {
         $admin = apiAdmin();
 

@@ -154,7 +154,8 @@ final readonly class CreateTicketAction
 
             $this->fields->execute($ticket, $data->fields, $actor);
             $this->fields->applyDefaults($ticket);
-            $this->fields->assertRequiredFilled($ticket);
+            // Only what the creator may write: an agent-only required field waits for an agent.
+            $this->fields->assertRequiredFilled($ticket, $actor);
 
             if ($tags !== []) {
                 $this->tags->execute($ticket, $tags, [], $actor, $data->system);

@@ -98,16 +98,24 @@ final readonly class WriteFieldValuesAction
     }
 
     /**
-     * Refuse a ticket that misses a value of a required field of its field set — at creation
-     * and when a category change makes a field newly required.
+     * Refuse a ticket that misses a value of a required field of its field set — at creation,
+     * when a category change makes a field newly required, and when an agent writes fields. Only
+     * what `$actor` may write is owed: a writer who is not an agent for the ticket (a requester
+     * filing for themselves) owes the `requester_editable` fields, never one they can neither
+     * see nor set; an agent or the system (null) owes every one.
      */
-    public function assertRequiredFilled(Ticket $ticket): void
+    public function assertRequiredFilled(Ticket $ticket, ?Model $actor = null): void
     {
         $ticket->unsetRelation('attachedAttributes');
+        $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
         $rules = [];
         $names = [];
 
         foreach ($this->fields->forTicket($ticket) as $field) {
+            if ($limited && ! $field->requesterEditable) {
+                continue;
+            }
+
             if ($field->required && $ticket->getAttachedAttribute($field->key)?->value === null) {
                 $rules['fields.'.$field->key] = ['required'];
                 $names = [...$names, ...self::names($field)];
