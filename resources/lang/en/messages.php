@@ -147,6 +147,10 @@ return [
     'doctor' => [
         'policy_ok' => 'The ticket policy is [:class].',
         'routes_off' => 'The HTTP API is off (tickets.routes.enabled).',
+        'config_ok' => 'The published config holds every key whose absence would open something up.',
+        'config_routes_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so it reads as on — the HTTP API is served. Add the key (TICKETS_ROUTES, off by default).',
+        'config_guests_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so it reads as on — guests are accepted. Add the key (TICKETS_GUESTS).',
+        'config_mimes_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so attachments take the shipped allow-list. Add the key to keep your own list in one place.',
         'routes_on' => 'The HTTP API is on, behind authentication.',
         'routes_unguarded' => 'The HTTP API is on, but tickets.routes.middleware holds no auth middleware: every endpoint would answer an anonymous caller. Add auth (or auth:sanctum).',
         'guest_links_unavailable' => 'The default guest-link generator needs the guest routes (tickets.routes.enabled and tickets.guests.enabled): no guest link can be issued. Switch them on, or bind your own Contracts\\GuestLinkGenerator.',

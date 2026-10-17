@@ -29,7 +29,8 @@ use Throwable;
 /**
  * The installation checks behind `tickets:doctor`, read-only, by section: key types, the
  * lifecycle contract, priorities, the Gate abilities, the alias allow-lists, the guest fields,
- * the conversation, attachments, the HTTP API, notifications and due dates.
+ * the conversation, attachments, the HTTP API, notifications, due dates and the published
+ * config's nested keys.
  *
  * @internal
  */
@@ -52,7 +53,33 @@ final class Doctor
             ...self::api(),
             ...self::notifications(),
             ...self::due(),
+            ...self::publishedConfig(),
         ];
+    }
+
+    /**
+     * The nested keys whose absence opens something up. `mergeConfigFrom` fills only missing
+     * top-level keys, so a published `config/tickets.php` whose `routes` array lacks `enabled`
+     * keeps lacking it — and the toolkit's route switch reads that as on.
+     *
+     * @return list<DoctorCheck>
+     */
+    private static function publishedConfig(): array
+    {
+        $keys = [
+            'tickets.routes.enabled' => 'doctor.config_routes_missing',
+            'tickets.guests.enabled' => 'doctor.config_guests_missing',
+            'tickets.attachments.mimes' => 'doctor.config_mimes_missing',
+        ];
+        $checks = [];
+
+        foreach ($keys as $key => $message) {
+            if (! config()->has($key)) {
+                $checks[] = new DoctorCheck('config', 'keys', Messages::get($message, ['key' => $key]), 'warning');
+            }
+        }
+
+        return $checks === [] ? [new DoctorCheck('config', 'keys', Messages::get('doctor.config_ok'), 'ok')] : $checks;
     }
 
     /**

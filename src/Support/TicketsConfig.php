@@ -315,15 +315,33 @@ final class TicketsConfig
     }
 
     /**
-     * The mime types a ticket attachment may have (`tickets.attachments.mimes`, [] = any).
+     * The mime types a ticket attachment may take by default — the shipped
+     * `tickets.attachments.mimes` (a test pins the two equal).
+     */
+    public const array DEFAULT_ATTACHMENT_MIMES = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'text/plain', 'text/csv',
+        'application/zip',
+        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    /**
+     * The mime types a ticket attachment may have (`tickets.attachments.mimes`; an explicit `[]`
+     * = any). A missing key — a published config whose `attachments` array lacks it, which
+     * `mergeConfigFrom` never fills — reads as the shipped allow-list, never as any type.
      *
      * @return list<string>
      */
     public static function attachmentMimes(): array
     {
+        if (config('tickets.attachments.mimes') === []) {
+            return [];
+        }
+
         return self::read()->list(
             'tickets.attachments.mimes',
-            [],
+            self::DEFAULT_ATTACHMENT_MIMES,
             static fn (string $mime): bool => preg_match('#^[a-z0-9.+-]+/[a-z0-9.+*-]+$#i', $mime) === 1,
         );
     }

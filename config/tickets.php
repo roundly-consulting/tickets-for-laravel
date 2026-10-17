@@ -359,7 +359,8 @@ return [
     | comment). The bucket is private and its `disk` must NOT be web-served:
     | media-library's default `public` disk is reachable under /storage
     | without a signature. Laravel's `local` disk (storage/app/private) is
-    | not. `mimes`: the accepted mime types ([] = any); `max_kb`: the size cap.
+    | not. `mimes`: the accepted mime types ([] = any; a missing key = this
+    | list, never any); `max_kb`: the size cap.
     |
     */
 

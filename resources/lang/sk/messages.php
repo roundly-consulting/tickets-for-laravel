@@ -147,6 +147,10 @@ return [
     'doctor' => [
         'policy_ok' => 'Politika tiketov je [:class].',
         'routes_off' => 'HTTP API je vypnuté (tickets.routes.enabled).',
+        'config_ok' => 'Publikovaná konfigurácia obsahuje každý kľúč, ktorého absencia by niečo otvorila.',
+        'config_routes_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto sa číta ako zapnuté — HTTP API je dostupné. Doplňte kľúč (TICKETS_ROUTES, predvolene vypnuté).',
+        'config_guests_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto sa číta ako zapnuté — hostia sú prijímaní. Doplňte kľúč (TICKETS_GUESTS).',
+        'config_mimes_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto prílohy prijímajú dodaný zoznam povolených typov. Doplňte kľúč, aby ste svoj zoznam mali na jednom mieste.',
         'routes_on' => 'HTTP API je zapnuté a chránené prihlásením.',
         'routes_unguarded' => 'HTTP API je zapnuté, ale tickets.routes.middleware neobsahuje middleware auth: každý endpoint by odpovedal anonymnému volajúcemu. Pridajte auth (alebo auth:sanctum).',
         'guest_links_unavailable' => 'Predvolený generátor odkazov pre hostí potrebuje trasy pre hostí (tickets.routes.enabled a tickets.guests.enabled): nemožno vydať žiadny odkaz pre hosťa. Zapnite ich alebo zaregistrujte vlastný Contracts\\GuestLinkGenerator.',

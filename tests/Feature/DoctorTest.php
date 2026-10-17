@@ -72,6 +72,7 @@ it('runs every check §10 names', function (): void {
         'notifications.enabled',
         'notifications.types',
         'due.schedule',
+        'config.keys',
     );
 });
 
@@ -249,6 +250,27 @@ describe('attachment download URLs', function (): void {
         config()->set('tickets.attachments.disk', 'nowhere');
 
         expect(doctorMessages('attachments')[1])->toContain('the disks nowhere mint no temporary URLs');
+    });
+});
+
+describe('published config', function (): void {
+    it('passes a config that holds every key whose absence would open something up', function (): void {
+        expect(doctorLevels('config'))->toBe(['keys' => 'ok']);
+    });
+
+    it('warns of every such key a published config dropped', function (): void {
+        // mergeConfigFrom fills only missing top-level keys, so a nested key a published file
+        // lacks stays missing: the API reads as on, the mime list as the shipped one.
+        config()->set('tickets.routes', ['prefix' => 'api']);
+        config()->set('tickets.guests', array_diff_key(config('tickets.guests'), ['enabled' => true]));
+        config()->set('tickets.attachments', ['bucket' => 'attachments', 'disk' => 'local', 'max_kb' => 10240]);
+
+        $checks = doctorReport('config')['checks'];
+
+        expect(array_column($checks, 'level'))->toBe(['warning', 'warning', 'warning'])
+            ->and($checks[0]['message'])->toContain('tickets.routes.enabled')->toContain('on')
+            ->and($checks[1]['message'])->toContain('tickets.guests.enabled')
+            ->and($checks[2]['message'])->toContain('tickets.attachments.mimes');
     });
 });
 

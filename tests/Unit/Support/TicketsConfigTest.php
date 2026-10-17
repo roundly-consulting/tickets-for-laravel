@@ -102,6 +102,22 @@ it('reads the work-management settings, blank as the default', function (): void
         ->and(TicketsConfig::attachmentMaxKilobytes())->toBe(10240);
 });
 
+it('falls back to the shipped mime allow-list when a published config drops the key, never to any type', function (): void {
+    $shipped = TicketsConfig::attachmentMimes();
+
+    // mergeConfigFrom fills only missing top-level keys: a published `attachments` array without
+    // `mimes` stays without it.
+    config()->set('tickets.attachments', ['bucket' => 'attachments', 'disk' => 'local', 'max_kb' => 10240]);
+
+    expect(TicketsConfig::attachmentMimes())->toBe($shipped)
+        ->and($shipped)->toBe((require __DIR__.'/../../../config/tickets.php')['attachments']['mimes']);
+
+    // An explicit empty list is still the documented "any type".
+    config()->set('tickets.attachments.mimes', []);
+
+    expect(TicketsConfig::attachmentMimes())->toBe([]);
+});
+
 it('refuses a broken work-management setting, naming the key', function (string $key, mixed $value, Closure $read): void {
     config()->set($key, $value);
 
