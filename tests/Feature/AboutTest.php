@@ -3,94 +3,26 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
-use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 /**
- * The `php artisan about` section, pinned with testing-for-laravel's render check: it proves
- * the capture is not empty before anything else is trusted. Add the real secrets to the
- * first argument once the package reads any (API keys, signing keys, DSNs).
+ * The `php artisan about` section. The config holds no secrets, so the pin's weight is
+ * `mustRender`: it proves the capture is real before anything else is trusted.
  */
 it('renders its about section', function (): void {
-    expect('tickets')->toLeakNoSecrets([], mustRender: ['Enabled', 'YES', 'Timeout', '30s', 'Mode', 'sync']);
+    expect('tickets')->toLeakNoSecrets([], mustRender: [
+        'Primary key type', 'Key type', 'bigint', 'Lifecycle', 'TicketLifecycle', 'Priority enum', 'TicketPriority',
+    ]);
 });
 
-it('reads the enabled flag the way an env string means it', function (string|bool $value, string $shown): void {
-    // env() only maps true/false/(true)/(false); `TICKETS_ENABLED=off` arrives as the
-    // string 'off', which a bare truthiness check reported as YES.
-    config()->set('tickets.enabled', $value);
+it('renders a broken setting as INVALID instead of failing the whole command', function (string $key, mixed $value, string $label): void {
+    config()->set($key, $value);
 
     Artisan::call('about', ['--only' => 'tickets']);
 
-    expect(Artisan::output())->toMatch('/Enabled\W+'.$shown.'\b/');
+    expect(Artisan::output())->toMatch('/'.$label.'\W+INVALID\b/');
 })->with([
-    ['off', 'NO'],
-    ['no', 'NO'],
-    ['0', 'NO'],
-    [false, 'NO'],
-    ['on', 'YES'],
-    ['yes', 'YES'],
-    ['1', 'YES'],
-    [true, 'YES'],
+    'key type' => ['tickets.key_type', 'uiid', 'Key type'],
+    'primary key type' => ['tickets.primary_key_type', 'uiid', 'Primary key type'],
+    'lifecycle' => ['tickets.lifecycle', stdClass::class, 'Lifecycle'],
+    'priority enum' => ['tickets.priority.enum', stdClass::class, 'Priority enum'],
 ]);
-
-it('refuses an enabled flag it cannot read (strict config)', function (): void {
-    // A typo must fail loudly, naming the key, instead of quietly reading as a default.
-    config()->set('tickets.enabled', 'disabled');
-
-    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
-        InvalidConfigurationException::class,
-        'Configuration value [tickets.enabled] must be a boolean',
-    );
-});
-
-it('reads an integer setting from an env string (strict config)', function (): void {
-    // Every env value is a string: a canonical integer string is the number it spells.
-    config()->set('tickets.timeout', '45');
-
-    Artisan::call('about', ['--only' => 'tickets']);
-
-    expect(Artisan::output())->toMatch('/Timeout\W+45s\b/');
-});
-
-it('refuses a junk or out-of-range integer instead of casting it (strict config)', function (mixed $value, string $expected): void {
-    // `(int) 'five'` is 0 — a timeout of none. Config::integer() throws instead, naming the key.
-    config()->set('tickets.timeout', $value);
-
-    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
-        InvalidConfigurationException::class,
-        "Configuration value [tickets.timeout] must be {$expected}",
-    );
-})->with([
-    'word' => ['five', 'an integer'],
-    'decimal' => ['5.5', 'an integer'],
-    'suffix' => ['30s', 'an integer'],
-    'bool' => [true, 'an integer'],
-    'zero' => ['0', 'between 1 and 300'],
-    'too large' => [301, 'between 1 and 300'],
-]);
-
-it('refuses a value outside a fixed vocabulary instead of using the default (strict config)', function (mixed $value): void {
-    // Config::oneOf() (or Config::enum() once the package has an enum for it) lists the
-    // allowed values; a typo never falls back to the default.
-    config()->set('tickets.mode', $value);
-
-    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
-        InvalidConfigurationException::class,
-        'Configuration value [tickets.mode] must be one of [sync, queue]',
-    );
-})->with(['typo' => ['queued'], 'casing' => ['Sync'], 'number' => [1]]);
-
-it('uses the defaults when a key is not set (strict config)', function (?string $value): void {
-    // Blank means not set: an absent key, null and a host's `KEY=` (empty or whitespace
-    // only) all take the default — on a switch too, where a blank is never read as false.
-    config()->set('tickets.enabled', $value);
-    config()->set('tickets.timeout', $value);
-    config()->set('tickets.mode', $value);
-
-    Artisan::call('about', ['--only' => 'tickets']);
-
-    expect(Artisan::output())
-        ->toMatch('/Enabled\W+YES\b/')
-        ->toMatch('/Timeout\W+30s\b/')
-        ->toMatch('/Mode\W+sync\b/');
-})->with(['null' => [null], 'empty env' => [''], 'whitespace' => ['  ']]);
