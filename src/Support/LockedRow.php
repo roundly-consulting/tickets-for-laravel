@@ -47,6 +47,8 @@ final class LockedRow
 
         $driver = DatabaseDriver::tryFrom($model->getConnection()->getDriverName());
 
+        // The MySQL branch runs on the mysql leg only; the sqlite matrix never takes it.
+
         $driver === DatabaseDriver::Mysql || $driver === DatabaseDriver::Mariadb
             ? $query->toBase()->upsert([$model->getAttributes()], array_keys($attributes), [array_key_first($attributes)])
             : $query->toBase()->insertOrIgnore([$model->getAttributes()]);

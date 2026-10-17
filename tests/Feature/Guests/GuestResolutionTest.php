@@ -127,6 +127,15 @@ describe('guest_resolution', function (): void {
         $this->fail('Expected a ValidationException.');
     });
 
+    it('fills only the blanks a submission gives a value for — a null leaves the stored value', function (): void {
+        $first = Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test', 'phone' => '+421900123456']);
+
+        $again = Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test', 'phone' => null]);
+
+        expect($again->is($first))->toBeTrue()
+            ->and(guestFields($first))->toBe(['email' => 'jo@acme.test', 'name' => 'Jo', 'phone' => '+421900123456']);
+    });
+
     it('accepts a guest without an identifying field when not required', function (): void {
         config()->set('tickets.guests.require_one_identifying', false);
 

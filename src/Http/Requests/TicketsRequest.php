@@ -45,14 +45,6 @@ abstract class TicketsRequest extends FormRequest
     }
 
     /**
-     * The display name of one input — for a message built outside the validator.
-     */
-    protected static function attributeName(string $key): string
-    {
-        return self::names()[$key] ?? $key;
-    }
-
-    /**
      * Whether the validated input holds the key (even as null) — a partial update sets only
      * what was sent.
      */

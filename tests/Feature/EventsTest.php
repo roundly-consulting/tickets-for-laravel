@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Events\GuestConverted;
@@ -15,6 +16,7 @@ use RoundlyConsulting\Tickets\Events\TicketReplied;
 use RoundlyConsulting\Tickets\Events\TicketResolved;
 use RoundlyConsulting\Tickets\Events\TicketStatusChanged;
 use RoundlyConsulting\Tickets\Facades\Tickets;
+use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use Symfony\Component\Finder\Finder;
 
@@ -73,4 +75,49 @@ it('marks every event but GuestConverted a TicketEvent, dispatched after commit'
     expect($events)->toHaveCount(34)
         ->and(array_values(array_diff($events, $ticketEvents)))->toBe([GuestConverted::class])
         ->and($afterCommit)->toBe($events);
+});
+
+it('answers ticket() and actor() from what the event carries', function (string $class): void {
+    $ticket = Tickets::make()->subject('Printer jammed')->requester(User::query()->create(['name' => 'Ada']))->asSystem()->create();
+    $other = Tickets::make()->subject('Other')->requester(User::query()->create(['name' => 'Bo']))->asSystem()->create();
+    $actor = User::query()->create(['name' => 'Grace']);
+    $arguments = [];
+
+    foreach ((new ReflectionClass($class))->getConstructor()?->getParameters() ?? [] as $parameter) {
+        $type = (string) $parameter->getType();
+        $arguments[] = match (true) {
+            $parameter->name === 'actor' => $actor,
+            in_array($parameter->name, ['ticket', 'source'], true) => $ticket,
+            str_contains($type, Ticket::class) => $other,
+            str_contains($type, Model::class) => User::query()->create(['name' => 'Someone']),
+            str_contains($type, CarbonImmutable::class) => CarbonImmutable::now(),
+            str_contains($type, 'array') => [],
+            str_contains($type, 'bool') => false,
+            str_contains($type, 'int') => 1,
+            str_contains($type, 'string') => 'x',
+            enum_exists($type) => $type::cases()[0],
+            default => (new ReflectionClass(ltrim(str_replace('?', '', $type), '\\')))->newInstanceWithoutConstructor(),
+        };
+    }
+
+    /** @var TicketEvent $event */
+    $event = new $class(...$arguments);
+    $carriesActor = (new ReflectionClass($class))->hasProperty('actor');
+
+    expect($event->ticket())->toBe($ticket)
+        ->and($event->actor())->toBe($carriesActor ? $actor : null);
+})->with(function (): array {
+    $events = [];
+
+    foreach (Finder::create()->files()->in(__DIR__.'/../../src/Events')->name('*.php') as $file) {
+        $class = 'RoundlyConsulting\\Tickets\\Events\\'.$file->getBasename('.php');
+
+        if (is_subclass_of($class, TicketEvent::class)) {
+            $events[$file->getBasename('.php')] = [$class];
+        }
+    }
+
+    ksort($events);
+
+    return $events;
 });

@@ -55,16 +55,12 @@ final class GuestFields
         return array_values(array_filter(self::all(), static fn (GuestField $field): bool => $field->identifying));
     }
 
+    /**
+     * The one display field — `all()` refuses a set without exactly one.
+     */
     public static function display(): GuestField
     {
-        foreach (self::all() as $field) {
-            if ($field->display) {
-                return $field;
-            }
-        }
-
-        // all() guarantees exactly one display field.
-        throw InvalidTicketsConfigurationException::invalid('tickets.guests.fields', 'a map with exactly one `display` field');
+        return array_values(array_filter(self::all(), static fn (GuestField $field): bool => $field->display))[0];
     }
 
     public static function requireOneIdentifying(): bool

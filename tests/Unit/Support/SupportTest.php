@@ -3,9 +3,14 @@
 declare(strict_types=1);
 
 use Carbon\CarbonInterval;
+use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
+use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Exceptions\UnknownMorphAliasException;
+use RoundlyConsulting\Tickets\Facades\Tickets;
+use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Support\CategoryTree;
 use RoundlyConsulting\Tickets\Support\Durations;
 use RoundlyConsulting\Tickets\Support\GuestFields;
 use RoundlyConsulting\Tickets\Support\MorphAliases;
@@ -13,6 +18,7 @@ use RoundlyConsulting\Tickets\Support\Optional;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Tests\Fixtures\IntPriority;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\NamedSetting;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
@@ -138,4 +144,41 @@ it('orders primary keys numerically, and uuid or ulid keys as text', function ()
     expect(TicketLocker::compareKeys(9, 10))->toBe(-1)
         ->and(TicketLocker::compareKeys('01J2B', '01J2A'))->toBeGreaterThan(0)
         ->and(TicketLocker::compareKeys(null, 'a'))->toBeLessThan(0);
+});
+
+describe('stored data and settings the API never produces', function (): void {
+    it('walks a corrupt parent cycle to an end, and caps the height of its subtree', function (): void {
+        $hardware = TicketCategory::factory()->create();
+        $printers = TicketCategory::factory()->create(['parent_id' => $hardware->id]);
+        TicketCategory::query()->whereKey($hardware->id)->update(['parent_id' => $printers->id]);
+        $printers = $printers->fresh() ?? throw new RuntimeException('gone');
+
+        expect(array_map(static fn (TicketCategory $node): int => $node->id, CategoryTree::chain($printers)))->toBe([$printers->id, $hardware->id])
+            ->and(CategoryTree::height($printers))->toBe(TicketsConfig::maxCategoryDepth() + 1);
+    });
+
+    it('finds a model keyed by a plain string, without the integer or unique-id checks', function (): void {
+        Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+
+        expect(MorphAliases::find(NamedSetting::class, 'Support')?->getKey())->toBe('Support')
+            ->and(MorphAliases::find(NamedSetting::class, 'Nope'))->toBeNull();
+    });
+
+    it('reads an empty channel list as the shipped one', function (): void {
+        config()->set('tickets.channels', []);
+
+        expect(TicketsConfig::channels())->toBe(['web', 'email', 'api', 'phone', 'chat'])
+            ->and(Tickets::make()->subject('x')->requester(User::query()->create())->asSystem()->create()->channel)->toBe('api');
+    });
+
+    it('labels a field in the locale asked, the fallback, its first locale, or by its key', function (): void {
+        $field = static fn (array $label): FieldDefinition => new FieldDefinition(1, 'asset_tag', FieldType::Text, $label, [], [], false, false, null, false, false, null);
+        config()->set('app.fallback_locale', 'en');
+
+        expect($field(['en' => 'Asset tag', 'sk' => 'Inventárne číslo'])->label('sk'))->toBe('Inventárne číslo')
+            ->and($field(['en' => 'Asset tag'])->label('sk'))->toBe('Asset tag')
+            ->and($field(['de' => 'Inventarnummer'])->label('sk'))->toBe('Inventarnummer')
+            ->and($field([])->label())->toBe('asset_tag')
+            ->and($field(['en' => ''])->label())->toBe('asset_tag');
+    });
 });

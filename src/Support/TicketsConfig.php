@@ -102,29 +102,29 @@ final class TicketsConfig
     }
 
     /**
-     * The intake channels a ticket may come in through (`tickets.channels`).
+     * The intake channels a ticket may come in through (`tickets.channels`) — never none: an
+     * empty or unset list reads as the shipped one.
      *
-     * @return list<string>
+     * @return non-empty-list<string>
      */
     public static function channels(): array
     {
+        $shipped = ['web', 'email', 'api', 'phone', 'chat'];
+
         return self::read()->list(
             'tickets.channels',
-            ['web', 'email', 'api', 'phone', 'chat'],
+            $shipped,
             static fn (string $channel): bool => preg_match('/^[a-z][a-z0-9_]{0,31}$/', $channel) === 1,
-        );
+        ) ?: $shipped;
     }
 
     /**
-     * The channel of a ticket created without one (`tickets.default_channel`).
+     * The channel of a ticket created without one (`tickets.default_channel`). The channel list
+     * is never empty: an empty one reads as the shipped list.
      */
     public static function defaultChannel(): string
     {
         $channels = self::channels();
-
-        if ($channels === []) {
-            throw InvalidTicketsConfigurationException::invalid('tickets.channels', 'a non-empty list of channels');
-        }
 
         return self::read()->oneOf('tickets.default_channel', $channels, in_array('api', $channels, true) ? 'api' : $channels[0]);
     }

@@ -54,6 +54,8 @@ final readonly class ResolveGuestAction
             try {
                 return $this->create($create);
             } catch (DuplicateAttributeValueException|UniqueConstraintViolationException $exception) {
+                // Two first tickets of one new guest at once: only a real engine runs them in
+                // parallel (RealEngine/RacesTest, on the pgsql and mysql legs).
                 return GuestDirectory::match($values, $fields, locking: true) ?? throw $exception;
             }
         });
