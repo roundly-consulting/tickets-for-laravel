@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Testing\Fixtures\LockRecorder;
+use RoundlyConsulting\Tickets\Actions\Internal\AllocateReferenceAction;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
@@ -413,4 +414,11 @@ it('writes no activity with the timeline switched off', function (): void {
     config()->set('tickets.activity.enabled', 'off');
 
     expect(Tickets::make()->subject('a')->requester(requester())->create()->activities)->toHaveCount(0);
+});
+
+it('refuses to number a ticket under a model that is no project, even when called directly', function (): void {
+    expect(fn () => app(AllocateReferenceAction::class)->execute(requester()))
+        ->toThrow(InvalidProjectException::class);
+
+    expect(TicketSequence::query()->count())->toBe(0);
 });

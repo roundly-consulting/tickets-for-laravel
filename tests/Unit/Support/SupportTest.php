@@ -30,6 +30,8 @@ it('parses positive ISO-8601 durations only', function (string $value, ?int $sec
     ['2 days', null],
     ['-P1D', null],
     ['P1H', null],
+    // Matches the grammar, but no interval holds it — refused, never an OutOfRangeException.
+    ['P99999999999999999999D', null],
 ]);
 
 it('returns a CarbonInterval', function (): void {
