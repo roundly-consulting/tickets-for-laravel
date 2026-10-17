@@ -44,7 +44,7 @@
         "roundly-consulting/package-toolkit-for-laravel": "^1.3.0",
         "roundly-consulting/query-builder-for-laravel": "^1.2.1",
         "roundly-consulting/sluggable-for-laravel": "^1.1.2",
-        "roundly-consulting/translatable-for-laravel": "^1.1.1"
+        "roundly-consulting/translatable-for-laravel": "^1.1.2"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
@@ -55,7 +55,7 @@
         "pestphp/pest-plugin-arch": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpstan/extension-installer": "^1.4",
-        "roundly-consulting/testing-for-laravel": "^1.4.0"
+        "roundly-consulting/testing-for-laravel": "^1.5.0"
     },
     "suggest": {
         "roundly-consulting/teams-for-laravel": "Assign tickets to teams (a Team implementing Contracts\\Assignee).",
