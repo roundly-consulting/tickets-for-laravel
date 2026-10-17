@@ -63,6 +63,8 @@ it('refuses a class name, an unknown alias, a missing row or a class without its
     'class name' => [fn () => MorphAliases::resolve(MorphAliases::REQUESTERS, User::class, 1), 'not an allowed'],
     'unknown alias' => [fn () => MorphAliases::resolve(MorphAliases::ASSIGNABLES, 'robot', 1), 'not an allowed'],
     'missing row' => [fn () => MorphAliases::resolve(MorphAliases::REQUESTERS, 'user', 999), 'No user'],
+    'text for an integer key' => [fn () => MorphAliases::resolve(MorphAliases::REQUESTERS, 'user', 'abc'), 'No user'],
+    'an integer key out of range' => [fn () => MorphAliases::resolve(MorphAliases::ASSIGNABLES, 'user', '99999999999999999999'), 'No user'],
     'unknown list' => [fn () => MorphAliases::map('watchers'), 'no alias list'],
     'assignable without Assignee' => [function () {
         config()->set('tickets.assignables', ['project' => Project::class]);

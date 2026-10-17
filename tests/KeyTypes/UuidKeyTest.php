@@ -10,6 +10,7 @@ use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketLink;
 use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Models\TicketWatcher;
+use RoundlyConsulting\Tickets\Support\MorphAliases;
 
 it('keys tickets and guests with uuids and points every ticket column at them', function (): void {
     $guest = TicketGuest::factory()->create();
@@ -34,4 +35,12 @@ it('keys tickets and guests with uuids and points every ticket column at them', 
         ->and($ticket->activities()->count())->toBe(1)
         ->and($ticket->lifecycleHistory()->count())->toBe(1)
         ->and(fn () => (new Ticket)->resolveRouteBinding('not-a-uuid', 'id'))->toThrow(ModelNotFoundException::class);
+});
+
+it('finds a uuid-keyed record by an untrusted key, and nothing by a malformed one', function (): void {
+    $guest = TicketGuest::factory()->create();
+
+    expect(MorphAliases::find(TicketGuest::class, (string) $guest->getKey())?->is($guest))->toBeTrue()
+        ->and(MorphAliases::find(TicketGuest::class, 'not-a-uuid'))->toBeNull()
+        ->and(MorphAliases::find(TicketGuest::class, 42))->toBeNull();
 });

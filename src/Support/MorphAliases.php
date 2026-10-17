@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Support;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Contracts\TicketProject;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
@@ -87,7 +88,39 @@ final class MorphAliases
             throw UnknownMorphAliasException::alias($kind, $alias);
         }
 
-        return $class::query()->find($key) ?? throw UnknownMorphAliasException::missing($kind, $alias, $key);
+        return self::find($class, $key) ?? throw UnknownMorphAliasException::missing($kind, $alias, $key);
+    }
+
+    /**
+     * The record of an allow-listed class with an untrusted key, or null — a key that cannot
+     * be one of the class's keys (text for an integer key, a malformed uuid or ulid) never
+     * reaches the database, where Postgres would answer it with an error instead of no row.
+     *
+     * @param  class-string<Model>  $class
+     */
+    public static function find(string $class, int|string $key): ?Model
+    {
+        return self::keyFits(new $class, $key) ? $class::query()->find($key) : null;
+    }
+
+    private static function keyFits(Model $model, int|string $key): bool
+    {
+        if ($model->getKeyType() === 'int') {
+            return is_int($key) || preg_match('/^[0-9]{1,18}$/', $key) === 1;
+        }
+
+        if (! $model->usesUniqueIds()) {
+            return true;
+        }
+
+        try {
+            // A unique-id model refuses a malformed id here, as route model binding does.
+            $model->resolveRouteBindingQuery($model->newQuery(), $key, $model->getKeyName());
+        } catch (ModelNotFoundException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
