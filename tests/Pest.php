@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Gate;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\Tests\Fixtures\SwappedModelsTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UlidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UuidKeyTestCase;
@@ -39,4 +41,12 @@ function keySorted(?array $value): ?array
     }
 
     return array_map(static fn (mixed $item): mixed => is_array($item) ? keySorted($item) : $item, $value);
+}
+
+/**
+ * The host's agent ability, as an app defines it: a user flagged `is_agent`.
+ */
+function defineAgents(): void
+{
+    Gate::define('tickets.agent', static fn (User $user): bool => $user->is_agent === true);
 }

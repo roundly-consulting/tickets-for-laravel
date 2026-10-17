@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Facade;
 use PHPUnit\Framework\ExpectationFailedException;
+use RoundlyConsulting\Comments\Facades\Comments;
+use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
+use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Facades\Tickets;
@@ -125,6 +128,10 @@ describe('the fake', function (): void {
         'guest resolved' => [fn () => Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test']), 'assertGuestResolved', [fn (TicketGuest $guest): bool => $guest->displayName() === 'Jo'], 'assertNoGuestResolved'],
         'guest updated' => [fn () => Tickets::guests()->update(fakeGuest(), ['name' => 'Joanna']), 'assertGuestUpdated', [], 'assertNoGuestUpdated'],
         'guest converted' => [fn () => Tickets::guests()->convert(fakeGuest(), User::query()->create()), 'assertGuestConverted', [], 'assertNoGuestConverted'],
+        'replied' => [fn () => Tickets::for(fakeTicket())->asSystem()->reply('Hello.'), 'assertReplied', ['TCK-1', 'system'], 'assertNothingReplied'],
+        'noted' => [fn () => Tickets::for(fakeTicket())->asSystem()->note('Psst.'), 'assertNoted', ['TCK-1'], 'assertNothingNoted'],
+        'comment updated' => [fn () => Tickets::for(fakeTicket())->asSystem()->editComment(fakeComment(), 'Edited.'), 'assertCommentUpdated', [], 'assertNoCommentUpdated'],
+        'comment deleted' => [fn () => Tickets::for(fakeTicket())->asSystem()->deleteComment(fakeComment()), 'assertCommentDeleted', [], 'assertNoCommentDeleted'],
     ]);
 
     it('fails an assertion whose operation ran, but on something else', function (): void {
@@ -140,6 +147,11 @@ describe('the fake', function (): void {
         Tickets::categories()->update($category, new UpdateCategoryData(position: 3));
         Tickets::guests()->update($guest, ['name' => 'Joanna']);
         Tickets::fields()->make('asset_tag', FieldType::Text)->define();
+        $reply = Tickets::for($ticket)->asSystem()->reply('Hello.');
+        $otherReply = Tickets::for($ticket)->asSystem()->reply('Another.');
+        Tickets::for($ticket)->asSystem()->editComment($reply, 'Edited.');
+        Tickets::for($ticket)->asSystem()->deleteComment($reply);
+        Tickets::for($ticket)->asSystem()->note('Psst.');
 
         $mismatches = [
             fn () => $fake->assertCreated(static fn (): bool => false),
@@ -149,6 +161,11 @@ describe('the fake', function (): void {
             fn () => $fake->assertCategoryUpdated($otherCategory),
             fn () => $fake->assertGuestUpdated($otherGuest),
             fn () => $fake->assertFieldDefined('serial'),
+            fn () => $fake->assertReplied($ticket, AuthorRole::Agent),
+            fn () => $fake->assertReplied($other),
+            fn () => $fake->assertNoted('TCK-404'),
+            fn () => $fake->assertCommentUpdated($otherReply),
+            fn () => $fake->assertCommentDeleted($otherReply),
         ];
 
         foreach ($mismatches as $mismatch) {
@@ -156,6 +173,10 @@ describe('the fake', function (): void {
         }
 
         $fake->assertCategorized($ticket, $category->id);
+        $fake->assertReplied($ticket, AuthorRole::System);
+        $fake->assertReplied($ticket, 'system');
+        $fake->assertCommentUpdated($reply);
+        $fake->assertCommentDeleted($reply);
         $fake->assertCategoryUpdated($category);
         $fake->assertGuestUpdated($guest);
     });
@@ -174,6 +195,15 @@ describe('the fake', function (): void {
 function fakeTicket(): Ticket
 {
     return Tickets::make()->subject('faked')->requester(User::query()->create(['name' => 'Ada']))->asSystem()->create();
+}
+
+/**
+ * The one comment of the faked ticket, written once — straight through comments, so the fake
+ * records nothing for it.
+ */
+function fakeComment(): Comment
+{
+    return Comment::query()->first() ?? Comments::on(Ticket::query()->firstOrFail())->body('Original.')->post();
 }
 
 function fakeCategory(): TicketCategory

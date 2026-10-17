@@ -17,14 +17,20 @@ use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 beforeEach(fn () => LifecycleContract::flush());
 
 /**
+ * The doctor's verdict, its checks narrowed to one section (null = every section).
+ *
  * @return array{exit: int, output: array{ok: bool, checks: list<array{section: string, code: string, level: string, message: string}>}}
  */
-function doctor(): array
+function doctor(?string $section = 'lifecycle'): array
 {
     $exit = Artisan::call('tickets:doctor', ['--json' => true]);
 
     /** @var array{ok: bool, checks: list<array{section: string, code: string, level: string, message: string}>} $output */
     $output = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+    if ($section !== null) {
+        $output['checks'] = array_values(array_filter($output['checks'], static fn (array $check): bool => $check['section'] === $section));
+    }
 
     return ['exit' => $exit, 'output' => $output];
 }

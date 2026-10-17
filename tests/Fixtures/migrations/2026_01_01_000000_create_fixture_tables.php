@@ -35,6 +35,12 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // A host comments table from before comments 1.1 — no `meta` column.
+        Schema::create('legacy_comments', function (Blueprint $table): void {
+            $table->id();
+            $table->timestamps();
+        });
+
         Schema::create('projects', function (Blueprint $table): void {
             $table->id();
             $table->string('name');

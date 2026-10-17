@@ -72,3 +72,16 @@ it('refuses a swap that does not extend the packaged model', function (): void {
 
     TicketModels::ticket();
 })->throws(InvalidConfigurationException::class);
+
+it('reads the conversation switches and the agent ability, blank as the default', function (): void {
+    expect(TicketsConfig::agentAbility())->toBe('tickets.agent')
+        ->and(TicketsConfig::autoApproveReplies())->toBeTrue()
+        ->and(TicketsConfig::replyReopens())->toBeTrue()
+        ->and(TicketsConfig::watchersCanView())->toBeTrue();
+
+    config()->set('tickets.authorization.abilities.agent', '   ');
+    config()->set('tickets.comments.auto_approve', 'off');
+
+    expect(TicketsConfig::agentAbility())->toBe('tickets.agent')
+        ->and(TicketsConfig::autoApproveReplies())->toBeFalse();
+});
