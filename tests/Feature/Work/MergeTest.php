@@ -237,6 +237,7 @@ describe('cross_requester_merge_shares_public_thread_only', function (): void {
             ->and($public)->toContain($adaReply->id, $bobReply->id)
             ->and($public)->not->toContain($targetNote->id)
             ->and($public)->not->toContain($sourceNote->id)
+            ->and(Tickets::for($target)->thread()->pluck('comment')->all())->not->toContain('Ticket TCK-1 was merged into this ticket.')
             ->and(Comment::query()->whereKey($sourceNote->id)->value('commentable_id'))->toBe($target->id)
             ->and(TicketComments::role(Tickets::for($target)->by($ada)->reply('Thanks, both of us are fixed.')))->toBe(AuthorRole::Participant);
 
