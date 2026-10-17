@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\Actions\Attachments\AddAttachmentAction;
 use RoundlyConsulting\Tickets\Actions\Guests\ResolveGuestAction;
 use RoundlyConsulting\Tickets\Actions\Internal\AllocateReferenceAction;
@@ -32,6 +33,7 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidProjectException;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Assignees;
+use RoundlyConsulting\Tickets\Support\GuestDirectory;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
@@ -80,8 +82,11 @@ final readonly class CreateTicketAction
         $ticket = new $class;
 
         return TicketTransaction::run($ticket, function () use ($ticket, $data, $actor, $subject, $channel, $project): Ticket {
+            // The guest is resolved before the custom fields are written, so a guest error
+            // stops the intake carrying guest keys only — `guest.<name>`, never the
+            // `fields.<name>` of the custom field input.
             $requester = $data->requester instanceof GuestData
-                ? $this->resolveGuest->execute($data->requester)
+                ? $this->resolveGuest($data->requester)
                 : $data->requester;
 
             [$projectType, $projectId] = TicketInput::morph($project);
@@ -179,6 +184,15 @@ final readonly class CreateTicketAction
 
             return $ticket;
         });
+    }
+
+    private function resolveGuest(GuestData $guest): Model
+    {
+        try {
+            return $this->resolveGuest->execute($guest);
+        } catch (ValidationException $exception) {
+            throw GuestDirectory::rekey($exception, 'guest');
+        }
     }
 
     /**

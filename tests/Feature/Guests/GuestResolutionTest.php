@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
+use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Events\GuestConverted;
 use RoundlyConsulting\Tickets\Events\TicketRequesterChanged;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
@@ -93,6 +94,38 @@ describe('guest_resolution', function (): void {
         'no identifying field' => [['name' => 'Jo'], 'fields.email'],
         'blank identifying field' => [['name' => 'Jo', 'email' => '   '], 'fields.email'],
     ]);
+
+    it('keys guest errors guest.<name> where a ticket takes the guest, fields.<name> on the accessor', function (Closure $submit, string $key): void {
+        try {
+            $submit();
+        } catch (ValidationException $exception) {
+            expect(array_keys($exception->errors()))->toBe([$key]);
+
+            return;
+        }
+
+        $this->fail('Expected a ValidationException.');
+    })->with([
+        'filing a ticket' => [fn () => Tickets::make()->subject('x')->guest(['name' => 'Jo', 'email' => 'nope'])->asSystem()->create(), 'guest.email'],
+        'filing a ticket, an unknown field' => [fn () => Tickets::make()->subject('x')->guest(['name' => 'Jo', 'email' => 'jo@acme.test', 'shoe' => 42])->asSystem()->create(), 'guest.shoe'],
+        'changing the requester' => [fn () => Tickets::for(Tickets::make()->subject('x')->requester(User::query()->create(['name' => 'Ada']))->asSystem()->create())
+            ->asSystem()->changeRequester(new GuestData(['name' => 'Jo', 'email' => 'nope'])), 'guest.email'],
+        'the guests accessor' => [fn () => Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'nope']), 'fields.email'],
+    ]);
+
+    it('resolves the guest before it validates the custom fields, so a guest error carries guest keys only', function (): void {
+        Tickets::fields()->make('email', FieldType::Email)->define();
+
+        try {
+            Tickets::make()->subject('x')->guest(['name' => 'Jo', 'email' => 'nope'])->fields(['email' => 'nope'])->asSystem()->create();
+        } catch (ValidationException $exception) {
+            expect(array_keys($exception->errors()))->toBe(['guest.email']);
+
+            return;
+        }
+
+        $this->fail('Expected a ValidationException.');
+    });
 
     it('accepts a guest without an identifying field when not required', function (): void {
         config()->set('tickets.guests.require_one_identifying', false);

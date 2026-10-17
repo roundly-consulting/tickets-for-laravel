@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets\Actions\Tickets;
 
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\Actions\Guests\ResolveGuestAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
@@ -13,12 +14,13 @@ use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Events\TicketRequesterChanged;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
+use RoundlyConsulting\Tickets\Support\GuestDirectory;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
- * Hands a ticket to another requester — a host model, or guest fields resolved to a guest.
- * The same requester again is a no-op.
+ * Hands a ticket to another requester — a host model, or guest fields resolved to a guest
+ * (validation errors keyed `guest.<name>`). The same requester again is a no-op.
  */
 final readonly class ChangeRequesterAction
 {
@@ -35,7 +37,7 @@ final readonly class ChangeRequesterAction
         return TicketTransaction::run($ticket, function () use ($ticket, $requester, $actor, $system): Ticket {
             TicketLocker::lock($ticket);
 
-            $to = $requester instanceof GuestData ? $this->resolveGuest->execute($requester) : $requester;
+            $to = $requester instanceof GuestData ? $this->resolveGuest($requester) : $requester;
             $from = ['type' => $ticket->requester_type, 'id' => $ticket->requester_id];
 
             if ($from['type'] === $to->getMorphClass() && (string) $from['id'] === (string) $to->getKey()) {
@@ -54,5 +56,17 @@ final readonly class ChangeRequesterAction
 
             return $ticket;
         });
+    }
+
+    /**
+     * Guest errors keyed `guest.<name>`, as when filing a ticket.
+     */
+    private function resolveGuest(GuestData $guest): Model
+    {
+        try {
+            return $this->resolveGuest->execute($guest);
+        } catch (ValidationException $exception) {
+            throw GuestDirectory::rekey($exception, 'guest');
+        }
     }
 }

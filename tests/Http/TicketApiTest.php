@@ -100,6 +100,19 @@ describe('tickets', function (): void {
         'a watcher without a type' => [['subject' => 'x', 'watchers' => [['id' => 1]]], 'watchers.0.type'],
     ]);
 
+    it('keys guest errors under guest.*, apart from a custom field of the same name', function (): void {
+        Tickets::fields()->make('email', FieldType::Email)->define();
+        $agent = apiAgent();
+
+        $guest = $this->actingAs($agent)->postJson('/api/tickets', ['subject' => 'x', 'guest' => ['name' => 'Jo', 'email' => 'nope'], 'fields' => ['email' => 'it@acme.test']])
+            ->assertUnprocessable()->assertJsonValidationErrors('guest.email');
+        $field = $this->actingAs($agent)->postJson('/api/tickets', ['subject' => 'x', 'guest' => ['name' => 'Jo', 'email' => 'jo@acme.test'], 'fields' => ['email' => 'nope']])
+            ->assertUnprocessable()->assertJsonValidationErrors('fields.email');
+
+        expect(array_keys($guest->json('errors')))->toBe(['guest.email'])
+            ->and(array_keys($field->json('errors')))->toBe(['fields.email']);
+    });
+
     it('answers 401 without a user', function (): void {
         $this->getJson('/api/tickets')->assertUnauthorized();
     });

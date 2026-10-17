@@ -77,6 +77,23 @@ final class GuestDirectory
     }
 
     /**
+     * The same validation errors keyed `<prefix>.<name>` instead of `fields.<name>` — for the
+     * paths that take a guest as one input of a larger request (filing a ticket, changing its
+     * requester), where `fields.*` is the custom field input. The guests accessor keeps
+     * `fields.<name>`.
+     */
+    public static function rekey(ValidationException $exception, string $prefix): ValidationException
+    {
+        $errors = [];
+
+        foreach ($exception->errors() as $key => $messages) {
+            $errors[str_starts_with($key, 'fields.') ? $prefix.'.'.substr($key, 7) : $key] = $messages;
+        }
+
+        return ValidationException::withMessages($errors)->status($exception->status);
+    }
+
+    /**
      * The guest the first matching identifying field (config order) belongs to.
      *
      * @param  array<string, mixed>  $values
