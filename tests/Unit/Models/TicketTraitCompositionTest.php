@@ -35,7 +35,7 @@ describe('ticket_trait_composition', function (): void {
         'comments' => [HasComments::class, ['comments', 'approvedComments', 'threadedComments', 'loadCommentCount', 'scopeWithCommentCounts', 'commentsLocked']],
         'attributes' => [HasCustomFields::class, ['attachedAttributes', 'attributeHistory', 'history', 'attributes', 'attr', 'attributeInt', 'attachAttribute', 'detachAttribute', 'syncAttributes', 'scopeWhereAttribute', 'scopeWhereAttributeBetween', 'scopeOrderByAttribute']],
         'media' => [InteractsWithMedia::class, ['media', 'addMedia', 'addMediaBucket', 'resolveMediaBucket', 'getMedia', 'getFirstMedia', 'hasMedia', 'attachMedia', 'clearMediaBucket']],
-        'tickets' => [Ticket::class, ['reply', 'note', 'assignTo', 'activities', 'attributeDefinitions', 'registerMediaBuckets', 'lifecycleDefinitions', 'scopeWhereField', 'scopeWhereFieldBetween', 'priority', 'statusCategory']],
+        'tickets' => [Ticket::class, ['reply', 'note', 'assignTo', 'activities', 'attributeDefinitions', 'registerMediaBuckets', 'lifecycleDefinitions', 'scopeWhereField', 'scopeWhereFieldBetween', 'priority', 'statusCategory', 'isUnresolved', 'isResolved', 'isClosed', 'isOverdue', 'isMerged', 'isAssigned']],
     ]);
 
     it('implements every contract the traits need', function (): void {

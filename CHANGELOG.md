@@ -73,6 +73,10 @@ Initial public release.
   `inCategory`, `withStatus`, `withStatusCategory`, `unresolved`, `withPriority`, `taggedWith`,
   `watchedBy`, `whereField`, `whereFieldBetween`, `dueBefore`, `dueAfter`, `dueFrom`, `dueTo`,
   `createdFrom`, `createdTo`, `viaChannel`, `search`, `overdue`, `merged` and `orderByPriority`.
+- Model conveniences for "my tickets" pages and badges: `watchedTickets()` and `visibleTickets()` on
+  `Concerns\RequestsTickets`, `requestedTickets()` and `watchedTickets()` on `TicketGuest`, and the
+  `Ticket` read helpers `isUnresolved()`, `isResolved()`, `isClosed()`, `isOverdue()`, `isMerged()`
+  and `isAssigned()`, each agreeing with its query scope.
 - An append-only activity timeline (`tickets.activity.enabled`) and 34 after-commit events, from
   `TicketCreated` to `TicketCommentUpdated`, `TicketCommentDeleted` and `GuestAccessRevoked`.
 - `Tickets::sweep()` and `php artisan tickets:sweep`: `TicketOverdue` and `TicketDueSoon`

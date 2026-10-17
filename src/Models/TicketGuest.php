@@ -6,6 +6,8 @@ namespace RoundlyConsulting\Tickets\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -14,6 +16,7 @@ use RoundlyConsulting\Attributes\Traits\HasAttributes as HasCustomFields;
 use RoundlyConsulting\Tickets\Concerns\HasConfigurableKey;
 use RoundlyConsulting\Tickets\Database\Factories\TicketGuestFactory;
 use RoundlyConsulting\Tickets\Support\GuestFields;
+use RoundlyConsulting\Tickets\Support\TicketModels;
 
 /**
  * A requester without an account. It stores no fixed PII columns: every field (name,
@@ -51,6 +54,26 @@ class TicketGuest extends Model implements HasAttributesContract
     public function attributeDefinitions(): array
     {
         return GuestFields::attributeDefinitions();
+    }
+
+    /**
+     * The tickets this guest requested.
+     *
+     * @return MorphMany<Ticket, $this>
+     */
+    public function requestedTickets(): MorphMany
+    {
+        return $this->morphMany(TicketModels::ticket(), 'requester');
+    }
+
+    /**
+     * The tickets this guest watches (CC'd).
+     *
+     * @return MorphToMany<Ticket, $this>
+     */
+    public function watchedTickets(): MorphToMany
+    {
+        return $this->morphToMany(TicketModels::ticket(), 'watcher', 'ticket_watchers', 'watcher_id', 'ticket_id');
     }
 
     /**

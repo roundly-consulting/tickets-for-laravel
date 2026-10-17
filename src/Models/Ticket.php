@@ -177,6 +177,50 @@ class Ticket extends Model implements HasAttributesContract, HasMedia, Lifecycle
         return $this->status?->category();
     }
 
+    // Read helpers — each mirrors its query scope, so a badge and a list filter agree.
+
+    /**
+     * Still needing work: Open, Active or Waiting (the `unresolved` scope).
+     */
+    public function isUnresolved(): bool
+    {
+        return $this->statusCategory()?->isUnresolved() ?? false;
+    }
+
+    public function isResolved(): bool
+    {
+        return $this->statusCategory() === StatusCategory::Resolved;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->statusCategory() === StatusCategory::Closed;
+    }
+
+    /**
+     * Past its due date and still unresolved — the `overdue` scope's rule.
+     */
+    public function isOverdue(): bool
+    {
+        return $this->due_at !== null && $this->due_at->lessThan(CarbonImmutable::now()) && $this->isUnresolved();
+    }
+
+    /**
+     * Merged into another ticket (the `merged` scope).
+     */
+    public function isMerged(): bool
+    {
+        return $this->merged_into_id !== null;
+    }
+
+    /**
+     * Assigned to anyone (the opposite of the `unassigned` scope).
+     */
+    public function isAssigned(): bool
+    {
+        return $this->assignee_type !== null;
+    }
+
     /**
      * Post a public reply as `$author` (null = the authenticated user) — the same call as
      * `Tickets::for($ticket)->by($author)->reply($body)`.
