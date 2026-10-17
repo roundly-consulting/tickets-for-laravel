@@ -12,3 +12,13 @@ Initial public release.
 
 - A headless ticketing core on Laravel 12 and 13, built on the roundly lifecycle, comments,
   attributes, translatable, sluggable, media-library and query-builder packages.
+- Publish-only migrations (`tickets-migrations`) for tickets, nested categories, custom field
+  definitions, tags, guests, watchers, ticket links, an append-only activity timeline and
+  reference sequences. Bigint, uuid and ulid keys through `tickets.primary_key_type` (the
+  ticket and guest ids) and `tickets.key_type` (requester, assignee, project and actor morphs).
+- Five swappable models (`tickets.models.*`): `Ticket`, `TicketCategory`, `TicketField`,
+  `TicketTag` and `TicketGuest`.
+- `TicketLifecycle`, the shipped status lifecycle (seven states in five status categories,
+  nine transitions), swappable through `tickets.lifecycle`, and the `TicketPriority` enum,
+  swappable through `tickets.priority.enum`.
+- English and Slovak labels and colours for every enum, and a `php artisan about` section.
