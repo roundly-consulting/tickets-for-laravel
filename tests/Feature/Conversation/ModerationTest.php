@@ -23,6 +23,7 @@ use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
 use RoundlyConsulting\Tickets\Tests\Fixtures\MentionResolver;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Document;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\HostComment;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\LegacyComment;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
@@ -184,6 +185,19 @@ describe('mentions', function (): void {
         });
 
         expect($mentioned)->toBe(['Grace']);
+    });
+
+    it('hands TicketMentioned the host\'s swapped comment model', function (): void {
+        Event::fake([TicketMentioned::class]);
+        config()->set('comments.model', HostComment::class);
+        User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $requester = User::query()->create(['name' => 'Ada']);
+
+        $reply = Tickets::for(modTicket($requester))->by($requester)->reply('@Grace the printer again.');
+
+        expect($reply)->toBeInstanceOf(HostComment::class);
+        Event::assertDispatched(TicketMentioned::class, static fn (TicketMentioned $event): bool => $event->comment instanceof HostComment
+            && $event->comment->is($reply));
     });
 
     it('drops a watcher\'s mention once watchers may not view', function (): void {
