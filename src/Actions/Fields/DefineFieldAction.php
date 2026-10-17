@@ -37,9 +37,11 @@ final readonly class DefineFieldAction
         $options = FieldInput::options($key, $data->type, $data->options);
         $rules = FieldInput::rules($key, $data->rules);
         $class = TicketModels::field();
-        $field = new $class;
 
-        return TicketTransaction::run($field, function () use ($field, $data, $key, $label, $options, $rules): TicketField {
+        return TicketTransaction::run(new $class, function () use ($class, $data, $key, $label, $options, $rules): TicketField {
+            // A fresh model per attempt: a deadlock retry rolls back the row, not the model.
+            $field = new $class;
+
             AdvisoryLock::acquire(AdvisoryLock::FIELDS);
 
             [$projectType, $projectId] = TicketInput::morph($data->project);

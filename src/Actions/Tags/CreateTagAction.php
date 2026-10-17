@@ -27,9 +27,11 @@ final readonly class CreateTagAction
         $name = TagInput::name($data->name);
         $color = TagInput::color($data->color);
         $class = TicketModels::tag();
-        $tag = new $class;
 
-        return TicketTransaction::run($tag, function () use ($tag, $data, $name, $color, $orExisting): TicketTag {
+        return TicketTransaction::run(new $class, function () use ($class, $data, $name, $color, $orExisting): TicketTag {
+            // A fresh model per attempt: a deadlock retry rolls back the row, not the model.
+            $tag = new $class;
+
             AdvisoryLock::acquire(AdvisoryLock::TAGS);
 
             [$projectType, $projectId] = TicketInput::morph($data->project);

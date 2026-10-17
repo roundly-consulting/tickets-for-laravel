@@ -31,9 +31,11 @@ final readonly class CreateCategoryAction
         $dueIn = CategoryInput::dueIn($data->defaultDueIn);
         $assignee = CategoryInput::assignee($data->defaultAssignee);
         $class = TicketModels::category();
-        $category = new $class;
 
-        return TicketTransaction::run($category, function () use ($category, $data, $name, $priority, $dueIn, $assignee): TicketCategory {
+        return TicketTransaction::run(new $class, function () use ($class, $data, $name, $priority, $dueIn, $assignee): TicketCategory {
+            // A fresh model per attempt: a deadlock retry rolls back the row, not the model.
+            $category = new $class;
+
             AdvisoryLock::acquire(AdvisoryLock::CATEGORIES);
 
             [$projectType, $projectId] = TicketInput::morph($data->project);

@@ -79,9 +79,11 @@ final readonly class CreateTicketAction
         }
 
         $class = TicketModels::ticket();
-        $ticket = new $class;
 
-        return TicketTransaction::run($ticket, function () use ($ticket, $data, $actor, $subject, $channel, $project): Ticket {
+        return TicketTransaction::run(new $class, function () use ($class, $data, $actor, $subject, $channel, $project): Ticket {
+            // A fresh model per attempt: a deadlock retry rolls back the row, not the model.
+            $ticket = new $class;
+
             // The guest is resolved before the custom fields are written, so a guest error
             // stops the intake carrying guest keys only — `guest.<name>`, never the
             // `fields.<name>` of the custom field input.

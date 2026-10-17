@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Testing\Fixtures\LockRecorder;
@@ -12,6 +14,7 @@ use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
 use RoundlyConsulting\Tickets\Events\TicketAssigned;
@@ -23,9 +26,12 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidProjectException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketSequence;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
@@ -155,6 +161,50 @@ describe('rollback_keeps_sequence', function (): void {
 
         expect(Tickets::make()->subject('b')->requester($user)->create()->reference)->toBe('TCK-2');
     });
+});
+
+describe('deadlock_retry_starts_from_a_fresh_model', function (): void {
+    /**
+     * One deadlock (or lock-wait timeout) after the row was inserted, inside the create
+     * transaction — the case `TicketTransaction::ATTEMPTS` retries.
+     *
+     * @param  class-string<Model>  $model
+     */
+    function deadlockOnce(string $model, string $event): void
+    {
+        $thrown = false;
+
+        $model::{$event}(static function () use (&$thrown): void {
+            if (! $thrown) {
+                $thrown = true;
+
+                throw new QueryException('testing', 'insert …', [], new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction'));
+            }
+        });
+    }
+
+    it('files the ticket on the retry', function (): void {
+        deadlockOnce(TicketActivity::class, 'creating');
+
+        $ticket = Tickets::make()->subject('Printer jammed')->requester(requester())->asSystem()->create();
+
+        expect(Ticket::query()->whereKey($ticket->getKey())->exists())->toBeTrue()
+            ->and($ticket->reference)->toBe('TCK-1')
+            ->and($ticket->activities()->where('type', ActivityType::Created->value)->count())->toBe(1);
+    });
+
+    it('returns a category, tag or field whose row exists', function (string $model, Closure $create): void {
+        deadlockOnce($model, 'created');
+
+        $created = $create();
+
+        expect($model::query()->whereKey($created->getKey())->exists())->toBeTrue()
+            ->and($model::query()->count())->toBe(1);
+    })->with([
+        'a category' => [TicketCategory::class, fn () => Tickets::categories()->make('Hardware')->create()],
+        'a tag' => [TicketTag::class, fn () => Tickets::tags()->create('printer')],
+        'a field' => [TicketField::class, fn () => Tickets::fields()->make('asset_tag', FieldType::Text)->define()],
+    ]);
 });
 
 describe('duplicate_project_prefix', function (): void {
