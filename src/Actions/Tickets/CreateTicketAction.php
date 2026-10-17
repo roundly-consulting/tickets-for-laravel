@@ -43,8 +43,9 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * Files a ticket. In one transaction: the guest requester is resolved, the category and
  * project are checked, the defaults the caller did not give are applied once (caller →
  * nearest category → config), the next reference of the ticket's sequence is allocated
- * under a row lock, the ticket is saved (lifecycle sets its initial state) and the
- * `created` activity is written; then the requester and assignee start watching
+ * under a row lock, the ticket is saved (lifecycle sets its initial state), its assignee and
+ * due date are picked on the stored ticket (the agent scope, the assignment strategy and the
+ * due-date resolver never see an unsaved one) and the `created` activity is written; then the requester and assignee start watching
  * (`tickets.watchers.auto`), the custom field values are written (their defaults filled, the
  * required ones enforced), the tags, watchers and attachments added. `TicketCreated` follows
  * the commit.
@@ -112,9 +113,6 @@ final readonly class CreateTicketAction
                 'priority' => $data->priority === null ? TicketInput::defaultPriority($category) : TicketInput::priority($data->priority),
             ]);
 
-            $assignee = $this->assignee($ticket, $data->assignee);
-            $dueAt = $data->dueAt !== null ? CarbonImmutable::instance($data->dueAt) : $this->dueDates->dueAt($ticket);
-
             // Tags first: names take the `lock:tags` advisory row, which comes before every
             // other row this transaction locks.
             $tags = $data->tags === [] ? [] : $this->resolveTags->execute($ticket, $data->tags);
@@ -130,10 +128,7 @@ final readonly class CreateTicketAction
                 'reference' => $allocated->reference,
                 'number' => $allocated->number,
                 'sequence_scope' => $allocated->scope,
-                'assignee_type' => $assignee?->getMorphClass(),
-                'assignee_id' => $assignee?->getKey(),
-                'assigned_at' => $assignee === null ? null : $now,
-                'due_at' => $dueAt,
+                'due_at' => $data->dueAt === null ? null : CarbonImmutable::instance($data->dueAt),
                 'last_activity_at' => $now,
             ]);
 
@@ -142,6 +137,8 @@ final readonly class CreateTicketAction
             } catch (UniqueConstraintViolationException) {
                 throw DuplicateTicketReferenceException::for($allocated->reference);
             }
+
+            $assignee = $this->applyAssigneeAndDueDate($ticket, $data, $now);
 
             $this->record->execute($ticket, ActivityType::Created, $actor, [
                 'reference' => $ticket->reference,
@@ -197,6 +194,31 @@ final readonly class CreateTicketAction
         } catch (ValidationException $exception) {
             throw GuestDirectory::rekey($exception, 'guest');
         }
+    }
+
+    /**
+     * The assignee and the due date, picked once the ticket is stored — so the agent scope, the
+     * assignment strategy and the due-date resolver see what they see on every later call: its
+     * key, reference, number and initial status, its requester, project, category, priority and
+     * channel (not yet its custom fields, tags, watchers or attachments). Applied in the same
+     * transaction, without moving `updated_at` off `created_at`.
+     */
+    private function applyAssigneeAndDueDate(Ticket $ticket, CreateTicketData $data, CarbonImmutable $now): ?Model
+    {
+        $assignee = $this->assignee($ticket, $data->assignee);
+        $dueAt = $data->dueAt === null ? $this->dueDates->dueAt($ticket) : null;
+
+        if ($assignee === null && $dueAt === null) {
+            return null;
+        }
+
+        $ticket->forceFill([
+            ...($assignee === null ? [] : ['assignee_type' => $assignee->getMorphClass(), 'assignee_id' => $assignee->getKey(), 'assigned_at' => $now]),
+            ...($dueAt === null ? [] : ['due_at' => $dueAt]),
+        ]);
+        $ticket::withoutTimestamps(static fn (): bool => $ticket->save());
+
+        return $assignee;
     }
 
     /**

@@ -13,6 +13,9 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  */
 interface DueDateResolver
 {
-    /** The due date for the new, unsaved ticket, or null for none. */
+    /**
+     * The due date for the new ticket, or null for none. Asked on the stored ticket, as
+     * {@see AssignmentStrategy::assigneeFor()} is.
+     */
     public function dueAt(Ticket $ticket): ?CarbonImmutable;
 }

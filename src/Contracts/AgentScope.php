@@ -14,7 +14,8 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  *
  * Both methods must agree: `allows()` decides one ticket (the policy, a resource), `constrain()`
  * narrows a list (`Ticket::visibleTo()`, the index), and a test pins that they return the same
- * tickets. An agent outside the scope still sees a ticket they requested or watch.
+ * tickets. An agent outside the scope still sees a ticket they requested or watch. `allows()`
+ * always gets a stored ticket — at creation too (assignee eligibility is judged after the insert).
  */
 interface AgentScope
 {

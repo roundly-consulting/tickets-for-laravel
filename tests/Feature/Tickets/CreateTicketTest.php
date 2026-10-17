@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Testing\Fixtures\LockRecorder;
 use RoundlyConsulting\Tickets\Actions\Internal\AllocateReferenceAction;
+use RoundlyConsulting\Tickets\Contracts\AgentScope;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
@@ -32,6 +33,8 @@ use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketSequence;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Tests\Fixtures\KeyedAgentScope;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Agent;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
@@ -364,6 +367,55 @@ describe('defaults_precedence', function (): void {
 
         expect($ticket->assignee?->is($agent))->toBeTrue()
             ->and($ticket->due_at?->toDateTimeString())->toBe('2032-02-02 02:02:02');
+    });
+});
+
+describe('host contracts see the saved ticket', function (): void {
+    it('judges assignee eligibility on the stored ticket, so a scope asking the database agrees', function (): void {
+        defineAgents();
+        app()->bind(AgentScope::class, KeyedAgentScope::class);
+        $sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $agent = Agent::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $category = TicketCategory::factory()->create(['default_assignee_type' => $agent->getMorphClass(), 'default_assignee_id' => $agent->getKey()]);
+
+        $given = Tickets::make()->subject('VPN drops')->requester(requester())->project($sup)->assignee($agent)->asSystem()->create();
+        $defaulted = Tickets::make()->subject('VPN drops')->requester(requester())->project($sup)->category($category)->asSystem()->create();
+
+        expect($given->assignee?->is($agent))->toBeTrue()
+            ->and($defaulted->fresh()?->assignee?->is($agent))->toBeTrue()
+            ->and(fn () => Tickets::make()->subject('x')->requester(requester())->assignee($agent)->asSystem()->create())->toThrow(InvalidAssigneeException::class);
+    });
+
+    it('hands the strategy and the due resolver a ticket with its key, reference and status', function (): void {
+        $seen = [];
+        app()->instance(AssignmentStrategy::class, new class($seen) implements AssignmentStrategy
+        {
+            public function __construct(private array &$seen) {}
+
+            public function assigneeFor(Ticket $ticket): ?Model
+            {
+                $this->seen['strategy'] = [$ticket->exists, $ticket->reference, $ticket->status?->value];
+
+                return null;
+            }
+        });
+        app()->instance(DueDateResolver::class, new class($seen) implements DueDateResolver
+        {
+            public function __construct(private array &$seen) {}
+
+            public function dueAt(Ticket $ticket): ?CarbonImmutable
+            {
+                $this->seen['resolver'] = [$ticket->exists, $ticket->reference, $ticket->status?->value];
+
+                return CarbonImmutable::parse('2032-02-02 02:02:02');
+            }
+        });
+
+        $ticket = Tickets::make()->subject('a')->requester(requester())->asSystem()->create();
+
+        expect($seen)->toBe(['strategy' => [true, 'TCK-1', 'new'], 'resolver' => [true, 'TCK-1', 'new']])
+            ->and($ticket->fresh()?->due_at?->toDateTimeString())->toBe('2032-02-02 02:02:02')
+            ->and($ticket->fresh()?->updated_at?->equalTo($ticket->created_at))->toBeTrue();
     });
 });
 

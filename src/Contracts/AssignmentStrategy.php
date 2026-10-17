@@ -13,8 +13,10 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 interface AssignmentStrategy
 {
     /**
-     * The assignee for the new, unsaved ticket, or null to leave it unassigned. The model
-     * must implement {@see Assignee}.
+     * The assignee for the new ticket, or null to leave it unassigned. The model must implement
+     * {@see Assignee}. Asked right after the ticket row is stored, in the creating transaction:
+     * it has its key, reference, number and initial status, its requester, project, category,
+     * priority and channel — not yet its custom fields, tags, watchers or attachments.
      */
     public function assigneeFor(Ticket $ticket): ?Model;
 }
