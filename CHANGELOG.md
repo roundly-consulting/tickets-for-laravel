@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+## 1.0.1 - 2026-10-17
+
 ### Fixed
 
 - `tickets:install` and the README now name the step every installation needs before an agent can
