@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use RoundlyConsulting\Tickets\Tests\Fixtures\HttpTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\SwappedModelsTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UlidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UuidKeyTestCase;
@@ -13,6 +14,9 @@ use RoundlyConsulting\Tickets\Tests\TestCase;
 // directory and errors on a blanket-vs-specific collision. The arch file is bound too, so
 // `swappableModelsAreNotFinal` can read the config defaults.
 uses(TestCase::class)->in('Arch', 'Feature', 'Unit', 'RealEngine');
+
+// The HTTP API: its routes load at boot, so they are switched on before it.
+uses(HttpTestCase::class)->in('Http');
 
 // The model-swap proofs need `tickets.models.*` pointed at host subclasses before boot.
 uses(SwappedModelsTestCase::class)->in('ModelSwap');
@@ -50,3 +54,5 @@ function defineAgents(): void
 {
     Gate::define('tickets.agent', static fn (Model $user): bool => (bool) $user->getAttribute('is_agent'));
 }
+
+require_once __DIR__.'/Http/Helpers.php';
