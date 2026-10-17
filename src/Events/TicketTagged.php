@@ -6,13 +6,14 @@ namespace RoundlyConsulting\Tickets\Events;
 
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketTag;
 
 /**
  * Tags were put on the ticket — only the ones that changed. Dispatched after the transaction commits.
  */
-final readonly class TicketTagged implements ShouldDispatchAfterCommit
+final readonly class TicketTagged implements ShouldDispatchAfterCommit, TicketEvent
 {
     /**
      * @param  list<TicketTag>  $tags
@@ -22,4 +23,14 @@ final readonly class TicketTagged implements ShouldDispatchAfterCommit
         public array $tags,
         public ?Model $actor,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return $this->actor;
+    }
 }

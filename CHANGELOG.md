@@ -78,7 +78,9 @@ Initial public release.
   `Ticket` read helpers `isUnresolved()`, `isResolved()`, `isClosed()`, `isOverdue()`, `isMerged()`
   and `isAssigned()`, each agreeing with its query scope.
 - An append-only activity timeline (`tickets.activity.enabled`) and 34 after-commit events, from
-  `TicketCreated` to `TicketCommentUpdated`, `TicketCommentDeleted` and `GuestAccessRevoked`.
+  `TicketCreated` to `TicketCommentUpdated`, `TicketCommentDeleted` and `GuestAccessRevoked`; every
+  ticket event implements `Contracts\TicketEvent` (`ticket()`, `actor()`), so one typed listener
+  hears them all — for an audit log, webhooks or a dashboard feed.
 - `Tickets::sweep()` and `php artisan tickets:sweep`: `TicketOverdue` and `TicketDueSoon`
   (`tickets.due.soon_window`) exactly once per due date, safe under concurrent sweeps, returning a
   `SweepResult`.

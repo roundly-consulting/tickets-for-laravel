@@ -6,13 +6,14 @@ namespace RoundlyConsulting\Tickets\Events;
 
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
 /**
  * Custom field values were set or cleared — the keys only, never a value (an encrypted one
  * included). Dispatched after the transaction commits.
  */
-final readonly class TicketFieldsChanged implements ShouldDispatchAfterCommit
+final readonly class TicketFieldsChanged implements ShouldDispatchAfterCommit, TicketEvent
 {
     /**
      * @param  list<string>  $keys
@@ -22,4 +23,14 @@ final readonly class TicketFieldsChanged implements ShouldDispatchAfterCommit
         public array $keys,
         public ?Model $actor,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return $this->actor;
+    }
 }

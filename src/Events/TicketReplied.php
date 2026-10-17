@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Events;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
@@ -14,7 +15,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * A public reply was published on the ticket — never fired for an internal note, nor for a
  * reply the host's moderation is holding. Dispatched after the transaction commits.
  */
-final readonly class TicketReplied implements ShouldDispatchAfterCommit
+final readonly class TicketReplied implements ShouldDispatchAfterCommit, TicketEvent
 {
     public function __construct(
         public Ticket $ticket,
@@ -22,4 +23,14 @@ final readonly class TicketReplied implements ShouldDispatchAfterCommit
         public AuthorRole $role,
         public ?Model $actor,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return $this->actor;
+    }
 }

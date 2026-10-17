@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets\Events;
 
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
 /**
@@ -13,11 +14,21 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * away, or closed with `tickets.guests.revoke_on_close`. `$version` is the new
  * `guest_access_version` a fresh link carries.
  */
-final readonly class GuestAccessRevoked implements ShouldDispatchAfterCommit
+final readonly class GuestAccessRevoked implements ShouldDispatchAfterCommit, TicketEvent
 {
     public function __construct(
         public Ticket $ticket,
         public int $version,
         public ?Model $actor,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return $this->actor;
+    }
 }

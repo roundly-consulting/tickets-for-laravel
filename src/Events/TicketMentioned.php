@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Events;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
 /**
@@ -15,11 +16,21 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * than to comments' `CommentMentioned`, which also fires for internal notes. Dispatched after
  * the transaction commits.
  */
-final readonly class TicketMentioned implements ShouldDispatchAfterCommit
+final readonly class TicketMentioned implements ShouldDispatchAfterCommit, TicketEvent
 {
     public function __construct(
         public Ticket $ticket,
         public Comment $comment,
         public Model $mentioned,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return null;
+    }
 }

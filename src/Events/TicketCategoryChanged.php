@@ -6,12 +6,13 @@ namespace RoundlyConsulting\Tickets\Events;
 
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Contracts\TicketEvent;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
 /**
  * A ticket moved to another category (or out of every category). Dispatched after the transaction commits.
  */
-final readonly class TicketCategoryChanged implements ShouldDispatchAfterCommit
+final readonly class TicketCategoryChanged implements ShouldDispatchAfterCommit, TicketEvent
 {
     public function __construct(
         public Ticket $ticket,
@@ -19,4 +20,14 @@ final readonly class TicketCategoryChanged implements ShouldDispatchAfterCommit
         public ?int $to,
         public ?Model $actor,
     ) {}
+
+    public function ticket(): Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function actor(): ?Model
+    {
+        return $this->actor;
+    }
 }
