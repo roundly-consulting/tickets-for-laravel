@@ -8,14 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Exceptions\TicketAccessDeniedException;
 use RoundlyConsulting\Tickets\Models\Ticket;
-use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
  * The role a message author holds on the ticket, computed when the message is posted: no
- * author is the system, the requester is the requester, someone the agent ability allows is
- * an agent, and a watcher (with `tickets.watchers.can_view`) is a participant. Anyone else is
+ * author is the system, the requester is the requester, someone the agent ability allows —
+ * and the agent scope lets work on this ticket — is an agent, and a watcher (with `tickets.watchers.can_view`) is a participant. Anyone else is
  * refused.
  *
  * @internal
@@ -27,7 +26,7 @@ final readonly class ResolveAuthorRoleAction
         return match (true) {
             $author === null => AuthorRole::System,
             TicketVisibility::isRequester($author, $ticket) => AuthorRole::Requester,
-            Agents::is($author) => AuthorRole::Agent,
+            TicketVisibility::isAgentFor($author, $ticket) => AuthorRole::Agent,
             TicketsConfig::watchersCanView() && TicketVisibility::isWatcher($author, $ticket) => AuthorRole::Participant,
             default => throw TicketAccessDeniedException::notAParticipant($ticket),
         };

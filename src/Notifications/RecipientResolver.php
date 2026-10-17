@@ -12,7 +12,6 @@ use RoundlyConsulting\Tickets\Enums\NotificationType;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketWatcher;
-use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
@@ -223,7 +222,8 @@ final class RecipientResolver
     }
 
     /**
-     * The watchers — with `$agents`, only those who are (true) or are not (false) agents.
+     * The watchers — with `$agents`, only those who are (true) or are not (false) agents for the
+     * ticket (the agent scope applies).
      *
      * @return list<Model>
      */
@@ -235,7 +235,7 @@ final class RecipientResolver
             // A watcher whose model is gone loads as null.
             $watcher = $watch->getRelationValue('watcher');
 
-            if ($watcher instanceof Model && ($agents === null || Agents::is($watcher) === $agents)) {
+            if ($watcher instanceof Model && ($agents === null || TicketVisibility::isAgentFor($watcher, $ticket) === $agents)) {
                 $watchers[] = $watcher;
             }
         }

@@ -20,14 +20,14 @@ use RoundlyConsulting\Tickets\Exceptions\TicketAccessDeniedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketClosedException;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
-use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
- * Adds an internal note: agents (or the system) only. Defence in depth — the comment is
+ * Adds an internal note: agents for the ticket (the agent scope applies) or the system only. Defence in depth — the comment is
  * `visible = false` AND marked `meta.tickets.internal`, so comments' own public reads
  * (`visible()`, `threadedComments`, the public counts) never show it, and the package's own
  * public thread filters on both. Its activity entry is internal and holds the comment id,
@@ -52,7 +52,7 @@ final readonly class PostNoteAction
 
             $role = match (true) {
                 $author === null => AuthorRole::System,
-                Agents::is($author) => AuthorRole::Agent,
+                TicketVisibility::isAgentFor($author, $ticket) => AuthorRole::Agent,
                 default => throw TicketAccessDeniedException::notAnAgent($ticket),
             };
 

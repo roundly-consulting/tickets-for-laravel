@@ -12,14 +12,15 @@ use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Exceptions\FieldNotEditableException;
 use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Models\Ticket;
-use RoundlyConsulting\Tickets\Support\Agents;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
  * Writes custom field values of a ticket, inside the calling action's transaction:
  *
  *  - only keys of the ticket's own field set — tickets refuses unknown keys itself, never
  *    through attributes' global strict mode;
- *  - a writer who is not an agent (nor the system) may only touch `requester_editable` fields;
+ *  - a writer who is not an agent for the ticket (nor the system) may only touch
+ *    `requester_editable` fields;
  *  - every value is validated against its field (type, options, required, the allow-listed
  *    rules), errors keyed `fields.<key>`;
  *  - a null clears the value.
@@ -47,7 +48,7 @@ final readonly class WriteFieldValuesAction
         }
 
         $fields = $this->fields->forTicket($ticket);
-        $limited = $actor !== null && ! Agents::is($actor);
+        $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
         $rules = [];
 
         foreach (array_keys($values) as $key) {

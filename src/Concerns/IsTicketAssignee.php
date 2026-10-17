@@ -8,13 +8,13 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Models\Ticket;
-use RoundlyConsulting\Tickets\Support\Agents;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
  * Defaults for {@see Assignee}: the name is the `name` attribute (else the key), the model
- * itself is notified, and a model that can log in is eligible when it is an agent (the
- * `tickets.authorization.abilities.agent` Gate ability) — anything else (a team, a queue) is
- * always eligible. Override any of them; a team returns its members from
+ * itself is notified, and a model that can log in is eligible when it is an agent for the
+ * ticket (the `tickets.authorization.abilities.agent` Gate ability, narrowed by the agent
+ * scope) — anything else (a team, a queue) is always eligible. Override any of them; a team returns its members from
  * `ticketNotifiables()`.
  *
  * @mixin Model
@@ -42,6 +42,6 @@ trait IsTicketAssignee
 
     public function isEligibleTicketAssignee(Ticket $ticket): bool
     {
-        return ! $this instanceof Authenticatable || Agents::is($this);
+        return ! $this instanceof Authenticatable || TicketVisibility::isAgentFor($this, $ticket);
     }
 }
