@@ -26,6 +26,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
   the requester may edit anything at all: with `requester_can_edit` off it is true while the ticket
   has an active, applicable `requester_editable` field. It used to say no although the requester
   could still set that field.
+- `Tickets::guests()->convert()` no longer fails and rolls back when the user starts watching one of
+  the guest's watched tickets while the conversion runs; the guest's watch is dropped in favour of
+  the user's, as for a watch the user already had.
 
 ## 1.0.0 - 2026-10-17
 

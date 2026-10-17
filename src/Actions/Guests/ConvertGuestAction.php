@@ -21,8 +21,8 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
  * A guest registered: every ticket they requested and every ticket they watch moves to the
- * user, in one transaction. A watch the user already has makes the guest's row redundant,
- * so it is deleted rather than colliding on the unique index. The guest's identifying
+ * user, in one transaction. A watch the user already has — or gains meanwhile — makes the
+ * guest's row redundant, so it is deleted rather than colliding on the unique index. The guest's identifying
  * values are force-detached — free for whoever writes in as a guest next — and the guest is
  * soft-deleted. Comments the guest wrote keep the guest as author (history).
  *
@@ -87,20 +87,20 @@ final readonly class ConvertGuestAction
             ->lockForUpdate()
             ->get();
 
+        // Insert the user's row unless it exists, then drop the guest's — never check, then
+        // re-point: a ticket the guest only watches is not locked here, so another session may
+        // add the user as its watcher in between, and the update would hit the unique index and
+        // roll the whole conversion back.
         foreach ($watches as $watch) {
-            $redundant = TicketWatcher::query()
-                ->where('ticket_id', $watch->ticket_id)
-                ->where('watcher_type', $user->getMorphClass())
-                ->where('watcher_id', $user->getKey())
-                ->exists();
+            TicketWatcher::query()->toBase()->insertOrIgnore([
+                'ticket_id' => $watch->ticket_id,
+                'watcher_type' => $user->getMorphClass(),
+                'watcher_id' => $user->getKey(),
+                'auto' => $watch->auto,
+                'created_at' => $watch->created_at,
+            ]);
 
-            if ($redundant) {
-                $watch->delete();
-
-                continue;
-            }
-
-            $watch->forceFill(['watcher_type' => $user->getMorphClass(), 'watcher_id' => $user->getKey()])->save();
+            $watch->delete();
         }
     }
 }

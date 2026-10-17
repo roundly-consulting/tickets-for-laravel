@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
@@ -215,6 +216,34 @@ describe('guest_conversion', function (): void {
 
         Event::assertDispatched(GuestConverted::class, static fn (GuestConverted $event): bool => $event->tickets === 2 && $event->user->is($user));
         Event::assertDispatchedTimes(TicketRequesterChanged::class, 2);
+    });
+
+    it('converts a cc watch the user starts watching concurrently instead of rolling back', function (): void {
+        $guest = Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test']);
+        $user = User::query()->create(['name' => 'Jo']);
+        $cc = Ticket::factory()->create();
+        TicketWatcher::factory()->create(['ticket_id' => $cc->id, 'watcher_type' => $guest->getMorphClass(), 'watcher_id' => $guest->id]);
+
+        // Conversion never locks a ticket the guest only watches, so another session may add the
+        // user as its watcher at any moment: here, right before the conversion writes the user's
+        // watch row — the latest moment there is.
+        $raced = false;
+        DB::connection()->beforeExecuting(static function (string $query) use (&$raced, $cc, $user): void {
+            if ($raced || preg_match('/^\s*(insert|update)\b.*ticket_watchers/is', $query) !== 1) {
+                return;
+            }
+
+            $raced = true;
+            TicketWatcher::query()->toBase()->insert([
+                'ticket_id' => $cc->id, 'watcher_type' => $user->getMorphClass(), 'watcher_id' => $user->id, 'auto' => false,
+            ]);
+        });
+
+        expect(Tickets::guests()->convert($guest, $user))->toBe(0)
+            ->and($raced)->toBeTrue()
+            ->and(TicketWatcher::query()->where('ticket_id', $cc->id)->get()->map(static fn (TicketWatcher $watch): array => [$watch->watcher_type, (string) $watch->watcher_id])->all())
+            ->toBe([[$user->getMorphClass(), (string) $user->id]])
+            ->and($guest->fresh()?->trashed())->toBeTrue();
     });
 
     it('rolls the whole conversion back when one step fails', function (): void {
