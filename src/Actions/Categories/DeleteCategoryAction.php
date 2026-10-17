@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Actions\Categories;
 
 use Illuminate\Database\Eloquent\Model;
-use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
-use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Actions\Tickets\ChangeCategoryAction;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
@@ -17,13 +16,16 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
  * Soft-deletes a category. One with live children is refused; one with live tickets needs
- * `$reassignTo` — another active category its tickets can use — and they move there first,
- * each with a `category_changed` activity. A soft delete keeps every foreign key valid.
+ * `$reassignTo` — another active category its tickets can use (not the category itself, not an
+ * inactive one, not another project's: each refused with its own message) — and they move there
+ * first, each exactly as `categorize()` moves it: a `category_changed` activity,
+ * `TicketCategoryChanged`, and the target's required fields enforced (a ticket missing one stops
+ * the whole delete). A soft delete keeps every foreign key valid.
  */
 final readonly class DeleteCategoryAction
 {
     public function __construct(
-        private RecordActivityAction $record,
+        private ChangeCategoryAction $changeCategory,
     ) {}
 
     public function execute(TicketCategory $category, TicketCategory|int|null $reassignTo = null, ?Model $actor = null): TicketCategory
@@ -44,20 +46,10 @@ final readonly class DeleteCategoryAction
                     throw InvalidCategoryException::inUse();
                 }
 
-                $target = CategoryTree::resolve($reassignTo);
+                $target = $this->target($category, $reassignTo);
 
-                if ($target->is($category) || ! $target->is_active
-                    || ($target->project_type !== null && ($target->project_type !== $category->project_type || (string) $target->project_id !== (string) $category->project_id))) {
-                    throw InvalidCategoryException::projectMismatch();
-                }
-
-                foreach ($tickets->lockForUpdate()->get() as $ticket) {
-                    $ticket->forceFill(['category_id' => $target->getKey()])->save();
-
-                    $this->record->execute($ticket, ActivityType::CategoryChanged, $actor, [
-                        'from' => (int) $category->getKey(),
-                        'to' => (int) $target->getKey(),
-                    ], system: true);
+                foreach ($tickets->orderBy((new (TicketModels::ticket()))->getKeyName())->get() as $ticket) {
+                    $this->changeCategory->execute($ticket, $target, $actor, system: $actor === null);
                 }
             }
 
@@ -65,5 +57,24 @@ final readonly class DeleteCategoryAction
 
             return $category;
         });
+    }
+
+    private function target(TicketCategory $category, TicketCategory|int $reassignTo): TicketCategory
+    {
+        $target = CategoryTree::resolve($reassignTo);
+
+        if ($target->is($category)) {
+            throw InvalidCategoryException::sameTarget();
+        }
+
+        if (! $target->is_active) {
+            throw InvalidCategoryException::inactive();
+        }
+
+        if ($target->project_type !== null && ($target->project_type !== $category->project_type || (string) $target->project_id !== (string) $category->project_id)) {
+            throw InvalidCategoryException::projectMismatch();
+        }
+
+        return $target;
     }
 }

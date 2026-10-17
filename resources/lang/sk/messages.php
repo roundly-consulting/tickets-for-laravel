@@ -58,6 +58,7 @@ return [
         'too_deep' => 'Kategórie možno vnoriť najviac do hĺbky :max úrovní.',
         'project_mismatch' => 'Kategória patrí inému projektu.',
         'inactive' => 'Kategória je neaktívna a nemôže prijímať nové tikety.',
+        'same_target' => 'Uveďte inú kategóriu, do ktorej sa tikety presunú — nie tú, ktorá sa odstraňuje.',
         'in_use' => 'Kategória ešte obsahuje tikety. Určte kategóriu, do ktorej ich presunúť.',
         'has_children' => 'Kategória ešte obsahuje podkategórie. Najprv ich presuňte alebo odstráňte.',
         'not_found' => 'Kategória [:key] sa nenašla.',

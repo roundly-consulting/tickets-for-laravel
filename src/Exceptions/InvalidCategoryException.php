@@ -29,6 +29,11 @@ final class InvalidCategoryException extends TicketsException
         return new self(self::translate('category.inactive'));
     }
 
+    public static function sameTarget(): self
+    {
+        return new self(self::translate('category.same_target'));
+    }
+
     public static function inUse(): self
     {
         return new self(self::translate('category.in_use'));

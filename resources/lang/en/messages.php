@@ -59,6 +59,7 @@ return [
         'project_mismatch' => 'The category belongs to another project.',
         'inactive' => 'The category is inactive and cannot take new tickets.',
         'in_use' => 'The category still has tickets. Name a category to move them to.',
+        'same_target' => 'Name another category to move the tickets to — not the one being deleted.',
         'has_children' => 'The category still has subcategories. Move or delete them first.',
         'not_found' => 'Category [:key] was not found.',
         'invalid_due_in' => 'The due offset [:value] must be a positive ISO-8601 duration, such as P2D or PT4H.',

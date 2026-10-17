@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use Carbon\CarbonInterval;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Testing\Fixtures\LockRecorder;
 use RoundlyConsulting\Tickets\DataTransferObjects\CategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
+use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
+use RoundlyConsulting\Tickets\Events\TicketCategoryChanged;
 use RoundlyConsulting\Tickets\Exceptions\InvalidAssigneeException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
@@ -143,16 +147,43 @@ describe('category_rules', function (): void {
             ->and(keySorted($ticket->activities()->where('type', 'category_changed')->first()?->properties))->toBe(['from' => $category->id, 'to' => $target->id]);
     });
 
-    it('refuses a reassignment target that is the category itself, inactive or of another project', function (Closure $target): void {
+    it('refuses a reassignment target that is the category itself, inactive or of another project — and says which', function (Closure $target, string $message): void {
         $category = category('Hardware');
         Tickets::make()->subject('a')->requester(User::query()->create())->category($category)->create();
 
-        Tickets::categories()->delete($category, reassignTo: $target($category));
+        expect(fn () => Tickets::categories()->delete($category, reassignTo: $target($category)))->toThrow(InvalidCategoryException::class, $message)
+            ->and($category->fresh()?->trashed())->toBeFalse();
     })->with([
-        'itself' => [fn (TicketCategory $category) => $category],
-        'inactive' => [fn () => TicketCategory::factory()->inactive()->create()],
-        'another project' => [fn () => TicketCategory::factory()->inProject(Project::query()->create(['name' => 'p', 'key' => 'P']))->create()],
-    ])->throws(InvalidCategoryException::class);
+        'itself' => [fn (TicketCategory $category) => $category, 'not the one being deleted'],
+        'inactive' => [fn () => TicketCategory::factory()->inactive()->create(), 'inactive'],
+        'another project' => [fn () => TicketCategory::factory()->inProject(Project::query()->create(['name' => 'p', 'key' => 'P']))->create(), 'another project'],
+    ]);
+
+    it('moves each ticket as a category change does: the event, and the target\'s required fields', function (): void {
+        defineAgents();
+        Event::fake([TicketCategoryChanged::class]);
+        $old = category('Hardware');
+        $new = category('Network');
+        $filled = Tickets::make()->subject('a')->requester(User::query()->create())->category($old)->asSystem()->create();
+        Tickets::fields()->make('serial', FieldType::Text)->category($new)->required()->define();
+        Ticket::query()->whereKey($filled->id)->update(['category_id' => $new->id]);
+        Tickets::for($filled->fresh() ?? $filled)->asSystem()->fields()->set('serial', 'S-1');
+        Ticket::query()->whereKey($filled->id)->update(['category_id' => $old->id]);
+        $missing = Tickets::make()->subject('b')->requester(User::query()->create())->category($old)->asSystem()->create();
+
+        // `categorize()` refuses the move for the ticket without a serial — so does the delete.
+        expect(fn () => Tickets::for($missing)->asSystem()->categorize($new))->toThrow(ValidationException::class)
+            ->and(fn () => Tickets::categories()->delete($old, reassignTo: $new))->toThrow(ValidationException::class)
+            ->and($old->fresh()?->trashed())->toBeFalse()
+            ->and($filled->fresh()?->category_id)->toBe($old->id);
+
+        Tickets::for($missing)->asSystem()->delete();
+        Tickets::categories()->delete($old, reassignTo: $new);
+
+        expect($filled->fresh()?->category_id)->toBe($new->id);
+        Event::assertDispatchedTimes(TicketCategoryChanged::class, 1);
+        Event::assertDispatched(TicketCategoryChanged::class, static fn (TicketCategoryChanged $event): bool => $event->ticket->is($filled) && $event->to === $new->id);
+    });
 
     it('refuses deleting a category that still has subcategories', function (): void {
         $root = category('Root');
