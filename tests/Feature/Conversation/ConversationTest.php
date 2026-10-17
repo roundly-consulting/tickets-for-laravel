@@ -408,7 +408,7 @@ describe('internal_notes_never_reach_non_agents', function (): void {
             ? [Tickets::for($ticket)->thread()->sole()->getKey()] : ['count leaked']],
         'withCommentCounts' => [fn (Ticket $ticket): array => Ticket::query()->withCommentCounts()->findOrFail($ticket->getKey())->getAttribute('comments_count') === 1
             ? [Tickets::for($ticket)->thread()->sole()->getKey()] : ['count leaked']],
-        'the public activity' => [fn (Ticket $ticket): array => Tickets::for($ticket)->activity(internal: false)
+        'the public activity' => [fn (Ticket $ticket): array => Tickets::for($ticket)->activity()
             ->filter(static fn (TicketActivity $entry): bool => isset($entry->properties['comment']))
             ->map(static fn (TicketActivity $entry): mixed => $entry->properties['comment'])->values()->all()],
     ]);

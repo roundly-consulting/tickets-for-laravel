@@ -302,10 +302,11 @@ describe('unknown_priority_is_tolerated', function (): void {
     });
 });
 
-it('reads the timeline, internal entries included or public only', function (): void {
+it('returns only public activity unless asked for internal', function (): void {
     $ticket = fileTicket();
     TicketActivity::factory()->create(['ticket_id' => $ticket->id, 'type' => ActivityType::NoteAdded, 'visibility' => ActivityVisibility::Internal]);
 
-    expect(Tickets::for($ticket)->activity()->pluck('type')->all())->toBe([ActivityType::Created, ActivityType::NoteAdded])
-        ->and(Tickets::for($ticket)->activity(internal: false)->pluck('type')->all())->toBe([ActivityType::Created]);
+    expect(Tickets::for($ticket)->activity()->pluck('type')->all())->toBe([ActivityType::Created])
+        ->and(Tickets::for($ticket)->activity(internal: false)->pluck('type')->all())->toBe([ActivityType::Created])
+        ->and(Tickets::for($ticket)->activity(internal: true)->pluck('type')->all())->toBe([ActivityType::Created, ActivityType::NoteAdded]);
 });

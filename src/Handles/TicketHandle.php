@@ -477,11 +477,13 @@ final readonly class TicketHandle
     }
 
     /**
-     * The activity timeline, oldest first — public entries only unless `$internal`.
+     * The activity timeline, oldest first: the public entries, or with `$internal` every
+     * entry — notes and held replies included. Like `thread()`, the internal
+     * view is for agents; deciding who may read it is the caller's (the API's policy).
      *
      * @return Collection<int, TicketActivity>
      */
-    public function activity(bool $internal = true): Collection
+    public function activity(bool $internal = false): Collection
     {
         $query = $this->ticket->activities();
 
