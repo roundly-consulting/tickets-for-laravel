@@ -67,7 +67,9 @@ it('resolves slovak through the package namespace', function (): void {
     app()->setLocale('sk');
 
     expect(__('tickets::enums.ticket_status.resolved'))->toBe('Vyriešený')
-        ->and(TicketStatus::Pending->label())->toBe('Čaká na žiadateľa');
+        ->and(TicketStatus::Pending->label())->toBe('Čaká na žiadateľa')
+        ->and(__('tickets::validation.attributes.subject'))->toBe('predmet')
+        ->and(__('tickets::validation.guest_fields.email'))->toBe('e-mailová adresa');
 });
 
 it('renders every notification in english and in slovak', function (): void {

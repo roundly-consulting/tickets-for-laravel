@@ -24,6 +24,35 @@ abstract class TicketsRequest extends FormRequest
     }
 
     /**
+     * The inputs' display names in validation messages (`tickets::validation.attributes`, en and
+     * sk shipped; a host's published copy overrides them key by key).
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return self::names();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function names(): array
+    {
+        $names = __('tickets::validation.attributes');
+
+        return is_array($names) ? array_filter($names, is_string(...)) : [];
+    }
+
+    /**
+     * The display name of one input — for a message built outside the validator.
+     */
+    protected static function attributeName(string $key): string
+    {
+        return self::names()[$key] ?? $key;
+    }
+
+    /**
      * Whether the validated input holds the key (even as null) — a partial update sets only
      * what was sent.
      */
@@ -106,7 +135,8 @@ abstract class TicketsRequest extends FormRequest
     {
         return static function (string $attribute, mixed $value, Closure $fail): void {
             if (! is_int($value) && ! (is_string($value) && $value !== '' && mb_strlen($value) <= 64)) {
-                $fail(Messages::get('http.invalid_key', ['attribute' => $attribute]));
+                // `:attribute` stays for the validator, which fills in the input's display name.
+                $fail(Messages::get('http.invalid_key'));
             }
         };
     }
@@ -122,14 +152,14 @@ abstract class TicketsRequest extends FormRequest
             }
 
             if (! is_array($value) || $value === []) {
-                $fail(Messages::get('http.invalid_translations', ['attribute' => $attribute]));
+                $fail(Messages::get('http.invalid_translations'));
 
                 return;
             }
 
             foreach ($value as $locale => $text) {
                 if (! is_string($locale) || preg_match('/^[a-z]{2,3}([_-][A-Za-z]{2,4})?$/', $locale) !== 1 || ! is_string($text)) {
-                    $fail(Messages::get('http.invalid_translations', ['attribute' => $attribute]));
+                    $fail(Messages::get('http.invalid_translations'));
 
                     return;
                 }

@@ -176,7 +176,7 @@ final class StoreTicketRequest extends TicketsRequest
     {
         return static function (string $attribute, mixed $value, Closure $fail): void {
             if ($value !== null && ! is_scalar($value)) {
-                $fail(Messages::get('http.invalid_value', ['attribute' => $attribute]));
+                $fail(Messages::get('http.invalid_value'));
             }
         };
     }

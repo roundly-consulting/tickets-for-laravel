@@ -27,6 +27,6 @@ final class AttachmentRequest extends TicketsRequest
     public function upload(): UploadedFile
     {
         return Attachments::uploads([$this->validated('file')])[0]
-            ?? throw ValidationException::withMessages(['file' => [(string) __('validation.required', ['attribute' => 'file'])]]);
+            ?? throw ValidationException::withMessages(['file' => [(string) __('validation.required', ['attribute' => self::attributeName('file')])]]);
     }
 }

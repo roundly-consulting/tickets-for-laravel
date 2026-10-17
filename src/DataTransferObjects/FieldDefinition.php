@@ -55,6 +55,19 @@ final readonly class FieldDefinition
     }
 
     /**
+     * The label in `$locale` (default: the current one), else in the fallback locale, else in
+     * the first locale it has, else the key.
+     */
+    public function label(?string $locale = null): string
+    {
+        $label = $this->label[$locale ?? app()->getLocale()]
+            ?? $this->label[(string) config('app.fallback_locale')]
+            ?? (array_values($this->label)[0] ?? null);
+
+        return is_string($label) && $label !== '' ? $label : $this->key;
+    }
+
+    /**
      * The raw attribute definition attributes-for-laravel stores the value under — its type,
      * encryption and default. Validation runs in tickets, before the write.
      *

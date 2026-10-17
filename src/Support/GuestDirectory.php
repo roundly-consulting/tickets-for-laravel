@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Support;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Attributes\Models\Attribute;
@@ -49,14 +50,16 @@ final class GuestDirectory
         }
 
         $rules = [];
+        $names = [];
 
         foreach ($fields as $name => $field) {
             if (! $partial || array_key_exists($name, $values)) {
                 $rules['fields.'.$name] = $field->rules;
+                $names['fields.'.$name] = self::name($name);
             }
         }
 
-        Validator::make(['fields' => $values], $rules)->validate();
+        Validator::make(['fields' => $values], $rules, [], $names)->validate();
 
         if (! $partial && GuestFields::requireOneIdentifying()) {
             $given = array_filter(
@@ -74,6 +77,18 @@ final class GuestDirectory
         }
 
         return $values;
+    }
+
+    /**
+     * A guest field's name in validation messages: `tickets::validation.guest_fields.<name>`,
+     * else the field name in words (`external_id` → "external id").
+     */
+    public static function name(string $field): string
+    {
+        $key = 'tickets::validation.guest_fields.'.$field;
+        $name = Lang::has($key) ? Lang::get($key) : null;
+
+        return is_string($name) && $name !== '' ? $name : str_replace('_', ' ', $field);
     }
 
     /**

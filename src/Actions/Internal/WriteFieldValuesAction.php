@@ -6,7 +6,6 @@ namespace RoundlyConsulting\Tickets\Actions\Internal;
 
 use Illuminate\Contracts\Validation\Factory as ValidatorFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Attributes\AttributesManager;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Exceptions\FieldNotEditableException;
@@ -22,7 +21,7 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
  *  - a writer who is not an agent for the ticket (nor the system) may only touch
  *    `requester_editable` fields;
  *  - every value is validated against its field (type, options, required, the allow-listed
- *    rules), errors keyed `fields.<key>`;
+ *    rules), errors keyed `fields.<key>` and worded with the field's label;
  *  - a null clears the value.
  *
  * Returns the keys written — never the values.
@@ -50,6 +49,7 @@ final readonly class WriteFieldValuesAction
         $fields = $this->fields->forTicket($ticket);
         $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
         $rules = [];
+        $names = [];
 
         foreach (array_keys($values) as $key) {
             $field = $fields[$key] ?? throw FieldNotEditableException::unknown((string) $key);
@@ -59,9 +59,10 @@ final readonly class WriteFieldValuesAction
             }
 
             $rules = [...$rules, ...$field->validationRules('fields.'.$field->key)];
+            $names = [...$names, ...self::names($field)];
         }
 
-        $this->validator->make(['fields' => $values], $rules)->validate();
+        $this->validator->make(['fields' => $values], $rules, [], $names)->validate();
 
         $set = array_filter($values, static fn (mixed $value): bool => $value !== null);
         $cleared = array_keys(array_diff_key($values, $set));
@@ -103,23 +104,29 @@ final readonly class WriteFieldValuesAction
     public function assertRequiredFilled(Ticket $ticket): void
     {
         $ticket->unsetRelation('attachedAttributes');
-        $missing = [];
+        $rules = [];
+        $names = [];
 
         foreach ($this->fields->forTicket($ticket) as $field) {
             if ($field->required && $ticket->getAttachedAttribute($field->key)?->value === null) {
-                $missing['fields.'.$field->key] = [$this->requiredMessage($field)];
+                $rules['fields.'.$field->key] = ['required'];
+                $names = [...$names, ...self::names($field)];
             }
         }
 
-        if ($missing !== []) {
-            throw ValidationException::withMessages($missing);
+        if ($rules !== []) {
+            $this->validator->make(['fields' => []], $rules, [], $names)->validate();
         }
     }
 
-    private function requiredMessage(FieldDefinition $field): string
+    /**
+     * The field's label as its input's name in validation messages — the item of a multiselect
+     * too.
+     *
+     * @return array<string, string>
+     */
+    private static function names(FieldDefinition $field): array
     {
-        $line = __('validation.required', ['attribute' => $field->label[app()->getLocale()] ?? $field->key]);
-
-        return is_string($line) ? $line : 'validation.required';
+        return ['fields.'.$field->key => $field->label(), 'fields.'.$field->key.'.*' => $field->label()];
     }
 }

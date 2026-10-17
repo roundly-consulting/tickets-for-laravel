@@ -8,7 +8,6 @@ use Illuminate\Container\Container;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use RoundlyConsulting\MediaLibrary\Models\Media;
-use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
@@ -110,18 +109,13 @@ final class TicketResource extends JsonResource
 
             $fields[] = [
                 'key' => $field->key,
-                'label' => self::label($field),
+                'label' => $field->label(),
                 'type' => $field->type->value,
                 'value' => $ticket->hasAttachedAttribute($field->key) ? $ticket->getAttachedAttributeValue($field->key) : null,
             ];
         }
 
         return $fields;
-    }
-
-    private static function label(FieldDefinition $field): ?string
-    {
-        return $field->label[app()->getLocale()] ?? $field->label[(string) config('app.fallback_locale')] ?? (array_values($field->label)[0] ?? null);
     }
 
     private static function count(Ticket $ticket, string $attribute): ?int

@@ -60,7 +60,7 @@ final class BulkRequest extends TicketsRequest
                 $claim = filter_var($data['claim'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
                 if (($data['action'] ?? null) === 'assign' && ($data['assignee'] ?? null) === null && ! $claim) {
-                    $validator->errors()->add('assignee', (string) __('validation.required', ['attribute' => 'assignee']));
+                    $validator->errors()->add('assignee', (string) __('validation.required', ['attribute' => $validator->getDisplayableAttribute('assignee')]));
                 }
             },
         ];

@@ -112,4 +112,7 @@ Initial public release.
   on the facade, each `assert<Verb>()` paired with `assertNothing<Verb>()` and each
   `assert<Noun><Verb>()` with `assertNo<Noun><Verb>()`; `assertTransitioned()` also counts a
   published reply's explicit `transition:`.
-- English and Slovak translations for every enum label, message and notification.
+- English and Slovak translations for every enum label, message and notification, and for the
+  names validation messages give the API's inputs and the guest fields
+  (`tickets::validation.attributes` / `guest_fields`); a custom field's error is worded with its
+  own label.
