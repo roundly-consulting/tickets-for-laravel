@@ -11,19 +11,68 @@
 
 # Tickets for Laravel
 
-A headless ticketing core for Laravel apps: categories, swappable statuses, public replies and
+A headless helpdesk core for Laravel apps: categories, swappable statuses, public replies and
 internal notes, assignment, priorities, due dates, custom fields, guest requesters and optional
-projects, behind one facade, an injectable manager and plain actions.
+projects — behind one facade, with an opt-in JSON API and mail notifications in English and Slovak.
 
 ## Installation
 
-Requires PHP 8.4 and Laravel 12 or 13.
+Requires PHP 8.4, Laravel 12 or 13, and a MySQL or PostgreSQL database.
 
 ```bash
 composer require roundly-consulting/tickets-for-laravel
+php artisan tickets:install
+php artisan migrate
 ```
 
-> Work in progress: the install steps and the usage example land with the first release.
+`tickets:install` publishes the config and the migrations of tickets and the packages it builds on,
+and prints the key types to settle first: with UUID or ULID user keys, set them **before**
+migrating. Overdue flags and auto-close run on the scheduler:
+
+```php
+// routes/console.php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('tickets:sweep')->everyFiveMinutes();  // overdue and due-soon flags
+Schedule::command('lifecycle:sweep')->everyMinute();     // closes resolved tickets after 7 days
+```
+
+## Usage
+
+File, work and resolve a ticket through the facade (`$customer` and `$agent` are your users):
+
+```php
+use Illuminate\Support\Facades\Gate;
+use RoundlyConsulting\Tickets\Facades\Tickets;
+
+// Who is an agent is your call — an undefined ability denies.
+Gate::define('tickets.agent', fn ($user) => $user->is_support);
+
+// A category, once: its defaults apply to every ticket filed under it.
+$hardware = Tickets::categories()->make(['en' => 'Hardware', 'sk' => 'Hardvér'])
+    ->defaults(priority: 'high', dueIn: 'P1D')
+    ->create();
+
+// The customer opens a ticket — numbered TCK-1, high priority, due in a day.
+$ticket = Tickets::make()
+    ->subject('Printer on floor 3 is jammed')
+    ->description('Paper jam error E-102 since this morning.')
+    ->requester($customer)
+    ->category($hardware)
+    ->create();
+
+// An agent takes it, answers the customer and leaves a note only agents see.
+Tickets::for($ticket)->by($agent)->claim()->start();
+Tickets::for($ticket)->by($agent)->reply('A technician is on the way.', transition: 'wait');
+Tickets::for($ticket)->by($agent)->note('Roller worn out, order a spare.');
+
+// The customer's reply puts it back in the queue; the agent resolves it.
+Tickets::for($ticket)->by($customer)->reply('Works again, thanks!');
+Tickets::for('TCK-1')->by($agent)->resolve('Roller replaced.');
+
+Tickets::for('TCK-1')->status();   // TicketStatus::Resolved
+Tickets::for('TCK-1')->thread();   // the two public replies — never the note
+```
 
 <!-- roundly-docs:start -->
 ## Documentation

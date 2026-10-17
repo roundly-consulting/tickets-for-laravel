@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Tests\Fixtures\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use RoundlyConsulting\Tickets\Concerns\RequestsTickets;
@@ -15,6 +16,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * @property string|null $name
  * @property string|null $email
  * @property bool $is_agent
+ * @property-read bool $is_support
  */
 final class User extends Authenticatable implements Assignee
 {
@@ -41,6 +43,16 @@ final class User extends Authenticatable implements Assignee
     public function isEligibleTicketAssignee(Ticket $ticket): bool
     {
         return $this->is_agent === true;
+    }
+
+    /**
+     * The README's agent flag (`$user->is_support`), the same column under a host's name.
+     *
+     * @return Attribute<bool, never>
+     */
+    protected function isSupport(): Attribute
+    {
+        return Attribute::get(fn (): bool => $this->is_agent === true);
     }
 
     /**
