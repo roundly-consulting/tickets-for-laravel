@@ -22,9 +22,9 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 /**
  * A guest registered: every ticket they requested and every ticket they watch moves to the
  * user, in one transaction. A watch the user already has — or gains meanwhile — makes the
- * guest's row redundant, so it is deleted rather than colliding on the unique index. The guest's identifying
- * values are force-detached — free for whoever writes in as a guest next — and the guest is
- * soft-deleted. Comments the guest wrote keep the guest as author (history).
+ * guest's row redundant, so it is deleted rather than colliding on the unique index. The
+ * guest's identifying values are force-detached — free for whoever writes in as a guest next —
+ * and the guest is soft-deleted. Comments the guest wrote keep the guest as author (history).
  *
  * Returns how many tickets moved.
  */
