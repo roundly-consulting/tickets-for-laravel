@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use RoundlyConsulting\Tickets\Enums\FieldType;
+use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidMergeException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Http\Resources\TicketGuestResource;
@@ -181,6 +182,22 @@ describe('agent_scope_holds_across_tickets', function (): void {
         $this->sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
         $this->hr = Project::query()->create(['name' => 'People', 'key' => 'HR']);
         $this->scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+    });
+
+    it('shows the other end of a link in full only to whoever may view it', function (): void {
+        $admin = apiAgent('Grace');
+        $sup = Tickets::make()->subject('VPN drops')->requester(apiUser())->project($this->sup)->asSystem()->create();
+        $hr = Tickets::make()->subject('Dismissal of J. Doe — confidential')->requester(apiUser('Bo'))->project($this->hr)->asSystem()->create();
+        Tickets::for($sup)->by($admin)->links()->add($hr, LinkType::RelatesTo);
+
+        $this->actingAs($this->scoped)->getJson("/api/tickets/{$hr->reference}")->assertNotFound();
+        $scoped = $this->actingAs($this->scoped)->getJson("/api/tickets/{$sup->reference}/links")->assertOk();
+        $full = $this->actingAs($admin)->getJson("/api/tickets/{$sup->reference}/links")->assertOk();
+
+        expect($scoped->json('data.0.ticket'))->toBe(['reference' => $hr->reference])
+            ->and((string) $scoped->getContent())->not->toContain('Dismissal of J. Doe')
+            ->and($full->json('data.0.ticket.subject'))->toBe('Dismissal of J. Doe — confidential')
+            ->and($full->json('data.0.ticket.status.value'))->toBe('new');
     });
 
     it('refuses a merge to an agent outside the scope of either ticket', function (): void {
