@@ -6,7 +6,8 @@ namespace RoundlyConsulting\Tickets\DataTransferObjects;
 
 /**
  * One finding of the ticket lifecycle contract check: an error (the package cannot work with
- * the lifecycle) or a warning (it can, but something is off).
+ * the lifecycle) or a warning (it can, but something is off). An acknowledged warning is one the
+ * shipped lifecycle carries on purpose: `tickets:doctor` reports it as ok, with a note.
  */
 final readonly class LifecycleIssue
 {
@@ -14,5 +15,6 @@ final readonly class LifecycleIssue
         public string $code,
         public string $message,
         public bool $error,
+        public bool $acknowledged = false,
     ) {}
 }

@@ -29,6 +29,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - `Tickets::guests()->convert()` no longer fails and rolls back when the user starts watching one of
   the guest's watched tickets while the conversion runs; the guest's watch is dropped in favour of
   the user's, as for a watch the user already had.
+- `tickets:doctor` no longer warns on an untouched install: the shipped lifecycle's
+  `lifecycle.ambiguous_target` (`close` and `dismiss` both lead resolved → closed, so a resolved
+  ticket can still be merged) is reported as ok, with a note to transition by name —
+  `transitionTo(TicketStatus::Closed)` on a resolved ticket throws. Your own lifecycle keeps the
+  warning.
 
 ## 1.0.0 - 2026-10-17
 

@@ -155,6 +155,7 @@ return [
         'routes_unguarded' => 'HTTP API je zapnuté, ale tickets.routes.middleware neobsahuje middleware auth: každý endpoint by odpovedal anonymnému volajúcemu. Pridajte auth (alebo auth:sanctum).',
         'guest_links_unavailable' => 'Predvolený generátor odkazov pre hostí potrebuje trasy pre hostí (tickets.routes.enabled a tickets.guests.enabled): nemožno vydať žiadny odkaz pre hosťa. Zapnite ich alebo zaregistrujte vlastný Contracts\\GuestLinkGenerator.',
         'lifecycle_ok' => 'Životný cyklus [:class] spĺňa kontrakt tiketov aj všetky automatizácie.',
+        'lifecycle_close_dismiss' => 'close aj dismiss vedú vyriešený tiket do stavu uzavretý — dismiss pokrýva aj vyriešený stav, aby sa vyriešený tiket dal zlúčiť. Prechádzajte podľa názvu: transitionTo(TicketStatus::Closed) je pri vyriešenom tikete nejednoznačné a vyhodí výnimku.',
         'conveniences' => 'Podporované pomenované prechody: :list.',
         'meta_missing' => 'Tabuľka komentárov nemá stĺpec `meta`. Zverejnite a spustite migrácie comments-for-laravel 1.1.',
         'meta_ok' => 'Tabuľka komentárov má stĺpec `meta`, do ktorého sa zapisujú odpovede a poznámky.',

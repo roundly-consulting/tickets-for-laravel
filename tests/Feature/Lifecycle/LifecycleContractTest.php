@@ -8,6 +8,7 @@ use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\LifecycleContract;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\BrokenLifecycle;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\ExtendedLifecycle;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\HostLifecycle;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\InvalidLifecycle;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\StringStatesLifecycle;
@@ -47,8 +48,19 @@ describe('swapped_lifecycle_is_validated', function (): void {
 
         expect($doctor['exit'])->toBe(0)
             ->and($doctor['output']['ok'])->toBeTrue()
-            ->and(array_column($doctor['output']['checks'], 'level', 'code'))->toBe(['lifecycle.ambiguous_target' => 'warning', 'contract' => 'ok', 'conveniences' => 'ok'])
+            ->and(array_column($doctor['output']['checks'], 'level', 'code'))->toBe(['lifecycle.ambiguous_target' => 'ok', 'contract' => 'ok', 'conveniences' => 'ok'])
+            ->and($doctor['output']['checks'][0]['message'])->toContain('close and dismiss')->toContain('Transition by name')
             ->and($doctor['output']['checks'][2]['message'])->toContain('start, wait, hold, resume, resolve, reopen, close, dismiss');
+    });
+
+    it('keeps warning about a shared resolved → closed pair in a host\'s own lifecycle', function (): void {
+        config()->set('tickets.lifecycle', ExtendedLifecycle::class);
+
+        $doctor = doctor();
+
+        expect($doctor['exit'])->toBe(0)
+            ->and(array_column($doctor['output']['checks'], 'level', 'code'))->toBe(['lifecycle.ambiguous_target' => 'warning', 'contract' => 'ok', 'conveniences' => 'ok'])
+            ->and($doctor['output']['checks'][0]['message'])->toBe('More than one transition leads from "resolved" to "closed".');
     });
 
     it('passes a valid host lifecycle and warns that it supports no convenience', function (): void {

@@ -97,7 +97,8 @@ class TicketLifecycle extends LifecycleDefinition implements TicketLifecycleCont
 
         // Covers Resolved too, so a resolved ticket can still be merged (or dismissed as
         // spam). It shares resolved → closed with `close`, which lifecycle:validate reports
-        // as one `ambiguous_target` warning — harmless, tickets never calls transitionTo().
+        // as one `ambiguous_target` warning (tickets:doctor: ok, with a note). Tickets always
+        // transitions by name; transitionTo(Closed) on a resolved ticket would throw.
         $lifecycle->transition(self::DISMISS)
             ->from(TicketStatus::New, TicketStatus::Open, TicketStatus::InProgress, TicketStatus::Pending, TicketStatus::OnHold, TicketStatus::Resolved)
             ->to(TicketStatus::Closed)

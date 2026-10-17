@@ -155,6 +155,7 @@ return [
         'routes_unguarded' => 'The HTTP API is on, but tickets.routes.middleware holds no auth middleware: every endpoint would answer an anonymous caller. Add auth (or auth:sanctum).',
         'guest_links_unavailable' => 'The default guest-link generator needs the guest routes (tickets.routes.enabled and tickets.guests.enabled): no guest link can be issued. Switch them on, or bind your own Contracts\\GuestLinkGenerator.',
         'lifecycle_ok' => 'The lifecycle [:class] satisfies the ticket contract and every automation.',
+        'lifecycle_close_dismiss' => 'close and dismiss both lead a resolved ticket to closed — dismiss covers resolved so a resolved ticket can still be merged. Transition by name: transitionTo(TicketStatus::Closed) on a resolved ticket is ambiguous and throws.',
         'conveniences' => 'Named transition conveniences supported: :list.',
         'meta_missing' => 'The comments table has no `meta` column. Publish and run the comments-for-laravel 1.1 migrations.',
         'meta_ok' => 'The comments table carries the `meta` column replies and notes are written with.',

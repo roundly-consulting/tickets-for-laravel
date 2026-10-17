@@ -7,10 +7,13 @@ namespace RoundlyConsulting\Tickets\Support;
 use Illuminate\Support\Facades\App;
 use RoundlyConsulting\Lifecycle\Definition\CompiledDefinition;
 use RoundlyConsulting\Lifecycle\Definition\DefinitionRegistry;
+use RoundlyConsulting\Lifecycle\Definition\Issue;
+use RoundlyConsulting\Lifecycle\Enums\IssueCode;
 use RoundlyConsulting\Tickets\Contracts\TicketLifecycle;
 use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\DataTransferObjects\LifecycleIssue;
 use RoundlyConsulting\Tickets\Enums\Automation;
+use RoundlyConsulting\Tickets\Enums\TicketStatus;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLifecycleException;
 use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle as ShippedLifecycle;
 
@@ -74,7 +77,9 @@ final class LifecycleContract
         $report = $registry->validate($class);
 
         foreach ($report->issues as $issue) {
-            $issues[] = new LifecycleIssue('lifecycle.'.$issue->code->value, $issue->message(), $issue->isError());
+            $issues[] = self::isShippedCloseDismissPair($class, $issue)
+                ? new LifecycleIssue('lifecycle.'.$issue->code->value, Messages::get('doctor.lifecycle_close_dismiss'), false, acknowledged: true)
+                : new LifecycleIssue('lifecycle.'.$issue->code->value, $issue->message(), $issue->isError());
         }
 
         if (! $report->isValid()) {
@@ -191,6 +196,20 @@ final class LifecycleContract
         }
 
         return $keys;
+    }
+
+    /**
+     * The one warning the shipped lifecycle carries on purpose: `close` and `dismiss` both lead
+     * resolved → closed, because `dismiss` covers resolved so a resolved ticket can still be
+     * merged. A host's own lifecycle keeps the warning, a subclass of the shipped one included.
+     */
+    private static function isShippedCloseDismissPair(string $class, Issue $issue): bool
+    {
+        return $class === ShippedLifecycle::class
+            && $issue->code === IssueCode::AmbiguousTarget
+            && ($issue->params['state'] ?? null) === TicketStatus::Resolved->value
+            && ($issue->params['target'] ?? null) === TicketStatus::Closed->value
+            && in_array($issue->params['transition'] ?? null, [ShippedLifecycle::CLOSE, ShippedLifecycle::DISMISS], true);
     }
 
     /**

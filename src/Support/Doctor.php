@@ -150,7 +150,11 @@ final class Doctor
         $issues = LifecycleContract::issues();
 
         $checks = array_map(
-            static fn (LifecycleIssue $issue): DoctorCheck => new DoctorCheck('lifecycle', $issue->code, $issue->message, $issue->error ? 'error' : 'warning'),
+            static fn (LifecycleIssue $issue): DoctorCheck => new DoctorCheck('lifecycle', $issue->code, $issue->message, match (true) {
+                $issue->error => 'error',
+                $issue->acknowledged => 'ok',
+                default => 'warning',
+            }),
             $issues,
         );
 
