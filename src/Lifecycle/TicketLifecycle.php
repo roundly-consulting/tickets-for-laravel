@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Lifecycle;
 
+use Carbon\CarbonInterval;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleBuilder;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleDefinition;
 use RoundlyConsulting\Tickets\Contracts\TicketLifecycle as TicketLifecycleContract;
 use RoundlyConsulting\Tickets\Enums\Automation;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
 /**
  * The shipped ticket lifecycle: seven states in five status categories and nine transitions.
@@ -46,7 +48,13 @@ class TicketLifecycle extends LifecycleDefinition implements TicketLifecycleCont
             ->initial(TicketStatus::New)
             ->terminal(TicketStatus::Closed);
 
-        $lifecycle->state(TicketStatus::Resolved)->stamps('resolved_at');
+        // Auto-close: lifecycle's sweep applies `close` once the TTL passes. The closure is
+        // evaluated when a ticket enters Resolved (a config change affects later resolutions
+        // only); `off` returns null — never expires.
+        $lifecycle->state(TicketStatus::Resolved)
+            ->stamps('resolved_at')
+            ->ttl(static fn (): ?CarbonInterval => TicketsConfig::autoCloseAfter())
+            ->expiresVia(self::CLOSE);
         $lifecycle->state(TicketStatus::Closed)->stamps('closed_at');
 
         $lifecycle->transition(self::OPEN)

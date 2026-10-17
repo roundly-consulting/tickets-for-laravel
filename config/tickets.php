@@ -72,6 +72,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Auto-close
+    |--------------------------------------------------------------------------
+    |
+    | How long a resolved ticket waits before it is closed: an ISO-8601
+    | duration (P7D, PT12H), or `off` to never close automatically. Read when a
+    | ticket is resolved. Needs `lifecycle:sweep` on the scheduler (every
+    | minute) — the shipped lifecycle closes through its Resolved state's TTL.
+    |
+    */
+
+    'auto_close' => [
+        'after' => env('TICKETS_AUTO_CLOSE_AFTER', 'P7D'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Priority
     |--------------------------------------------------------------------------
     |

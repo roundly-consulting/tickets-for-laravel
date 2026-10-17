@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Support;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use ReflectionEnum;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleDefinition;
 use RoundlyConsulting\PackageToolkit\Support\Config;
@@ -168,6 +169,23 @@ final class TicketsConfig
         return self::read()->list('tickets.fields.allowed_rules', [
             'min', 'max', 'between', 'regex', 'digits', 'digits_between', 'alpha', 'alpha_num', 'alpha_dash', 'starts_with', 'ends_with',
         ]);
+    }
+
+    /**
+     * How long a resolved ticket waits before lifecycle's sweep closes it
+     * (`tickets.auto_close.after`: an ISO-8601 duration, or `off` for never). Read when a
+     * ticket enters Resolved, so a change applies to later resolutions only.
+     */
+    public static function autoCloseAfter(): ?CarbonInterval
+    {
+        $value = self::read()->string('tickets.auto_close.after', 'P7D');
+
+        if (strtolower(trim($value)) === 'off') {
+            return null;
+        }
+
+        return Durations::parse($value)
+            ?? throw InvalidTicketsConfigurationException::invalid('tickets.auto_close.after', 'an ISO-8601 duration (P7D, PT12H) or off');
     }
 
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
