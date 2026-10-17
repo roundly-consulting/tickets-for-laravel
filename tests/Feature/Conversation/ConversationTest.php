@@ -246,11 +246,15 @@ describe('reply_with_transition_is_atomic', function (): void {
     it('leaves no reply when the transition is denied', function (Closure $reply, string $exception): void {
         $ticket = convTicket();
         $activities = TicketActivity::query()->count();
+        // The stored clock before the attempt — the bound instance may carry the rolled-back
+        // write, so comparing against it fails whenever the second ticks over in between.
+        $clock = $ticket->fresh()?->last_activity_at;
 
         expect(fn () => $reply($ticket))->toThrow($exception)
             ->and(Comment::query()->count())->toBe(0)
             ->and(TicketActivity::query()->count())->toBe($activities)
-            ->and($ticket->fresh()?->last_activity_at?->equalTo($ticket->last_activity_at))->toBeTrue();
+            ->and($clock)->not->toBeNull()
+            ->and($ticket->fresh()?->last_activity_at?->equalTo($clock))->toBeTrue();
     })->with([
         'not allowed from the state' => [fn (Ticket $ticket) => Tickets::for($ticket)->by(convAgent())->reply('Reopening.', transition: 'reopen'), TransitionDeniedException::class],
         'missing its required reason' => [fn (Ticket $ticket) => Tickets::for($ticket)->by(convAgent())->reply('Parking it.', transition: 'hold'), TransitionDeniedException::class],
