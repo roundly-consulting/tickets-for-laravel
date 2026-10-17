@@ -115,6 +115,7 @@ final class TicketController extends Controller
     {
         $viewer = $this->viewer($request);
         $model = $this->ticket($ticket);
+        $this->authorize($viewer, 'view', [$model]);
         $this->authorize($viewer, 'delete', [$model]);
 
         $this->handle($model, $viewer)->delete();
@@ -126,6 +127,7 @@ final class TicketController extends Controller
     {
         $viewer = $this->viewer($request);
         $model = $this->ticket($ticket, withTrashed: true);
+        $this->authorize($viewer, 'view', [$model]);
         $this->authorize($viewer, 'restore', [$model]);
 
         $this->handle($model, $viewer)->restore();

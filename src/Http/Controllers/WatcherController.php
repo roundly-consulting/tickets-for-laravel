@@ -71,6 +71,7 @@ final class WatcherController extends Controller
     {
         $viewer = $this->viewer($request);
         $model = $this->ticket($ticket);
+        $this->authorize($viewer, 'view', [$model]);
         $this->authorize($viewer, 'manageWatchers', [$model, $viewer->model]);
 
         $this->handle($model, $viewer)->watchers()->watch();
@@ -82,6 +83,7 @@ final class WatcherController extends Controller
     {
         $viewer = $this->viewer($request);
         $model = $this->ticket($ticket);
+        $this->authorize($viewer, 'view', [$model]);
         $this->authorize($viewer, 'manageWatchers', [$model, $viewer->model]);
 
         $this->handle($model, $viewer)->watchers()->unwatch();

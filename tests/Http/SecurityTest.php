@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use RoundlyConsulting\Tickets\Enums\FieldType;
@@ -16,8 +17,10 @@ use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketWatcher;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
+use RoundlyConsulting\Tickets\Tests\Fixtures\ProjectAgentScope;
 
 beforeEach(fn () => apiAbilities());
 
@@ -124,6 +127,50 @@ describe('internal_notes_never_reach_non_agents', function (): void {
         $bodies = collect($this->actingAs($agent)->getJson("/api/tickets/{$reference}/comments?internal=1")->assertOk()->json('data'))->pluck('body')->all();
 
         expect($bodies)->toContain('SECRET-NOTE')->toContain('PUBLIC-REPLY');
+    });
+});
+
+describe('hidden_tickets_answer_like_missing_ones', function (): void {
+    it('answers a ticket the user may not view with the 404 of a missing one', function (string $method, string $path): void {
+        $stranger = apiAdmin();
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        $stranger->forceFill(['name' => 'Scoped'])->save();
+        Gate::define('tickets.manage', static fn (User $user): bool => $user->name === 'Scoped');
+        Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $ticket = apiTicket(apiUser('Owner'));
+        if ($path === '/restore') {
+            Tickets::for($ticket)->asSystem()->delete();
+        }
+
+        $hidden = $this->actingAs($stranger)->json($method, "/api/tickets/{$ticket->reference}{$path}");
+        $missing = $this->actingAs($stranger)->json($method, "/api/tickets/TCK-999{$path}");
+
+        $missing->assertNotFound();
+        $hidden->assertNotFound()->assertJson(['code' => 'ticket_not_found']);
+        expect(Ticket::withTrashed()->whereKey($ticket->getKey())->sole()->trashed())->toBe($path === '/restore')
+            ->and($ticket->watchers()->count())->toBe(1);
+    })->with([
+        'delete' => ['DELETE', ''],
+        'restore' => ['POST', '/restore'],
+        'watch' => ['POST', '/watch'],
+        'unwatch' => ['DELETE', '/watch'],
+    ]);
+
+    it('lets a manager delete and restore only tickets they work on as an agent', function (): void {
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        Gate::define('tickets.manage', static fn (User $user): bool => true);
+        $sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+        $mine = apiTicket($scoped, 'My own, outside the scope');
+        $inScope = Tickets::make()->subject('VPN drops')->requester(apiUser())->project($sup)->asSystem()->create();
+
+        // Their own ticket they see as its requester — but they are no agent on it.
+        $this->actingAs($scoped)->deleteJson("/api/tickets/{$mine->reference}")->assertForbidden();
+        $this->actingAs($scoped)->deleteJson("/api/tickets/{$inScope->reference}")->assertNoContent();
+        $this->actingAs($scoped)->postJson("/api/tickets/{$inScope->reference}/restore")->assertOk();
+
+        expect($mine->fresh()?->trashed())->toBeFalse()
+            ->and($inScope->fresh()?->trashed())->toBeFalse();
     });
 });
 

@@ -86,14 +86,21 @@ class TicketPolicy
         return array_diff($attributes, $editable) === [];
     }
 
+    /**
+     * The manage ability, held by an agent the agent scope lets work on the ticket — a manager
+     * is scoped like every other agent.
+     */
     public function delete(Model $user, Ticket $ticket): bool
     {
-        return self::allows($user, TicketsConfig::manageAbility());
+        return TicketVisibility::isAgentFor($user, $ticket) && self::allows($user, TicketsConfig::manageAbility());
     }
 
+    /**
+     * As {@see self::delete()}.
+     */
     public function restore(Model $user, Ticket $ticket): bool
     {
-        return self::allows($user, TicketsConfig::manageAbility());
+        return TicketVisibility::isAgentFor($user, $ticket) && self::allows($user, TicketsConfig::manageAbility());
     }
 
     /**

@@ -331,8 +331,9 @@ describe('watchers, tags, links, merge, attachments, activity', function (): voi
             ->assertCreated()->assertJsonCount(2, 'data');
         $this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}/watchers")->assertOk()->assertJsonPath('data.1', ['type' => 'user', 'id' => $cc->id, 'name' => 'Cc']);
         $this->actingAs($agent)->deleteJson("/api/tickets/{$ticket->reference}/watchers/user:{$cc->id}")->assertNoContent();
-        // Unwatched, a CC'd colleague can no longer see the ticket — so cannot watch it again.
-        $this->actingAs($cc)->postJson("/api/tickets/{$ticket->reference}/watch")->assertForbidden();
+        // Unwatched, a CC'd colleague can no longer see the ticket — so cannot watch it again
+        // (hidden = missing).
+        $this->actingAs($cc)->postJson("/api/tickets/{$ticket->reference}/watch")->assertNotFound();
 
         $requester = User::query()->where('name', 'Ada')->firstOrFail();
         $this->actingAs($requester)->deleteJson("/api/tickets/{$ticket->reference}/watch")->assertNoContent();
