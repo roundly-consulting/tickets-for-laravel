@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\ExpectationFailedException;
 use RoundlyConsulting\Attributes\Models\Attribute;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateFieldData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
@@ -237,6 +239,46 @@ describe('custom_field_rules', function (): void {
             ->and(Attribute::query()->where('name', 'legacy_code')->count())->toBe(1)
             ->and(Tickets::fields()->prune())->toBe(0);
     });
+
+    it('prunes chunk by chunk, through the facade and tickets:prune-fields', function (): void {
+        $field = Tickets::fields()->make('asset_tag', FieldType::Text)->define();
+        fieldTicket(fields: ['asset_tag' => 'PRN-1']);
+        fieldTicket(fields: ['asset_tag' => 'PRN-2']);
+        fieldTicket(fields: ['asset_tag' => 'PRN-3']);
+        Tickets::fields()->delete($field);
+        $fake = Tickets::fake();
+
+        expect(Tickets::fields()->prune(dryRun: true, chunk: 1))->toBe(3)
+            ->and(Artisan::call('tickets:prune-fields', ['--dry-run' => true, '--chunk' => '2']))->toBe(0)
+            ->and(Artisan::output())->toContain('3 orphaned field values would be forgotten.')
+            ->and(Attribute::query()->where('name', 'asset_tag')->count())->toBe(3);
+
+        $fake->assertFieldsPruned(true, 1);
+        $fake->assertFieldsPruned(true, 2);
+
+        expect(fn () => $fake->assertFieldsPruned(true, 50))->toThrow(ExpectationFailedException::class, 'none matched')
+            ->and(Artisan::call('tickets:prune-fields', ['--chunk' => '1']))->toBe(0)
+            ->and(Artisan::output())->toContain('Forgot 3 orphaned field values.')
+            ->and(Attribute::withTrashed()->where('name', 'asset_tag')->count())->toBe(0);
+
+        $fake->assertFieldsPruned(false, 1);
+
+        app()->setLocale('sk');
+
+        expect(Artisan::call('tickets:prune-fields'))->toBe(0)
+            ->and(Artisan::output())->toContain('Zabudnutých 0 osirelých hodnôt polí.');
+
+        $fake->assertFieldsPruned(false, 200);
+    });
+
+    it('refuses a chunk that is no positive whole number', function (string $chunk): void {
+        $fake = Tickets::fake();
+
+        expect(Artisan::call('tickets:prune-fields', ['--chunk' => $chunk]))->toBe(2)
+            ->and(Artisan::output())->toContain('--chunk');
+
+        $fake->assertNoFieldsPruned();
+    })->with(['zero' => ['0'], 'negative' => ['-5'], 'text' => ['many'], 'fraction' => ['1.5']]);
 
     it('refuses to restore a field whose key was taken meanwhile', function (): void {
         $field = Tickets::fields()->make('asset_tag', FieldType::Text)->define();

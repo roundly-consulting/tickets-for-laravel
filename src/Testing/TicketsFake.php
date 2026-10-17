@@ -508,12 +508,13 @@ final class TicketsFake extends TicketsManager
     }
 
     /**
-     * Orphaned field values were pruned — for real, or with `$dryRun`, counted.
+     * Orphaned field values were pruned — for real, or with `$dryRun`, counted; `$chunk`
+     * tickets at a time.
      */
-    public function assertFieldsPruned(?bool $dryRun = null): void
+    public function assertFieldsPruned(?bool $dryRun = null, ?int $chunk = null): void
     {
-        $this->assertRecorded(TicketOperation::PruneFields, static fn (RecordedTicketOperation $recorded): bool => $dryRun === null
-            || $recorded->context['dry_run'] === $dryRun);
+        $this->assertRecorded(TicketOperation::PruneFields, static fn (RecordedTicketOperation $recorded): bool => ($dryRun === null
+            || $recorded->context['dry_run'] === $dryRun) && ($chunk === null || $recorded->context['chunk'] === $chunk));
     }
 
     public function assertNoFieldsPruned(): void

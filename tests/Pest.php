@@ -8,6 +8,7 @@ use RoundlyConsulting\Tickets\Tests\Fixtures\HttpTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\SwappedModelsTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UlidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UuidKeyTestCase;
+use RoundlyConsulting\Tickets\Tests\Install\InstallTestCase;
 use RoundlyConsulting\Tickets\Tests\TestCase;
 
 // Explicit directories, never a blanket `->in(__DIR__)`: Pest binds a test case per
@@ -17,6 +18,9 @@ uses(TestCase::class)->in('Arch', 'Feature', 'Unit', 'RealEngine');
 
 // The HTTP API: its routes load at boot, so they are switched on before it.
 uses(HttpTestCase::class)->in('Http');
+
+// `tickets:install` publishes into a per-test sandbox, never the shared Testbench skeleton.
+uses(InstallTestCase::class)->in('Install');
 
 // The model-swap proofs need `tickets.models.*` pointed at host subclasses before boot.
 uses(SwappedModelsTestCase::class)->in('ModelSwap');

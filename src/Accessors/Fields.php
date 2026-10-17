@@ -90,15 +90,16 @@ final readonly class Fields
 
     /**
      * Forget the values no field of their ticket accounts for any more (a deleted field, a
-     * category the ticket left); returns how many — with `$dryRun`, only counts them.
+     * category the ticket left); returns how many — with `$dryRun`, only counts them. Tickets
+     * are walked `$chunk` at a time.
      */
-    public function prune(bool $dryRun = false): int
+    public function prune(bool $dryRun = false, int $chunk = 200): int
     {
         return $this->manager->perform(
             TicketOperation::PruneFields,
             PruneOrphanFieldValuesAction::class,
-            static fn (PruneOrphanFieldValuesAction $action): int => $action->execute($dryRun),
-            ['dry_run' => $dryRun],
+            static fn (PruneOrphanFieldValuesAction $action): int => $action->execute($dryRun, $chunk),
+            ['dry_run' => $dryRun, 'chunk' => $chunk],
         );
     }
 

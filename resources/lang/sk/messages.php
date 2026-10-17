@@ -180,4 +180,25 @@ return [
         'overdue' => '{1} :count tiket je po termíne.|[2,4] :count tikety sú po termíne.|[0,*] :count tiketov je po termíne.',
         'due_soon' => '{1} :count tiketu sa blíži termín.|[2,4] :count tiketom sa blíži termín.|[0,*] :count tiketom sa blíži termín.',
     ],
+
+    'prune' => [
+        'pruned' => '{1} Zabudnutá :count osirelá hodnota poľa.|[2,4] Zabudnuté :count osirelé hodnoty polí.|[0,*] Zabudnutých :count osirelých hodnôt polí.',
+        'dry_run' => '{1} Zabudla by sa :count osirelá hodnota poľa.|[2,4] Zabudli by sa :count osirelé hodnoty polí.|[0,*] Zabudlo by sa :count osirelých hodnôt polí.',
+        'invalid_chunk' => 'Voľba --chunk musí byť celé číslo od 1 do 999999.',
+    ],
+
+    'install' => [
+        'published' => 'Zverejnené :tag',
+        'key_primary' => 'tikety a hostia',
+        'key_outbound' => 'žiadatelia, riešitelia a aktéri',
+        'key_lifecycle' => 'subjekty životného cyklu',
+        'key_lifecycle_actor' => 'aktéri životného cyklu',
+        'key_comments' => 'autori a predmety komentárov',
+        'key_attributes' => 'vlastníci atribútov',
+        'key_types' => 'Pred spustením migrácií nastavte všetky typy kľúčov vyššie na rovnakú hodnotu (bigint, uuid alebo ulid) — stĺpce sa potom už nedajú zmeniť.',
+        'next' => 'Ďalšie kroky',
+        'abilities' => 'Definujte, kto je agent (a oprávnenia tickets.assign a tickets.manage):',
+        'schedule' => 'Naplánujte kontroly (routes/console.php):',
+        'routes' => 'JSON API je vypnuté: nastavte TICKETS_ROUTES=on, ak ho chcete sprístupniť, a php artisan vendor:publish --tag=tickets-routes, ak chcete upraviť jeho trasy.',
+    ],
 ];

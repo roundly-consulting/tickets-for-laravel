@@ -15,8 +15,8 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * `priority`, `category`, `due_at`, `requester`, `transition` (ticket changes); `comment`
  * (conversation edits); `assignee`, `watcher`, `tags` (names or slugs), `related` + `type`
  * (links), `target` + `reason` (merges), `media` (uuid), `keys` (custom field values);
- * `parent`, `reassign_to` (categories); `field`, `dry_run` (fields); `tag` (tags); `guest`,
- * `user` (guests and guest links). The sweep records no context — its result is the
+ * `parent`, `reassign_to` (categories); `field`, `dry_run`, `chunk` (fields); `tag` (tags);
+ * `guest`, `user` (guests and guest links). The sweep records no context — its result is the
  * {@see SweepResult}.
  */
 final readonly class RecordedTicketOperation

@@ -22,6 +22,8 @@ use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
 use RoundlyConsulting\Tickets\Assignment\CategoryDefaultStrategy;
 use RoundlyConsulting\Tickets\Authorization\UnrestrictedAgentScope;
 use RoundlyConsulting\Tickets\Commands\DoctorCommand;
+use RoundlyConsulting\Tickets\Commands\InstallCommand;
+use RoundlyConsulting\Tickets\Commands\PruneFieldsCommand;
 use RoundlyConsulting\Tickets\Commands\SweepCommand;
 use RoundlyConsulting\Tickets\Contracts\AgentScope;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
@@ -52,7 +54,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
             ->hasMigrations()
             ->hasTranslations()
             ->hasRoutes('tickets.php', 'tickets.routes.enabled')
-            ->hasCommands([DoctorCommand::class, SweepCommand::class])
+            ->hasCommands([InstallCommand::class, DoctorCommand::class, SweepCommand::class, PruneFieldsCommand::class])
             ->contributesToAbout(static fn (): array => [
                 'Primary key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.primary_key_type')->value),
                 'Key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.key_type')->value),

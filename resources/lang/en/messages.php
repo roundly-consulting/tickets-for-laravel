@@ -180,4 +180,25 @@ return [
         'overdue' => '{1} :count ticket became overdue.|[0,*] :count tickets became overdue.',
         'due_soon' => '{1} :count ticket is due soon.|[0,*] :count tickets are due soon.',
     ],
+
+    'prune' => [
+        'pruned' => '{1} Forgot :count orphaned field value.|[0,*] Forgot :count orphaned field values.',
+        'dry_run' => '{1} :count orphaned field value would be forgotten.|[0,*] :count orphaned field values would be forgotten.',
+        'invalid_chunk' => 'The --chunk option must be a whole number from 1 to 999999.',
+    ],
+
+    'install' => [
+        'published' => 'Published :tag',
+        'key_primary' => 'tickets and guests',
+        'key_outbound' => 'requesters, assignees and actors',
+        'key_lifecycle' => 'lifecycle subjects',
+        'key_lifecycle_actor' => 'lifecycle actors',
+        'key_comments' => 'comment authors and subjects',
+        'key_attributes' => 'attribute owners',
+        'key_types' => 'Set every key type above to the same value (bigint, uuid or ulid) before running the migrations — the columns cannot change afterwards.',
+        'next' => 'Next steps',
+        'abilities' => 'Define who is an agent (and the tickets.assign and tickets.manage abilities):',
+        'schedule' => 'Schedule the sweeps (routes/console.php):',
+        'routes' => 'The JSON API is off: set TICKETS_ROUTES=on to serve it, and php artisan vendor:publish --tag=tickets-routes to customise its routes.',
+    ],
 ];

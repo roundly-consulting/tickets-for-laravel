@@ -19,6 +19,7 @@ use RoundlyConsulting\Tickets\Notifications\TicketOverdueNotification;
 use RoundlyConsulting\Tickets\Notifications\TicketRepliedNotification;
 use RoundlyConsulting\Tickets\Notifications\TicketRequesterRepliedNotification;
 use RoundlyConsulting\Tickets\Notifications\TicketStatusChangedNotification;
+use RoundlyConsulting\Tickets\Support\Messages;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 
 /**
@@ -125,3 +126,36 @@ it('renders every notification in english and in slovak', function (): void {
     expect((new TicketStatusChangedNotification($ticket, TicketStatusChangedNotification::RESOLVED))->toMail($ada)->subject)->toBe('[TCK-1] Vyriešené: Printer jammed')
         ->and((new TicketOverdueNotification($ticket, $due))->toMail($ada)->introLines[0])->toContain('2030')->toContain('januára');
 });
+
+it('counts in both languages, every count reaching a form', function (string $key, string $locale, array $expected): void {
+    app()->setLocale($locale);
+
+    foreach ($expected as $count => $line) {
+        expect(Messages::choice($key, $count, ['class' => 'Priority']))->toBe($line);
+    }
+})->with([
+    'sweep overdue, english' => ['sweep.overdue', 'en', [
+        0 => '0 tickets became overdue.', 1 => '1 ticket became overdue.', 3 => '3 tickets became overdue.', 5 => '5 tickets became overdue.',
+    ]],
+    'sweep overdue, slovak' => ['sweep.overdue', 'sk', [
+        0 => '0 tiketov je po termíne.', 1 => '1 tiket je po termíne.', 3 => '3 tikety sú po termíne.', 5 => '5 tiketov je po termíne.',
+    ]],
+    'sweep due soon, slovak' => ['sweep.due_soon', 'sk', [
+        0 => '0 tiketom sa blíži termín.', 1 => '1 tiketu sa blíži termín.', 3 => '3 tiketom sa blíži termín.', 5 => '5 tiketom sa blíži termín.',
+    ]],
+    'prune, english' => ['prune.pruned', 'en', [
+        0 => 'Forgot 0 orphaned field values.', 1 => 'Forgot 1 orphaned field value.', 3 => 'Forgot 3 orphaned field values.', 5 => 'Forgot 5 orphaned field values.',
+    ]],
+    'prune, slovak' => ['prune.pruned', 'sk', [
+        0 => 'Zabudnutých 0 osirelých hodnôt polí.', 1 => 'Zabudnutá 1 osirelá hodnota poľa.', 3 => 'Zabudnuté 3 osirelé hodnoty polí.', 5 => 'Zabudnutých 5 osirelých hodnôt polí.',
+    ]],
+    'prune dry run, slovak' => ['prune.dry_run', 'sk', [
+        0 => 'Zabudlo by sa 0 osirelých hodnôt polí.', 1 => 'Zabudla by sa 1 osirelá hodnota poľa.', 3 => 'Zabudli by sa 3 osirelé hodnoty polí.', 5 => 'Zabudlo by sa 5 osirelých hodnôt polí.',
+    ]],
+    'unknown priorities, slovak' => ['doctor.priority_unknown', 'sk', [
+        1 => '1 tiket má prioritu, ktorú [Priority] už nepozná: číta sa ako bez priority a radí sa na koniec.',
+        3 => '3 tikety majú prioritu, ktorú [Priority] už nepozná: čítajú sa ako bez priority a radia sa na koniec.',
+        5 => '5 tiketov má prioritu, ktorú [Priority] už nepozná: čítajú sa ako bez priority a radia sa na koniec.',
+        0 => '0 tiketov má prioritu, ktorú [Priority] už nepozná: čítajú sa ako bez priority a radia sa na koniec.',
+    ]],
+]);

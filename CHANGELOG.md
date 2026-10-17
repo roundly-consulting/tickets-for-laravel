@@ -171,4 +171,9 @@ Initial public release.
   the lifecycle, the priority enum and stored priorities it lost, the Gate abilities, the alias
   lists, the guest fields, the comments `meta` column, the attachments disk and its download URLs,
   the API and guest links (an error when guests are notified), notifications and due dates.
+- `php artisan tickets:install`: publishes the config and every migration a ticketing installation
+  needs (tickets, lifecycle, comments and its add-ons, media, attributes), shows the key types to
+  align before migrating and prints the next steps.
+- `php artisan tickets:prune-fields` (`--dry-run`, `--chunk`), and `Tickets::fields()->prune($dryRun,
+  $chunk)`.
 - `about` shows whether notifications are on, and on which channels.
