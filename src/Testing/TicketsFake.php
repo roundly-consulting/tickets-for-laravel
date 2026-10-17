@@ -8,11 +8,14 @@ use BackedEnum;
 use Closure;
 use Illuminate\Contracts\Container\Container;
 use PHPUnit\Framework\Assert as PHPUnit;
+use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
@@ -176,6 +179,56 @@ final class TicketsFake extends TicketsManager
     public function assertNothingTransitioned(): void
     {
         $this->assertNotRecorded(TicketOperation::Transition);
+    }
+
+    // Conversation --------------------------------------------------------------------
+
+    /**
+     * A public reply was posted — on `$ticket`, by an author holding `$role`.
+     */
+    public function assertReplied(Ticket|string|null $ticket = null, AuthorRole|string|null $role = null): void
+    {
+        $expected = $role instanceof AuthorRole ? $role : ($role === null ? null : AuthorRole::from($role));
+
+        $this->assertRecorded(TicketOperation::Reply, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($expected === null || ($recorded->result instanceof Comment && TicketComments::role($recorded->result) === $expected)));
+    }
+
+    public function assertNothingReplied(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Reply);
+    }
+
+    public function assertNoted(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Note, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingNoted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Note);
+    }
+
+    public function assertCommentUpdated(?Comment $comment = null): void
+    {
+        $this->assertRecorded(TicketOperation::UpdateComment, static fn (RecordedTicketOperation $recorded): bool => $comment === null
+            || ($recorded->model('comment')?->is($comment) ?? false));
+    }
+
+    public function assertNoCommentUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::UpdateComment);
+    }
+
+    public function assertCommentDeleted(?Comment $comment = null): void
+    {
+        $this->assertRecorded(TicketOperation::DeleteComment, static fn (RecordedTicketOperation $recorded): bool => $comment === null
+            || ($recorded->model('comment')?->is($comment) ?? false));
+    }
+
+    public function assertNoCommentDeleted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DeleteComment);
     }
 
     // Categories ----------------------------------------------------------------------

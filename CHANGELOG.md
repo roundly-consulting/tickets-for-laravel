@@ -63,3 +63,21 @@ Initial public release.
   `status_changed` activity written atomically with every state change.
 - `php artisan tickets:doctor` (`--json`): checks the configured lifecycle against the ticket
   contract and its automations, and lists the transition conveniences it supports.
+- The ticket conversation on comments-for-laravel 1.1: `Tickets::for($ticket)->reply()` (a public
+  reply, optionally with a transition applied atomically) and `note()` (an internal note, agents
+  only, `visible = false` and marked internal), `editComment()`, `deleteComment()` and `thread()`
+  (public, or every message with `internal: true`), plus `$ticket->reply()` / `$ticket->note()`.
+  Every message carries `meta.tickets = {internal, role, channel}`; host meta keys are kept.
+- Author roles computed when a message is posted (requester, agent through the
+  `tickets.authorization.abilities.agent` Gate ability, watcher as participant, system); anyone
+  else is refused with `TicketAccessDeniedException`, and a Closed ticket takes no message
+  (`TicketClosedException`).
+- Reply automations: a requester or participant reply resumes a waiting ticket and reopens a
+  resolved one (`tickets.comments.reply_reopens`); the first public agent reply stamps
+  `first_responded_at` once.
+- Host moderation respected: a reply `comments.require_approval` held is approved
+  (`tickets.comments.auto_approve`), a reply the host's blocklist held never is.
+- `TicketReplied`, `TicketNoteAdded`, `TicketFirstResponded` and `TicketMentioned` (a mention
+  passed on only to someone who may read the comment) events; reply and note attachments on the
+  comment's private bucket; `tickets:doctor` checks the comments `meta` column and warns about
+  `comments.authorization`.

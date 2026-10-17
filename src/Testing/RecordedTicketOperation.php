@@ -11,8 +11,8 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 /**
  * One operation recorded by {@see TicketsFake}: what ran, with which arguments, and what it
  * returned. Context keys: `ticket`, `actor`, `system` (handle calls); `data` (DTOs);
- * `priority`, `category`, `due_at`, `requester`, `transition` (ticket changes); `parent`,
- * `reassign_to` (categories); `guest`, `user` (guests).
+ * `priority`, `category`, `due_at`, `requester`, `transition` (ticket changes); `comment`
+ * (conversation edits); `parent`, `reassign_to` (categories); `guest`, `user` (guests).
  */
 final readonly class RecordedTicketOperation
 {

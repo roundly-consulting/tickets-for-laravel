@@ -31,6 +31,13 @@ return [
         'unknown_channel' => 'The channel [:channel] is not one of the configured channels.',
         'unknown_priority' => 'The priority is not one of the configured priorities.',
         'requester_required' => 'A ticket needs a requester: a user or guest fields.',
+        'closed' => 'Ticket [:reference] is closed and takes no more messages. Open a follow-up ticket instead.',
+    ],
+
+    'conversation' => [
+        'not_a_participant' => 'Only the requester, an agent or a watcher may write on ticket [:reference].',
+        'not_an_agent' => 'Only an agent may add an internal note to ticket [:reference].',
+        'comment_not_found' => 'Comment [:comment] is not part of ticket [:reference].',
     ],
 
     'project' => [
@@ -80,5 +87,8 @@ return [
     'doctor' => [
         'lifecycle_ok' => 'The lifecycle [:class] satisfies the ticket contract and every automation.',
         'conveniences' => 'Named transition conveniences supported: :list.',
+        'meta_missing' => 'The comments table has no `meta` column. Publish and run the comments-for-laravel 1.1 migrations.',
+        'meta_ok' => 'The comments table carries the `meta` column replies and notes are written with.',
+        'comments_authorization' => 'comments.authorization is on: comments checks the authenticated user on every ticket reply, note, approval and lock. Let your CommentPolicy allow ticket commentables, or guest replies, system notes and the auto-close lock will be refused.',
     ],
 ];

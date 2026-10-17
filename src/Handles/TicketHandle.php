@@ -7,12 +7,20 @@ namespace RoundlyConsulting\Tickets\Handles;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use Illuminate\Container\Container;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
+use RoundlyConsulting\Comments\CommentsManager;
+use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Lifecycle\DataTransferObjects\AvailableTransition;
 use RoundlyConsulting\Lifecycle\DataTransferObjects\TransitionResult;
 use RoundlyConsulting\Lifecycle\LifecycleHandle;
 use RoundlyConsulting\Lifecycle\LifecycleManager;
+use RoundlyConsulting\Tickets\Actions\Conversation\DeleteCommentAction;
+use RoundlyConsulting\Tickets\Actions\Conversation\PostNoteAction;
+use RoundlyConsulting\Tickets\Actions\Conversation\PostReplyAction;
+use RoundlyConsulting\Tickets\Actions\Conversation\UpdateCommentAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeCategoryAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangePriorityAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeRequesterAction;
@@ -23,6 +31,7 @@ use RoundlyConsulting\Tickets\Actions\Tickets\TransitionTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\UpdateTicketAction;
 use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
+use RoundlyConsulting\Tickets\DataTransferObjects\ReplyData;
 use RoundlyConsulting\Tickets\DataTransferObjects\TransitionData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
@@ -34,6 +43,7 @@ use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Messages;
+use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketStates;
 use RoundlyConsulting\Tickets\TicketsManager;
@@ -274,6 +284,104 @@ final readonly class TicketHandle
         $this->transition(TicketLifecycle::DISMISS, $reason);
 
         return $this;
+    }
+
+    /**
+     * Post a public reply as this handle's actor — the requester, an agent, a watcher, or (as
+     * the system) nobody. With `$transition`, the transition is applied atomically: a denied
+     * transition leaves no reply.
+     *
+     * @param  list<UploadedFile|string>  $attachments
+     * @param  array<string, mixed>  $payload  the transition's payload
+     * @param  array<string, mixed>  $meta  your own comment meta (the `tickets` key is the package's)
+     */
+    public function reply(
+        string $body,
+        ?string $transition = null,
+        array $attachments = [],
+        ?string $channel = null,
+        ?string $reason = null,
+        array $payload = [],
+        array $meta = [],
+    ): Comment {
+        $data = new ReplyData($body, $attachments, $channel, $meta);
+        $apply = $transition === null ? null : new TransitionData($transition, $reason, $payload);
+
+        return $this->manager->perform(
+            TicketOperation::Reply,
+            PostReplyAction::class,
+            fn (PostReplyAction $action): Comment => $action->execute($this->ticket, $data, $apply, $this->actor, $this->system),
+            $this->context(['data' => $data, 'transition' => $transition]),
+        );
+    }
+
+    /**
+     * Add an internal note — agents (or the system) only, never shown to the requester.
+     *
+     * @param  list<UploadedFile|string>  $attachments
+     * @param  array<string, mixed>  $meta  your own comment meta (the `tickets` key is the package's)
+     */
+    public function note(string $body, array $attachments = [], ?string $channel = null, array $meta = []): Comment
+    {
+        $data = new ReplyData($body, $attachments, $channel, $meta);
+
+        return $this->manager->perform(
+            TicketOperation::Note,
+            PostNoteAction::class,
+            fn (PostNoteAction $action): Comment => $action->execute($this->ticket, $data, $this->actor, $this->system),
+            $this->context(['data' => $data]),
+        );
+    }
+
+    /**
+     * Edit a message of this ticket's conversation; a comment of another ticket is refused.
+     */
+    public function editComment(Comment $comment, string $body): Comment
+    {
+        return $this->manager->perform(
+            TicketOperation::UpdateComment,
+            UpdateCommentAction::class,
+            fn (UpdateCommentAction $action): Comment => $action->execute($this->ticket, $comment, $body),
+            $this->context(['comment' => $comment]),
+        );
+    }
+
+    /**
+     * Delete a message of this ticket's conversation; a comment of another ticket is refused.
+     */
+    public function deleteComment(Comment $comment): static
+    {
+        $this->manager->perform(
+            TicketOperation::DeleteComment,
+            DeleteCommentAction::class,
+            fn (DeleteCommentAction $action): Comment => $action->execute($this->ticket, $comment),
+            $this->context(['comment' => $comment]),
+        );
+
+        return $this;
+    }
+
+    /**
+     * The conversation, oldest first: the public thread (published replies only), or with
+     * `$internal` every message — notes and held replies included. The internal thread is
+     * for agents; deciding who may read it is the caller's (the API's policy).
+     *
+     * @return Collection<int, Comment>
+     */
+    public function thread(bool $internal = false): Collection
+    {
+        $query = Container::getInstance()->make(CommentsManager::class)->for($this->ticket)
+            ->tap(static function (Builder $comments): void {
+                $comments->orderBy('created_at')->orderBy('id');
+            });
+
+        if ($internal) {
+            return $query->get();
+        }
+
+        return $query->visible()->get()
+            ->reject(static fn (Comment $comment): bool => TicketComments::isInternal($comment))
+            ->values();
     }
 
     /**

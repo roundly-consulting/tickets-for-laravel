@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets;
 
 use Closure;
 use Illuminate\Contracts\Events\Dispatcher;
+use RoundlyConsulting\Comments\Events\CommentMentioned;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioned;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
 use RoundlyConsulting\PackageToolkit\Concerns\RegistersBlueprintMacros;
@@ -21,6 +22,7 @@ use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\Conversation\CommentsConversationLock;
 use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
+use RoundlyConsulting\Tickets\Listeners\OnCommentMentioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
@@ -73,6 +75,10 @@ final class TicketsServiceProvider extends PackageServiceProvider
         $events = $this->app->make(Dispatcher::class);
         $events->listen(LifecycleTransitioning::class, [OnTicketTransitioning::class, 'handle']);
         $events->listen(LifecycleTransitioned::class, [OnTicketTransitioned::class, 'handle']);
+
+        // Comments → tickets: a mention in a ticket comment becomes TicketMentioned, only for
+        // someone who may read that comment (an internal note reaches agents only).
+        $events->listen(CommentMentioned::class, [OnCommentMentioned::class, 'handle']);
     }
 
     /**

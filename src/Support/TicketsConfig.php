@@ -188,6 +188,42 @@ final class TicketsConfig
             ?? throw InvalidTicketsConfigurationException::invalid('tickets.auto_close.after', 'an ISO-8601 duration (P7D, PT12H) or off');
     }
 
+    /**
+     * The Gate ability that makes a user an agent (`tickets.authorization.abilities.agent`).
+     * The host defines it; an undefined ability denies, so the package fails closed. A blank
+     * value is the default.
+     */
+    public static function agentAbility(): string
+    {
+        return self::read()->string('tickets.authorization.abilities.agent', 'tickets.agent');
+    }
+
+    /**
+     * Whether a ticket reply that `comments.require_approval` left pending is approved at once
+     * (`tickets.comments.auto_approve`). A reply the host's blocklist held is never approved.
+     */
+    public static function autoApproveReplies(): bool
+    {
+        return self::read()->boolean('tickets.comments.auto_approve', true);
+    }
+
+    /**
+     * Whether a requester's reply reopens a resolved ticket (`tickets.comments.reply_reopens`).
+     */
+    public static function replyReopens(): bool
+    {
+        return self::read()->boolean('tickets.comments.reply_reopens', true);
+    }
+
+    /**
+     * Whether a non-agent watcher may view the ticket and reply as a participant
+     * (`tickets.watchers.can_view`).
+     */
+    public static function watchersCanView(): bool
+    {
+        return self::read()->boolean('tickets.watchers.can_view', true);
+    }
+
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
     public const string PREFIX_PATTERN = '/^[A-Z][A-Z0-9]{0,9}$/';
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Support;
 
+use RoundlyConsulting\Comments\Support\CommentModel;
+use RoundlyConsulting\PackageToolkit\Support\Config;
 use RoundlyConsulting\Tickets\DataTransferObjects\DoctorCheck;
 use RoundlyConsulting\Tickets\DataTransferObjects\LifecycleIssue;
 
@@ -21,7 +23,30 @@ final class Doctor
      */
     public static function checks(): array
     {
-        return self::lifecycle();
+        return [...self::lifecycle(), ...self::conversation()];
+    }
+
+    /**
+     * The comments-for-laravel side of the conversation: the 1.1 `meta` column replies and notes
+     * are written with, and `comments.authorization`, which checks the authenticated user —
+     * not tickets' own policy — on every reply, note, approval and lock.
+     *
+     * @return list<DoctorCheck>
+     */
+    private static function conversation(): array
+    {
+        $comment = CommentModel::class();
+        $model = new $comment;
+
+        $checks = [$model->getConnection()->getSchemaBuilder()->hasColumn($model->getTable(), 'meta')
+            ? new DoctorCheck('conversation', 'meta', Messages::get('doctor.meta_ok'), 'ok')
+            : new DoctorCheck('conversation', 'meta', Messages::get('doctor.meta_missing'), 'error')];
+
+        if (Config::boolean('comments.authorization')) {
+            $checks[] = new DoctorCheck('conversation', 'comments_authorization', Messages::get('doctor.comments_authorization'), 'warning');
+        }
+
+        return $checks;
     }
 
     /**

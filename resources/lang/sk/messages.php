@@ -31,6 +31,13 @@ return [
         'unknown_channel' => 'Kanál [:channel] nepatrí medzi nastavené kanály.',
         'unknown_priority' => 'Priorita nepatrí medzi nastavené priority.',
         'requester_required' => 'Tiket potrebuje žiadateľa: používateľa alebo údaje hosťa.',
+        'closed' => 'Tiket [:reference] je uzavretý a neprijíma ďalšie správy. Namiesto toho otvorte nadväzujúci tiket.',
+    ],
+
+    'conversation' => [
+        'not_a_participant' => 'Do tiketu [:reference] môže písať iba žiadateľ, agent alebo sledujúci.',
+        'not_an_agent' => 'Internú poznámku k tiketu [:reference] môže pridať iba agent.',
+        'comment_not_found' => 'Komentár [:comment] nepatrí k tiketu [:reference].',
     ],
 
     'project' => [
@@ -80,5 +87,8 @@ return [
     'doctor' => [
         'lifecycle_ok' => 'Životný cyklus [:class] spĺňa kontrakt tiketov aj všetky automatizácie.',
         'conveniences' => 'Podporované pomenované prechody: :list.',
+        'meta_missing' => 'Tabuľka komentárov nemá stĺpec `meta`. Zverejnite a spustite migrácie comments-for-laravel 1.1.',
+        'meta_ok' => 'Tabuľka komentárov má stĺpec `meta`, do ktorého sa zapisujú odpovede a poznámky.',
+        'comments_authorization' => 'Nastavenie comments.authorization je zapnuté: komentáre overujú prihláseného používateľa pri každej odpovedi, poznámke, schválení a uzamknutí tiketu. Povoľte vo svojej CommentPolicy komentáre k tiketom, inak budú odpovede hostí, systémové poznámky aj automatické uzamknutie odmietnuté.',
     ],
 ];

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Comments\Traits\HasComments;
 use RoundlyConsulting\Lifecycle\Casts\AsLifecycleState;
 use RoundlyConsulting\Lifecycle\Concerns\HasLifecycle;
@@ -32,6 +33,7 @@ use RoundlyConsulting\Tickets\Support\CategoryTree;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketStates;
+use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
  * A support ticket. Its `status` is owned by lifecycle-for-laravel (never written directly),
@@ -128,6 +130,24 @@ class Ticket extends Model implements LifecycleSubject
     public function statusCategory(): ?StatusCategory
     {
         return $this->status?->category();
+    }
+
+    /**
+     * Post a public reply as `$author` (null = the authenticated user) — the same call as
+     * `Tickets::for($ticket)->by($author)->reply($body)`.
+     */
+    public function reply(string $body, ?Model $author = null): Comment
+    {
+        return app(TicketsManager::class)->for($this)->by($author)->reply($body);
+    }
+
+    /**
+     * Add an internal note as `$author` (null = the authenticated user) — the same call as
+     * `Tickets::for($ticket)->by($author)->note($body)`.
+     */
+    public function note(string $body, ?Model $author = null): Comment
+    {
+        return app(TicketsManager::class)->for($this)->by($author)->note($body);
     }
 
     /** @return BelongsTo<TicketCategory, $this> */

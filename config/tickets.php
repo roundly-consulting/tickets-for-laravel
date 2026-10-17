@@ -214,6 +214,54 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Conversation
+    |--------------------------------------------------------------------------
+    |
+    | Replies and internal notes are comments-for-laravel comments. When the
+    | host's `comments.require_approval` leaves a ticket reply pending,
+    | `auto_approve` approves it at once — never a reply the host's blocklist
+    | held. `reply_reopens`: a requester's reply reopens a resolved ticket.
+    |
+    */
+
+    'comments' => [
+        'auto_approve' => env('TICKETS_COMMENTS_AUTO_APPROVE', 'on'),
+        'reply_reopens' => env('TICKETS_REPLY_REOPENS', 'on'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Watchers
+    |--------------------------------------------------------------------------
+    |
+    | `can_view`: a watcher who is not an agent (a CC'd colleague, a guest)
+    | may see the ticket and its public thread, and reply as a participant.
+    |
+    */
+
+    'watchers' => [
+        'can_view' => env('TICKETS_WATCHERS_CAN_VIEW', 'on'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization
+    |--------------------------------------------------------------------------
+    |
+    | The Gate abilities the package asks about. Define them in your app
+    | (`Gate::define('tickets.agent', fn ($user) => $user->is_support)`) or
+    | through a permissions package. An undefined ability denies.
+    |
+    */
+
+    'authorization' => [
+        'abilities' => [
+            'agent' => 'tickets.agent',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Activity timeline and actor
     |--------------------------------------------------------------------------
     |

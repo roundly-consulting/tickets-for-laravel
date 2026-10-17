@@ -27,6 +27,10 @@ enum TicketOperation: string implements HasColor
     case Delete = 'delete';
     case Restore = 'restore';
     case Transition = 'transition';
+    case Reply = 'reply';
+    case Note = 'note';
+    case UpdateComment = 'update_comment';
+    case DeleteComment = 'delete_comment';
     case CreateCategory = 'create_category';
     case UpdateCategory = 'update_category';
     case MoveCategory = 'move_category';
@@ -41,7 +45,8 @@ enum TicketOperation: string implements HasColor
     {
         return match ($this) {
             self::Create, self::CreateCategory, self::DefineField, self::Restore, self::RestoreCategory => 'green',
-            self::Delete, self::DeleteCategory => 'red',
+            self::Delete, self::DeleteCategory, self::DeleteComment => 'red',
+            self::Reply, self::Note => 'blue',
             self::Transition => 'purple',
             default => 'gray',
         };
