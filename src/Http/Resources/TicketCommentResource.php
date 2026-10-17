@@ -41,7 +41,7 @@ final class TicketCommentResource extends JsonResource
             'body' => $comment->comment,
             'role' => TicketComments::role($comment)?->value,
             'author' => Party::person($comment->actor_type === null ? null : $comment->actor, $viewer, $agent),
-            'channel' => is_string($channel) ? $channel : null,
+            'channel' => Present::channel(is_string($channel) ? $channel : null),
             ...($agent ? ['internal' => TicketComments::isInternal($comment), 'status' => $comment->status->value] : []),
             'attachments' => $comment->attachments()
                 ->map(static fn (Media $media): array => (new TicketAttachmentResource($media))->toArray($request))

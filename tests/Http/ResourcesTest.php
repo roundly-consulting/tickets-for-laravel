@@ -15,6 +15,7 @@ use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Document;
+use RoundlyConsulting\Tickets\Tests\Fixtures\PlainPriority;
 
 beforeEach(fn () => apiAbilities());
 
@@ -26,6 +27,53 @@ it('shows a person outside every alias list by name only, and a nameless one wit
         ->and(Party::name($document))->toBeNull()
         ->and(Party::name($named))->toBe('Spec')
         ->and(Present::state(null))->toBeNull();
+});
+
+describe('presented values', function (): void {
+    it('presents a shipped channel with its label and colour, in English and Slovak', function (): void {
+        $agent = apiAgent();
+        $ticket = Tickets::make()->subject('Printer jammed')->requester(apiUser())->channel('web')->asSystem()->create();
+
+        $this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}")
+            ->assertJsonPath('data.channel', ['value' => 'web', 'label' => 'Web', 'color' => 'blue']);
+
+        app()->setLocale('sk');
+
+        expect(Present::channel('email'))->toBe(['value' => 'email', 'label' => 'E-mail', 'color' => 'amber'])
+            ->and(Present::channel(null))->toBeNull();
+    });
+
+    it('presents a host channel by its value, or by the label the host published', function (): void {
+        config()->set('tickets.channels', ['web', 'whatsapp', 'kiosk']);
+        $agent = apiAgent();
+        $ticket = Tickets::make()->subject('Printer jammed')->requester(apiUser())->channel('whatsapp')->asSystem()->create();
+        app('translator')->addLines(['enums.ticket_channel.kiosk' => 'Lobby kiosk', 'enums.ticket_channel.web' => 'Website'], 'en', 'tickets');
+
+        $this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}")
+            ->assertJsonPath('data.channel', ['value' => 'whatsapp', 'label' => 'whatsapp', 'color' => null]);
+
+        expect(Present::channel('kiosk'))->toBe(['value' => 'kiosk', 'label' => 'Lobby kiosk', 'color' => null])
+            ->and(Present::channel('web'))->toBe(['value' => 'web', 'label' => 'Website', 'color' => 'blue'])
+            ->and(Present::channel('a.b'))->toBe(['value' => 'a.b', 'label' => 'a.b', 'color' => null]);
+    });
+
+    it('gives status and priority their colour, and none to a priority the enum lost or a host enum without colours', function (): void {
+        $agent = apiAgent();
+        $ticket = apiTicket();
+        $lost = apiTicket(subject: 'Lost priority');
+        Ticket::query()->whereKey($lost->getKey())->update(['priority' => 'critical']);
+
+        $this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}")
+            ->assertJsonPath('data.status', ['value' => 'new', 'label' => 'New', 'category' => 'open', 'color' => 'sky'])
+            ->assertJsonPath('data.priority', ['value' => 'normal', 'label' => 'Normal', 'weight' => 20, 'color' => 'blue']);
+        $this->actingAs($agent)->getJson("/api/tickets/{$lost->reference}")
+            ->assertJsonPath('data.priority', ['value' => 'critical', 'label' => null, 'weight' => 0, 'color' => null]);
+
+        config()->set('tickets.priority.enum', PlainPriority::class);
+        Ticket::query()->whereKey($lost->getKey())->update(['priority' => 'p1']);
+
+        expect(Present::priority($lost->fresh() ?? $lost))->toBe(['value' => 'p1', 'label' => 'p1', 'weight' => 1, 'color' => null]);
+    });
 });
 
 it('reduces a morph outside the alias lists to a nameless type for the requester side', function (): void {

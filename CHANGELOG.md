@@ -87,7 +87,8 @@ Initial public release.
 - An opt-in JSON API (`tickets.routes.enabled`, off by default; `tickets-routes` to publish the
   route file): tickets, transitions, assignment, replies and notes, field values, watchers, tags,
   links, merge, signed attachment URLs, the activity timeline, bulk actions and category, field and
-  tag admin endpoints; role-aware resources; query-builder filters and sorts built on the query
+  tag admin endpoints; role-aware resources that present statuses, priorities and channels with
+  their translated label and colour (`TicketChannel` for the shipped channels); query-builder filters and sorts built on the query
   scopes; `{message, code}` errors without touching the host's exception handler; the
   `tickets-api` and `tickets-guest` rate limiters.
 - `Policies\TicketPolicy` (swappable, registered with `tickets.authorization.register_policy`) on the

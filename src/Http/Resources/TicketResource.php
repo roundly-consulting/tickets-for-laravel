@@ -64,7 +64,7 @@ final class TicketResource extends JsonResource
             'project' => Party::project($ticket->project_type === null ? null : $ticket->project),
             'requester' => Party::requester($ticket->requester, $viewer, $agent),
             'assignee' => $ticket->assignee_type === null ? null : Party::person($ticket->assignee, $viewer, $agent),
-            'channel' => $ticket->channel,
+            'channel' => Present::channel($ticket->channel),
             'due_at' => Present::date($ticket->due_at),
             'resolved_at' => Present::date($ticket->resolved_at),
             'closed_at' => Present::date($ticket->closed_at),

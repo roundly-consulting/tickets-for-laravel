@@ -41,11 +41,11 @@ describe('tickets', function (): void {
             'reference' => 'SUP-1',
             'subject' => 'Printer jammed',
             'description' => 'E-102',
-            'priority' => ['value' => 'high', 'label' => 'High', 'weight' => 30],
+            'priority' => ['value' => 'high', 'label' => 'High', 'weight' => 30, 'color' => 'orange'],
             'category' => ['id' => $category->id, 'name' => $category->name, 'slug' => $category->slug],
             'project' => ['type' => 'project', 'id' => $support->id],
             'requester' => ['type' => 'user', 'name' => 'Ada'],
-            'channel' => 'web',
+            'channel' => ['value' => 'web', 'label' => 'Web', 'color' => 'blue'],
         ])->and($response->json('data.fields.0'))->toMatchArray(['key' => 'asset_tag', 'value' => 'PRN-1'])
             ->and(Ticket::query()->sole()->requester_id)->toBe($user->id);
     });
@@ -238,9 +238,9 @@ describe('conversation', function (): void {
         $note = $this->actingAs($agent)->postJson("/api/tickets/{$ticket->reference}/notes", ['body' => 'Check the drum.', 'channel' => 'phone'])->assertCreated();
         $answer = $this->actingAs($agent)->postJson("/api/tickets/{$ticket->reference}/replies", ['body' => 'Waiting on you.', 'transition' => 'wait'])->assertCreated();
 
-        expect($reply->json('data'))->toMatchArray(['body' => 'Still jammed.', 'role' => 'requester', 'channel' => 'api'])
+        expect($reply->json('data'))->toMatchArray(['body' => 'Still jammed.', 'role' => 'requester', 'channel' => ['value' => 'api', 'label' => 'API', 'color' => 'gray']])
             ->and($reply->json('data.attachments.0.name'))->toBe('photo.txt')
-            ->and($note->json('data'))->toMatchArray(['body' => 'Check the drum.', 'role' => 'agent', 'internal' => true, 'channel' => 'phone'])
+            ->and($note->json('data'))->toMatchArray(['body' => 'Check the drum.', 'role' => 'agent', 'internal' => true, 'channel' => ['value' => 'phone', 'label' => 'Phone', 'color' => 'green']])
             ->and($answer->json('data.role'))->toBe('agent')
             ->and($ticket->fresh()?->status?->value)->toBe('pending');
 
@@ -357,7 +357,7 @@ describe('watchers, tags, links, merge, attachments, activity', function (): voi
         $b = apiTicket();
 
         $this->actingAs($agent)->postJson("/api/tickets/{$a->reference}/links", ['ticket' => $b->reference, 'type' => 'blocks'])
-            ->assertCreated()->assertJsonPath('data.0', ['id' => 1, 'type' => 'blocks', 'label' => 'blocks', 'direction' => 'outgoing', 'ticket' => ['reference' => 'TCK-2', 'subject' => 'Printer jammed', 'status' => ['value' => 'new', 'label' => 'New', 'category' => 'open']]]);
+            ->assertCreated()->assertJsonPath('data.0', ['id' => 1, 'type' => 'blocks', 'label' => 'blocks', 'direction' => 'outgoing', 'ticket' => ['reference' => 'TCK-2', 'subject' => 'Printer jammed', 'status' => ['value' => 'new', 'label' => 'New', 'category' => 'open', 'color' => 'sky']]]);
         $this->actingAs($agent)->getJson("/api/tickets/{$b->reference}/links")->assertJsonPath('data.0.label', 'blocked_by');
         $this->actingAs($agent)->postJson("/api/tickets/{$b->reference}/links", ['ticket' => $a->reference, 'type' => 'blocks'])->assertUnprocessable()->assertJson(['code' => 'invalid_link']);
         $this->actingAs($agent)->deleteJson("/api/tickets/{$b->reference}/links/1")->assertNoContent();
