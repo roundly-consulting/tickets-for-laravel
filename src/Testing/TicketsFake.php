@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Assert as PHPUnit;
+use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
@@ -139,7 +140,7 @@ final class TicketsFake extends TicketsManager
         $this->assertRecorded(TicketOperation::SetDueDate, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
     }
 
-    public function assertNothingDueSet(): void
+    public function assertNoDueSet(): void
     {
         $this->assertNotRecorded(TicketOperation::SetDueDate);
     }
@@ -149,7 +150,7 @@ final class TicketsFake extends TicketsManager
         $this->assertRecorded(TicketOperation::ChangeRequester, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
     }
 
-    public function assertNothingRequesterChanged(): void
+    public function assertNoRequesterChanged(): void
     {
         $this->assertNotRecorded(TicketOperation::ChangeRequester);
     }
@@ -174,15 +175,36 @@ final class TicketsFake extends TicketsManager
         $this->assertNotRecorded(TicketOperation::Restore);
     }
 
+    /**
+     * A transition was applied — on `$ticket`, named `$transition`. A reply's explicit
+     * `transition:` counts when the reply published (the transition applied exactly then); a
+     * held reply's does not, and neither does an automation (an assignment opening a new
+     * ticket, a requester's reply resuming a waiting one).
+     */
     public function assertTransitioned(Ticket|string|null $ticket = null, ?string $transition = null): void
     {
-        $this->assertRecorded(TicketOperation::Transition, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
-            && ($transition === null || $recorded->context['transition'] === $transition));
+        $candidates = $this->transitions();
+
+        PHPUnit::assertNotEmpty($candidates, 'Expected a [transition] ticket operation, but none was recorded.');
+        PHPUnit::assertNotEmpty(
+            array_filter($candidates, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+                && ($transition === null || $recorded->context['transition'] === $transition)
+                && ($recorded->operation === TicketOperation::Transition || self::published($recorded))),
+            'A [transition] ticket operation was recorded, but none matched.',
+        );
     }
 
+    /**
+     * No transition was applied — neither directly nor by a published reply's `transition:`.
+     */
     public function assertNothingTransitioned(): void
     {
-        $this->assertNotRecorded(TicketOperation::Transition);
+        $count = count(array_filter(
+            $this->transitions(),
+            static fn (RecordedTicketOperation $recorded): bool => $recorded->operation === TicketOperation::Transition || self::published($recorded),
+        ));
+
+        PHPUnit::assertSame(0, $count, "Expected no [transition] ticket operation, but {$count} were recorded.");
     }
 
     // Conversation --------------------------------------------------------------------
@@ -318,7 +340,7 @@ final class TicketsFake extends TicketsManager
         $this->assertTagOperation(TicketOperation::SyncTags, $ticket, $tag);
     }
 
-    public function assertNothingTagsSynced(): void
+    public function assertNoTagsSynced(): void
     {
         $this->assertNotRecorded(TicketOperation::SyncTags);
     }
@@ -641,6 +663,28 @@ final class TicketsFake extends TicketsManager
     }
 
     // Plumbing ------------------------------------------------------------------------
+
+    /**
+     * The recorded transitions and the recorded replies that asked for one, in call order.
+     *
+     * @return list<RecordedTicketOperation>
+     */
+    private function transitions(): array
+    {
+        return array_values(array_filter(
+            $this->recorded,
+            static fn (RecordedTicketOperation $recorded): bool => $recorded->operation === TicketOperation::Transition
+                || ($recorded->operation === TicketOperation::Reply && ($recorded->context['transition'] ?? null) !== null),
+        ));
+    }
+
+    /**
+     * Whether a recorded reply published — the only case its transition applied.
+     */
+    private static function published(RecordedTicketOperation $recorded): bool
+    {
+        return $recorded->result instanceof Comment && $recorded->result->status === CommentStatus::Approved;
+    }
 
     private function assertTagOperation(TicketOperation $operation, Ticket|string|null $ticket, ?string $tag): void
     {

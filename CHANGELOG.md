@@ -94,5 +94,8 @@ Initial public release.
   shows the key types to align), `php artisan tickets:doctor` (`--json`; checks the whole
   installation) and an `about` section.
 - `Tickets::fake()`: a recording, still-performing fake with an assertion for every operation,
-  including calls through handles, sub-accessors, builders and model traits.
+  including calls through handles, sub-accessors, builders and model traits — each one documented
+  on the facade, each `assert<Verb>()` paired with `assertNothing<Verb>()` and each
+  `assert<Noun><Verb>()` with `assertNo<Noun><Verb>()`; `assertTransitioned()` also counts a
+  published reply's explicit `transition:`.
 - English and Slovak translations for every enum label, message and notification.

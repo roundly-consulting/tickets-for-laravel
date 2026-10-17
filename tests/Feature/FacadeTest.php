@@ -43,6 +43,52 @@ it('pins the facade contract', function (): void {
         ->toReachEveryAction(__DIR__.'/../../src/Actions');
 });
 
+it('documents every fake assertion on the facade', function (): void {
+    $fake = new ReflectionClass(TicketsFake::class);
+    $offered = [];
+
+    foreach ($fake->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+        if ($method->getDeclaringClass()->getName() === TicketsFake::class && ! $method->isConstructor() && $method->name !== 'perform') {
+            $offered[] = $method->name;
+        }
+    }
+
+    preg_match_all('/@method static \S+ (\w+)\(/', (string) (new ReflectionClass(Tickets::class))->getDocComment(), $tags);
+    $documented = array_values(array_filter($tags[1], static fn (string $name): bool => ! method_exists(TicketsManager::class, $name)));
+
+    sort($offered);
+    sort($documented);
+
+    expect($offered)->toContain('recorded', 'assertNothingHappened', 'assertTransitioned')
+        ->and($documented)->toBe($offered);
+});
+
+it('pairs every assertion with its negative, named by one rule', function (): void {
+    // assert<Verb> pairs with assertNothing<Verb>; assert<Noun…><Verb> (two or more words)
+    // pairs with assertNo<Noun…><Verb>. assertNothingHappened stands alone.
+    $names = array_values(array_filter(
+        get_class_methods(TicketsFake::class),
+        static fn (string $name): bool => str_starts_with($name, 'assert') && $name !== 'assertNothingHappened',
+    ));
+    $negative = static fn (string $name): bool => (bool) preg_match('/^assertNo(thing)?[A-Z]/', $name);
+    $positives = array_values(array_filter($names, static fn (string $name): bool => ! $negative($name)));
+    $expected = [];
+
+    foreach ($positives as $positive) {
+        $rest = substr($positive, 6);
+        $words = preg_match_all('/[A-Z]/', $rest);
+        $expected[] = ($words >= 2 ? 'assertNo' : 'assertNothing').$rest;
+    }
+
+    $negatives = array_values(array_filter($names, $negative));
+
+    sort($expected);
+    sort($negatives);
+
+    expect(count($positives))->toBeGreaterThan(40)
+        ->and($negatives)->toBe($expected);
+});
+
 it('runs the same create through the facade, an injected manager and the action', function (): void {
     $user = User::query()->create(['name' => 'Ada']);
     $manager = app(TicketsManager::class);
@@ -127,8 +173,8 @@ describe('the fake', function (): void {
         'updated' => [fn () => Tickets::for(fakeTicket())->update(new UpdateTicketData(subject: 'x')), 'assertUpdated', ['TCK-1'], 'assertNothingUpdated'],
         'prioritized' => [fn () => Tickets::for(fakeTicket())->prioritize('low'), 'assertPrioritized', ['TCK-1', 'low'], 'assertNothingPrioritized'],
         'categorized' => [fn () => Tickets::for(fakeTicket())->categorize(TicketCategory::factory()->create()), 'assertCategorized', ['TCK-1'], 'assertNothingCategorized'],
-        'due set' => [fn () => Tickets::for(fakeTicket())->due(now()), 'assertDueSet', ['TCK-1'], 'assertNothingDueSet'],
-        'requester changed' => [fn () => Tickets::for(fakeTicket())->changeRequester(User::query()->create()), 'assertRequesterChanged', ['TCK-1'], 'assertNothingRequesterChanged'],
+        'due set' => [fn () => Tickets::for(fakeTicket())->due(now()), 'assertDueSet', ['TCK-1'], 'assertNoDueSet'],
+        'requester changed' => [fn () => Tickets::for(fakeTicket())->changeRequester(User::query()->create()), 'assertRequesterChanged', ['TCK-1'], 'assertNoRequesterChanged'],
         'deleted' => [fn () => Tickets::for(fakeTicket())->delete(), 'assertDeleted', ['TCK-1'], 'assertNothingDeleted'],
         'restored' => [fn () => Tickets::for(fakeTicket())->restore(), 'assertRestored', ['TCK-1'], 'assertNothingRestored'],
         'category created' => [fn () => Tickets::categories()->make('Hardware')->create(), 'assertCategoryCreated', [fn (TicketCategory $category): bool => $category->slug === 'hardware'], 'assertNoCategoryCreated'],
@@ -151,7 +197,7 @@ describe('the fake', function (): void {
         'unwatched' => [fn () => Tickets::for(fakeTicket())->asSystem()->watchers()->remove(User::query()->create()), 'assertUnwatched', ['TCK-1'], 'assertNothingUnwatched'],
         'tagged' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->attach('printer'), 'assertTagged', ['TCK-1', 'printer'], 'assertNothingTagged'],
         'untagged' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->detach('printer'), 'assertUntagged', ['TCK-1', 'printer'], 'assertNothingUntagged'],
-        'tags synced' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->sync(['printer']), 'assertTagsSynced', ['TCK-1', 'printer'], 'assertNothingTagsSynced'],
+        'tags synced' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->sync(['printer']), 'assertTagsSynced', ['TCK-1', 'printer'], 'assertNoTagsSynced'],
         'linked' => [fn () => Tickets::for(fakeTicket())->asSystem()->links()->add(Ticket::factory()->create(), LinkType::Blocks), 'assertLinked', ['TCK-1', LinkType::Blocks], 'assertNothingLinked'],
         'unlinked' => [fn () => Tickets::for(fakeTicket())->asSystem()->links()->add($other = Ticket::factory()->create(), LinkType::Blocks)->remove($other, LinkType::Blocks), 'assertUnlinked', ['TCK-1', LinkType::Blocks], 'assertNothingUnlinked'],
         'merged' => [fn () => Tickets::for(fakeTicket())->asSystem()->mergeInto(Ticket::factory()->create()), 'assertMerged', ['TCK-1'], 'assertNothingMerged'],
@@ -291,6 +337,40 @@ describe('the fake', function (): void {
         $fake->assertCommentDeleted($reply);
         $fake->assertCategoryUpdated($category);
         $fake->assertGuestUpdated($guest);
+    });
+
+    it('counts a published reply\'s explicit transition as a transition, and nothing else', function (): void {
+        defineAgents();
+        $fake = Tickets::fake();
+        $ticket = fakeTicket();
+        $agent = fakeAgent();
+
+        Tickets::for($ticket)->asSystem()->assign($agent);
+
+        // The assignment opened the ticket — an automation, not a recorded transition.
+        $fake->assertNothingTransitioned();
+
+        Tickets::for($ticket)->by($agent)->reply('Please send a photo.', transition: 'wait');
+
+        $fake->assertTransitioned($ticket, 'wait');
+        $fake->assertTransitioned('TCK-1');
+        expect(fn () => $fake->assertTransitioned($ticket, 'resolve'))->toThrow(ExpectationFailedException::class, 'none matched')
+            ->and(fn () => $fake->assertNothingTransitioned())->toThrow(ExpectationFailedException::class, '1 were recorded');
+    });
+
+    it('does not count the transition a held reply asked for', function (): void {
+        defineAgents();
+        config()->set('comments.blocklist', ['scam']);
+        config()->set('comments.blocklist_action', 'pending');
+        $fake = Tickets::fake();
+        $ticket = fakeTicket();
+
+        Tickets::for($ticket)->by(fakeAgent())->reply('A scam, surely.', transition: 'wait');
+
+        expect(fn () => $fake->assertTransitioned($ticket, 'wait'))->toThrow(ExpectationFailedException::class, 'none matched')
+            ->and(fn () => $fake->assertTransitioned())->toThrow(ExpectationFailedException::class, 'none matched');
+        $fake->assertNothingTransitioned();
+        $fake->assertReplied($ticket);
     });
 
     it('treats an operation without a ticket as concerning none', function (): void {
