@@ -21,7 +21,7 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 /**
  * A partial update in one transaction. The subject, description and host metadata are written
  * here (an `updated` activity naming the changed keys, never a value — the metadata's in an
- * agent-only entry of its own); priority, category, due date and requester
+ * agent-only entry of its own, and a metadata-only change leaves the public `updated_at` alone); priority, category, due date and requester
  * run through their own actions, so each records its own activity and event.
  */
 final readonly class UpdateTicketAction
@@ -58,8 +58,8 @@ final readonly class UpdateTicketAction
             }
 
             if ($changes !== []) {
-                $ticket->forceFill($changes)->save();
                 $visible = array_values(array_diff(array_keys($changes), ['meta']));
+                $this->write($ticket, $changes, public: $visible !== []);
 
                 if ($visible !== []) {
                     $this->record->execute($ticket, ActivityType::Updated, $actor, ['changed' => $visible], $system);
@@ -91,6 +91,27 @@ final readonly class UpdateTicketAction
 
             return $ticket;
         });
+    }
+
+    /**
+     * A public change saves (and moves `updated_at`). The metadata alone is the host's agent-only
+     * business, so it goes in as a plain query: `updated_at` is a public field and must not tell
+     * a requester something changed that they can't see.
+     *
+     * @param  array<string, mixed>  $changes
+     */
+    private function write(Ticket $ticket, array $changes, bool $public): void
+    {
+        $ticket->forceFill($changes);
+
+        if ($public) {
+            $ticket->save();
+
+            return;
+        }
+
+        $ticket->newQueryWithoutScopes()->whereKey($ticket->getKey())->toBase()->update(['meta' => $ticket->getAttributes()['meta']]);
+        $ticket->syncOriginalAttribute('meta');
     }
 
     /**

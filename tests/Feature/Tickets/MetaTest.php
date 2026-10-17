@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
@@ -25,6 +26,26 @@ describe('host metadata', function (): void {
             ->and(Tickets::create(new CreateTicketData('Plain', User::query()->create()))->fresh()?->meta())->toBe([])
             ->and(Tickets::create(new CreateTicketData('Plain', User::query()->create()))->getRawOriginal('meta'))->toBeNull();
     });
+
+    it('leaves the public updated_at alone when only the metadata changes', function (): void {
+        CarbonImmutable::setTestNow('2030-01-01 12:00:00');
+        $ticket = Tickets::make()->subject('Printer jammed')->requester(User::query()->create(['name' => 'Ada']))->asSystem()->create();
+
+        CarbonImmutable::setTestNow('2030-01-01 13:00:00');
+        Tickets::for($ticket)->asSystem()->update(new UpdateTicketData(meta: ['crm' => 42]));
+
+        expect($ticket->updated_at?->toDateTimeString())->toBe('2030-01-01 12:00:00')
+            ->and($ticket->fresh()?->updated_at?->toDateTimeString())->toBe('2030-01-01 12:00:00')
+            ->and($ticket->fresh()?->meta('crm'))->toBe(42)
+            ->and($ticket->isDirty())->toBeFalse();
+
+        // A public change moves it, metadata along or not.
+        CarbonImmutable::setTestNow('2030-01-01 14:00:00');
+        Tickets::for($ticket)->asSystem()->update(new UpdateTicketData(subject: 'Printer still jammed', meta: ['crm' => 43]));
+
+        expect($ticket->fresh()?->updated_at?->toDateTimeString())->toBe('2030-01-01 14:00:00')
+            ->and($ticket->fresh()?->meta('crm'))->toBe(43);
+    })->after(fn () => CarbonImmutable::setTestNow());
 
     it('replaces and clears it, recording the key in an agent-only entry and never a value', function (): void {
         $ticket = Tickets::make()->subject('Printer jammed')->requester(User::query()->create(['name' => 'Ada']))
