@@ -87,3 +87,20 @@ it('shows a key type it cannot read as INVALID', function (): void {
     expect(Artisan::call('tickets:install'))->toBe(0)
         ->and(Artisan::output())->toMatch('/comments\.key_type.*INVALID/');
 });
+
+it('names the way out of the guest_links error a default install starts with', function (array $config, bool $shown): void {
+    config()->set($config);
+
+    expect(Artisan::call('tickets:install'))->toBe(0);
+
+    $output = Artisan::output();
+
+    $shown
+        ? expect($output)->toContain('guest_links')->toContain('TICKETS_NOTIFY_GUESTS=off')
+        : expect($output)->not->toContain('guest_links');
+})->with([
+    'a default install' => [[], true],
+    'the API switched on' => [['tickets.routes.enabled' => 'on'], false],
+    'guest mail off' => [['tickets.notifications.guests' => 'off'], false],
+    'a broken routes setting, left to the doctor' => [['tickets.routes.enabled' => 'maybe'], false],
+]);

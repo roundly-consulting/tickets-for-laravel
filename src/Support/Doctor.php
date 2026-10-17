@@ -24,6 +24,7 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
 use RoundlyConsulting\Tickets\Exceptions\UnknownMorphAliasException;
 use RoundlyConsulting\Tickets\Guests\SignedRouteLinkGenerator;
+use Throwable;
 
 /**
  * The installation checks behind `tickets:doctor`, read-only, by section: key types, the
@@ -357,13 +358,36 @@ final class Doctor
             default => new DoctorCheck('api', 'routes', Messages::get('doctor.routes_unguarded'), 'warning'),
         };
 
-        if (self::guestLinks() instanceof SignedRouteLinkGenerator && (! $routes || ! TicketsConfig::guestsEnabled())) {
+        if (self::guestLinksUnavailable()) {
             $checks[] = self::notifiesGuests()
                 ? new DoctorCheck('api', 'guest_links', Messages::get('doctor.guest_links_notified'), 'error')
                 : new DoctorCheck('api', 'guest_links', Messages::get('doctor.guest_links_unavailable'), 'warning');
         }
 
         return $checks;
+    }
+
+    /**
+     * Whether guests are notified while no guest link can be issued — the `guest_links` error a
+     * default install (routes off, guest mail on) starts with; `tickets:install` names the way out.
+     */
+    public static function guestMailWithoutLinks(): bool
+    {
+        try {
+            return self::guestLinksUnavailable() && self::notifiesGuests();
+        } catch (Throwable) {
+            // A broken setting is the doctor's to report, never the installer's to crash on.
+            return false;
+        }
+    }
+
+    /**
+     * Whether the default guest-link generator is bound while the guest routes it signs are off.
+     */
+    private static function guestLinksUnavailable(): bool
+    {
+        return self::guestLinks() instanceof SignedRouteLinkGenerator
+            && (! TicketsConfig::routesEnabled() || ! TicketsConfig::guestsEnabled());
     }
 
     /**

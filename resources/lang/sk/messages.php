@@ -200,5 +200,6 @@ return [
         'abilities' => 'Definujte, kto je agent (a oprávnenia tickets.assign a tickets.manage):',
         'schedule' => 'Naplánujte kontroly (routes/console.php):',
         'routes' => 'JSON API je vypnuté: nastavte TICKETS_ROUTES=on, ak ho chcete sprístupniť, a php artisan vendor:publish --tag=tickets-routes, ak chcete upraviť jeho trasy.',
+        'guests' => 'Kontrola hlási guest_links, kým e-maily hosťom nemôžu obsahovať odkaz: nastavte TICKETS_ROUTES=on, zaregistrujte vlastný Contracts\GuestLinkGenerator alebo nastavte TICKETS_NOTIFY_GUESTS=off.',
     ],
 ];

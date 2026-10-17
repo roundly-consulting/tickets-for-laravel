@@ -102,7 +102,7 @@ Initial public release.
   tickets and merges — visibility-checked at send time and again on delivery, each type a swappable
   class or `false`.
 - `php artisan tickets:install` (publishes the config and every migration an installation needs,
-  shows the key types to align), `php artisan tickets:doctor` (`--json`; checks the whole
+  shows the key types to align, names the three ways to give guest mails a link), `php artisan tickets:doctor` (`--json`; checks the whole
   installation) and an `about` section.
 - `Tickets::fake()`: a recording, still-performing fake with an assertion for every operation,
   including calls through handles, sub-accessors, builders and model traits — each one documented

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Commands;
 
 use Illuminate\Console\Command;
+use RoundlyConsulting\Tickets\Support\Doctor;
 use RoundlyConsulting\Tickets\Support\KeyAlignment;
 use RoundlyConsulting\Tickets\Support\Messages;
 
@@ -12,7 +13,8 @@ use RoundlyConsulting\Tickets\Support\Messages;
  * Guided installation: publishes the config, the tickets migrations and the migrations of every
  * package tickets builds on (lifecycle, comments and its likes / reports / approvals, media,
  * attributes), shows the key types to settle before migrating, and prints the remaining steps —
- * the abilities, the two scheduler lines, the doctor. Each package's migrations keep their own
+ * the abilities, the two scheduler lines, the doctor (and, while guests would be mailed without
+ * a link, the three ways to settle that — the doctor's one error on a default install). Each package's migrations keep their own
  * order; no package's tables reference another's, so the order between packages is free.
  * Running it again is harmless: published files are kept unless `--force`, and a republished
  * migration lands on the file it landed on before.
@@ -84,6 +86,11 @@ final class InstallCommand extends Command
         $this->line("     Schedule::command('tickets:sweep')->everyFiveMinutes();");
         $this->line("     Schedule::command('lifecycle:sweep')->everyMinute();");
         $this->line('  4. php artisan tickets:doctor');
+
+        if (Doctor::guestMailWithoutLinks()) {
+            $this->line('     '.Messages::get('install.guests'));
+        }
+
         $this->newLine();
         $this->line('  '.Messages::get('install.routes'));
 

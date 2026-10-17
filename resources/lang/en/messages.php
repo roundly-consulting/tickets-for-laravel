@@ -200,5 +200,6 @@ return [
         'abilities' => 'Define who is an agent (and the tickets.assign and tickets.manage abilities):',
         'schedule' => 'Schedule the sweeps (routes/console.php):',
         'routes' => 'The JSON API is off: set TICKETS_ROUTES=on to serve it, and php artisan vendor:publish --tag=tickets-routes to customise its routes.',
+        'guests' => 'The doctor reports guest_links until guest mails can carry a link: set TICKETS_ROUTES=on, bind your own Contracts\GuestLinkGenerator, or set TICKETS_NOTIFY_GUESTS=off.',
     ],
 ];
