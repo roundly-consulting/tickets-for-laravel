@@ -1,9 +1,15 @@
 {
     "name": "roundly-consulting/tickets-for-laravel",
-    "description": "TODO: replace with a one-line description of the new package.",
+    "description": "Headless helpdesk ticketing core: categories, swappable statuses, replies and internal notes, assignment, priorities, due dates, custom fields, guest requesters and optional projects.",
     "keywords": [
         "roundly-consulting",
-        "laravel"
+        "laravel",
+        "tickets",
+        "helpdesk",
+        "support-desk",
+        "ticketing",
+        "issue-tracker",
+        "service-desk"
     ],
     "homepage": "https://roundly-consulting.com/open-source/docs/tickets-for-laravel",
     "license": "MIT",
@@ -19,8 +25,26 @@
     },
     "require": {
         "php": "^8.4",
+        "illuminate/auth": "^12.0|^13.0",
+        "illuminate/cache": "^12.0|^13.0",
+        "illuminate/console": "^12.0|^13.0",
         "illuminate/contracts": "^12.0|^13.0",
-        "roundly-consulting/package-toolkit-for-laravel": "^1.3.0"
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/events": "^12.0|^13.0",
+        "illuminate/http": "^12.0|^13.0",
+        "illuminate/notifications": "^12.0|^13.0",
+        "illuminate/routing": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
+        "illuminate/validation": "^12.0|^13.0",
+        "roundly-consulting/attributes-for-laravel": "^1.1.1",
+        "roundly-consulting/comments-for-laravel": "^1.0.2",
+        "roundly-consulting/enums-for-laravel": "^1.1.0",
+        "roundly-consulting/lifecycle-for-laravel": "^1.0.2",
+        "roundly-consulting/media-library-for-laravel": "^1.1.4",
+        "roundly-consulting/package-toolkit-for-laravel": "^1.3.0",
+        "roundly-consulting/query-builder-for-laravel": "^1.2.1",
+        "roundly-consulting/sluggable-for-laravel": "^1.1.2",
+        "roundly-consulting/translatable-for-laravel": "^1.1.1"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
@@ -31,16 +55,22 @@
         "pestphp/pest-plugin-arch": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpstan/extension-installer": "^1.4",
-        "roundly-consulting/testing-for-laravel": "^1.2.1"
+        "roundly-consulting/testing-for-laravel": "^1.4.0"
+    },
+    "suggest": {
+        "roundly-consulting/teams-for-laravel": "Assign tickets to teams (a Team implementing Contracts\\Assignee).",
+        "roundly-consulting/permissions-for-laravel": "Agent roles that satisfy the tickets.* Gate abilities.",
+        "roundly-consulting/metrics-for-laravel": "Ticket dashboards and trends."
     },
     "autoload": {
         "psr-4": {
-            "RoundlyConsulting\\Tickets\\": "src"
+            "RoundlyConsulting\\Tickets\\": "src/",
+            "RoundlyConsulting\\Tickets\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "RoundlyConsulting\\Tickets\\Tests\\": "tests"
+            "RoundlyConsulting\\Tickets\\Tests\\": "tests/"
         }
     },
     "scripts": {
