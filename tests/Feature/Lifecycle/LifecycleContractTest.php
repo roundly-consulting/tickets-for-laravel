@@ -14,7 +14,13 @@ use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\StringStatesLifecycle;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\StatelessTicket;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 
-beforeEach(fn () => LifecycleContract::flush());
+beforeEach(function (): void {
+    LifecycleContract::flush();
+
+    // The exit code weighs every section: without the guest routes a notified guest would get
+    // no link (an api error), so guests go unnotified here — this file is about the lifecycle.
+    config()->set('tickets.notifications.guests', 'off');
+});
 
 /**
  * The doctor's verdict, its checks narrowed to one section (null = every section).

@@ -54,6 +54,26 @@ function routesOffDoctor(): array
 }
 
 it('reports the API off, and the default guest links unusable without it', function (): void {
+    // Guests are notified by default, and their mails carry those links: an error.
+    expect(routesOffDoctor())->toBe(['policy' => 'ok', 'routes' => 'ok', 'guest_links' => 'error']);
+
+    // Nobody to mail them to — guests unnotified, or notifications off, or every type that
+    // reaches the requester side switched off: back to a warning.
+    config()->set('tickets.notifications.guests', 'off');
+    expect(routesOffDoctor())->toBe(['policy' => 'ok', 'routes' => 'ok', 'guest_links' => 'warning']);
+
+    config()->set('tickets.notifications.guests', 'on');
+    config()->set('tickets.notifications.enabled', 'off');
+    expect(routesOffDoctor())->toBe(['policy' => 'ok', 'routes' => 'ok', 'guest_links' => 'warning']);
+
+    config()->set('tickets.notifications.enabled', 'on');
+    config()->set('tickets.notifications.types', [
+        'created' => false, 'replied' => false, 'status_changed' => false, 'merged' => false,
+    ]);
+    expect(routesOffDoctor())->toBe(['policy' => 'ok', 'routes' => 'ok', 'guest_links' => 'warning']);
+
+    // A broken notification setting is the notifications section's error, not this one's.
+    config()->set('tickets.notifications.types.created', stdClass::class);
     expect(routesOffDoctor())->toBe(['policy' => 'ok', 'routes' => 'ok', 'guest_links' => 'warning']);
 
     app()->bind(GuestLinkGenerator::class, static fn () => new class implements GuestLinkGenerator

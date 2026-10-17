@@ -18,6 +18,15 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // The people of a uuid installation (the uuid key leg).
+        Schema::create('uuid_users', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('name')->nullable();
+            $table->string('email')->nullable();
+            $table->boolean('is_agent')->default(false);
+            $table->timestamps();
+        });
+
         Schema::create('teams', function (Blueprint $table): void {
             $table->id();
             $table->string('name');

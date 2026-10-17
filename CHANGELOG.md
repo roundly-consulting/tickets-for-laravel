@@ -167,4 +167,8 @@ Initial public release.
   Guests get a fresh signed link (`tickets.notifications.guests`); everyone else a button to
   `tickets.notifications.url`. Each type is a swappable class or `false`
   (`tickets.notifications.types.*`), and what people wrote is shown as text, never as Markdown.
+- `tickets:doctor` covers the whole installation: key-type alignment (and the user model's keys),
+  the lifecycle, the priority enum and stored priorities it lost, the Gate abilities, the alias
+  lists, the guest fields, the comments `meta` column, the attachments disk and its download URLs,
+  the API and guest links (an error when guests are notified), notifications and due dates.
 - `about` shows whether notifications are on, and on which channels.

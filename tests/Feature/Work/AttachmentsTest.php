@@ -70,11 +70,11 @@ describe('attachments_are_private', function (): void {
             return array_values(array_filter($output['checks'], static fn (array $check): bool => $check['section'] === 'attachments'));
         };
 
-        expect(array_column($read(), 'level'))->toBe(['ok']);
+        expect(array_column($read(), 'level', 'code'))->toBe(['disk' => 'ok', 'temporary_urls' => 'ok']);
 
         config()->set('tickets.attachments.disk', 'public');
 
-        expect(array_column($read(), 'level'))->toBe(['warning']);
+        expect(array_column($read(), 'level', 'code'))->toBe(['disk' => 'warning', 'temporary_urls' => 'ok']);
     });
 });
 

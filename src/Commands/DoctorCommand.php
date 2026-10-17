@@ -9,14 +9,18 @@ use RoundlyConsulting\Tickets\DataTransferObjects\DoctorCheck;
 use RoundlyConsulting\Tickets\Support\Doctor;
 
 /**
- * Checks the installation and reports what would break: the lifecycle contract and its
- * automations, the supported transition conveniences. Exits non-zero on any error.
+ * Checks the installation and reports what would break, by section: key-type alignment, the
+ * lifecycle contract and its automations (and the supported transition conveniences), the
+ * priority enum and stored priorities it lost, the Gate abilities, the alias allow-lists, the
+ * guest fields, the comments `meta` column and `comments.authorization`, the attachments disk
+ * and its download URLs, the HTTP API and guest links, notifications, due dates and the
+ * scheduled sweeps. Exits non-zero on any error; `--json` for machines.
  */
 final class DoctorCommand extends Command
 {
     protected $signature = 'tickets:doctor {--json : Print the checks as JSON}';
 
-    protected $description = 'Check the tickets installation: lifecycle contract, automations and conveniences';
+    protected $description = 'Check the tickets installation and report what would break';
 
     public function handle(): int
     {
