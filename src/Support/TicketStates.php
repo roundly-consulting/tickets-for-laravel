@@ -51,4 +51,20 @@ final class TicketStates
     {
         return $state instanceof BackedEnum ? $state->value : $state;
     }
+
+    /**
+     * The status category of a state given as a case or its raw stored value, or null for a
+     * value the configured lifecycle does not declare (or that is not a TicketState).
+     */
+    public static function category(BackedEnum|string|null $state): ?StatusCategory
+    {
+        if ($state === null) {
+            return null;
+        }
+
+        $definition = self::definition();
+        $value = $state instanceof TicketState ? $state : ($definition->hasState($state) ? $definition->decode($state) : null);
+
+        return $value instanceof TicketState ? $value->category() : null;
+    }
 }
