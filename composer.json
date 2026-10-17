@@ -37,7 +37,7 @@
         "illuminate/support": "^12.0|^13.0",
         "illuminate/validation": "^12.0|^13.0",
         "roundly-consulting/attributes-for-laravel": "^1.1.1",
-        "roundly-consulting/comments-for-laravel": "^1.0.2",
+        "roundly-consulting/comments-for-laravel": "^1.1.0",
         "roundly-consulting/enums-for-laravel": "^1.1.0",
         "roundly-consulting/lifecycle-for-laravel": "^1.0.2",
         "roundly-consulting/media-library-for-laravel": "^1.1.4",
