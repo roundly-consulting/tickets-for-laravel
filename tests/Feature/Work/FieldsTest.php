@@ -288,6 +288,39 @@ describe('custom_field_rules', function (): void {
         Tickets::fields()->restore($field);
     })->throws(InvalidFieldException::class, 'asset_tag');
 
+    it('refuses a key a deleted field still keeps values under, until they are restored or pruned', function (bool $encrypted): void {
+        config()->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
+        $old = Tickets::fields()->make('assessment', FieldType::Text)->agentOnly()->encrypted($encrypted)->define();
+        $ticket = fieldTicket(fields: ['assessment' => 'customer is lying about the warranty']);
+        Tickets::fields()->delete($old);
+
+        // A new requester-visible field must never hand them the old agent-only value.
+        expect(fn () => Tickets::fields()->make('assessment', FieldType::Text)->requesterVisible()->requesterEditable()->define())
+            ->toThrow(InvalidFieldException::class, 'A deleted field still keeps values under the key [assessment]');
+
+        Tickets::fields()->prune();
+        Tickets::fields()->make('assessment', FieldType::Text)->requesterVisible()->requesterEditable()->define();
+
+        expect(Tickets::for($ticket)->fields()->get('assessment'))->toBeNull();
+    })->with(['plain' => [false], 'encrypted' => [true]]);
+
+    it('checks kept values only where the new field would apply', function (): void {
+        $support = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $ops = Project::query()->create(['name' => 'Operations', 'key' => 'OPS']);
+        $old = Tickets::fields()->make('assessment', FieldType::Text)->project($support)->define();
+        fieldTicket(project: $support, fields: ['assessment' => 'kept']);
+        Tickets::fields()->delete($old);
+
+        // Another project's tickets hold no value under the key…
+        $other = Tickets::fields()->make('assessment', FieldType::Text)->project($ops)->define();
+
+        // …but a global field would apply to the support ticket too.
+        expect($other->exists)->toBeTrue()
+            ->and(fn () => Tickets::fields()->make('assessment', FieldType::Text)->project($support)->define())->toThrow(InvalidFieldException::class, 'assessment');
+        Tickets::fields()->delete($other);
+        expect(fn () => Tickets::fields()->make('assessment', FieldType::Text)->define())->toThrow(InvalidFieldException::class, 'assessment');
+    });
+
     it('updates a field definition', function (): void {
         $field = Tickets::fields()->make('asset_tag', FieldType::Text)->define();
 

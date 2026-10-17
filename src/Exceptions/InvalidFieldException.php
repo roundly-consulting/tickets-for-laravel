@@ -19,6 +19,11 @@ final class InvalidFieldException extends TicketsException
         return new self(self::translate('field.duplicate_key', ['key' => $key]));
     }
 
+    public static function keptValues(string $key): self
+    {
+        return new self(self::translate('field.kept_values', ['key' => $key]));
+    }
+
     public static function missingOptions(string $key): self
     {
         return new self(self::translate('field.missing_options', ['key' => $key]));

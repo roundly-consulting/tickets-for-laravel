@@ -23,6 +23,9 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * ancestor and own-category definitions while attributes stores one value per name, so a
  * child category re-using its parent's key would give one value two definitions. No
  * portable partial unique index can hold that, so the check runs under `lock:fields`.
+ *
+ * A key a deleted field of the scope still keeps values under is refused too: a new field would
+ * show those values. Restore the old field, or prune its values (`Tickets::fields()->prune()`).
  */
 final readonly class DefineFieldAction
 {
@@ -57,6 +60,7 @@ final readonly class DefineFieldAction
             }
 
             FieldInput::assertKeyFree($key, $projectType, $projectId);
+            FieldInput::assertNoKeptValues($key, $projectType, $projectId);
 
             $field->forceFill([
                 'project_type' => $projectType,

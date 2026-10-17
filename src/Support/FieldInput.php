@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Support;
 use Illuminate\Database\Eloquent\Builder;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidFieldException;
+use RoundlyConsulting\Tickets\Models\TicketField;
 
 /**
  * Validation of custom field definitions, shared by the action and the eager builder.
@@ -125,13 +126,7 @@ final class FieldInput
      */
     public static function assertKeyFree(string $key, ?string $projectType, int|string|null $projectId, ?int $except = null): void
     {
-        $taken = TicketModels::field()::query()->where('key', $key);
-
-        if ($projectType !== null) {
-            $taken->where(static fn (Builder $scope): Builder => $scope
-                ->whereNull('project_type')
-                ->orWhere(static fn (Builder $same): Builder => $same->where('project_type', $projectType)->where('project_id', $projectId)));
-        }
+        $taken = self::sameScope(TicketModels::field()::query()->where('key', $key), $projectType, $projectId);
 
         if ($except !== null) {
             $taken->whereKeyNot($except);
@@ -140,6 +135,50 @@ final class FieldInput
         if ($taken->exists()) {
             throw InvalidFieldException::duplicateKey($key);
         }
+    }
+
+    /**
+     * A key no deleted field of the same scope still keeps values under, on the tickets a new
+     * field of that scope would apply to. Those values are hidden, not gone: a new field would
+     * show them — to whoever it is visible to, decrypted — so the old field is restored or its
+     * values are pruned first. Run it under the `lock:fields` advisory row.
+     */
+    public static function assertNoKeptValues(string $key, ?string $projectType, int|string|null $projectId): void
+    {
+        if (self::sameScope(TicketModels::field()::onlyTrashed()->where('key', $key), $projectType, $projectId)->doesntExist()) {
+            return;
+        }
+
+        $kept = TicketModels::ticket()::withTrashed()
+            ->whereHas('attachedAttributes', static fn (Builder $values): Builder => $values->where('name', $key));
+
+        if ($projectType !== null) {
+            $kept->where('project_type', $projectType)->where('project_id', $projectId);
+        }
+
+        if ($kept->exists()) {
+            throw InvalidFieldException::keptValues($key);
+        }
+    }
+
+    /**
+     * The fields of a key that share a scope with a (new) field: for a project field, the
+     * global ones and its project's; for a global field, every one.
+     *
+     * @template TModel of TicketField
+     *
+     * @param  Builder<TModel>  $fields
+     * @return Builder<TModel>
+     */
+    private static function sameScope(Builder $fields, ?string $projectType, int|string|null $projectId): Builder
+    {
+        if ($projectType !== null) {
+            $fields->where(static fn (Builder $scope): Builder => $scope
+                ->whereNull('project_type')
+                ->orWhere(static fn (Builder $same): Builder => $same->where('project_type', $projectType)->where('project_id', $projectId)));
+        }
+
+        return $fields;
     }
 
     private static function safePattern(string $pattern): bool

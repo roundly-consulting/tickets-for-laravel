@@ -82,6 +82,7 @@ return [
         'not_found' => 'Pole [:id] sa nenašlo.',
         'invalid_key' => 'Kľúč poľa [:key] musí začínať písmenom a obsahovať iba malé písmená, číslice a podčiarkovníky (najviac 64).',
         'duplicate_key' => 'Pole s kľúčom [:key] už v tomto rozsahu existuje.',
+        'kept_values' => 'Odstránené pole ešte uchováva hodnoty pod kľúčom [:key]. Skôr než kľúč znova definujete, obnovte toto pole alebo zabudnite jeho hodnoty (tickets:prune-fields).',
         'missing_options' => 'Pole [:key] je výberové a potrebuje aspoň jednu možnosť.',
         'unexpected_options' => 'Pole [:key] nie je výberové a nemôže mať možnosti.',
         'rule_not_allowed' => 'Pravidlo [:rule] poľa [:key] nie je povolené.',

@@ -82,6 +82,7 @@ return [
         'not_found' => 'Field [:id] was not found.',
         'invalid_key' => 'The field key [:key] must start with a letter and hold only lower-case letters, digits and underscores (at most 64).',
         'duplicate_key' => 'A field with the key [:key] already exists in this scope.',
+        'kept_values' => 'A deleted field still keeps values under the key [:key]. Restore that field, or prune its values (tickets:prune-fields), before you define the key again.',
         'missing_options' => 'The field [:key] is a choice field and needs at least one option.',
         'unexpected_options' => 'The field [:key] is not a choice field and cannot have options.',
         'rule_not_allowed' => 'The rule [:rule] of the field [:key] is not allowed.',
