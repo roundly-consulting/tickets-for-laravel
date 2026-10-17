@@ -16,6 +16,7 @@ use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLifecycleException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
+use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 
 /**
  * Validated readers for the `tickets.*` settings the toolkit's `Config` cannot express on
@@ -331,6 +332,111 @@ final class TicketsConfig
     public static function attachmentMaxKilobytes(): int
     {
         return self::read()->integer('tickets.attachments.max_kb', 10240, min: 1);
+    }
+
+    /**
+     * The Gate ability that lets an agent assign a ticket to someone else
+     * (`tickets.authorization.abilities.assign`).
+     */
+    public static function assignAbility(): string
+    {
+        return self::read()->string('tickets.authorization.abilities.assign', 'tickets.assign');
+    }
+
+    /**
+     * The Gate ability that deletes and restores tickets and runs the categories, fields and
+     * tags (`tickets.authorization.abilities.manage`).
+     */
+    public static function manageAbility(): string
+    {
+        return self::read()->string('tickets.authorization.abilities.manage', 'tickets.manage');
+    }
+
+    /**
+     * Whether the package registers its policy for the ticket model
+     * (`tickets.authorization.register_policy`).
+     */
+    public static function registerPolicy(): bool
+    {
+        return self::read()->boolean('tickets.authorization.register_policy', true);
+    }
+
+    /**
+     * The ticket policy (`tickets.authorization.policy`): {@see TicketPolicy} or a subclass —
+     * the API asks it for abilities only the package's policy defines.
+     *
+     * @return class-string<TicketPolicy>
+     */
+    public static function policy(): string
+    {
+        $class = self::read()->string('tickets.authorization.policy', TicketPolicy::class);
+
+        if (! is_a($class, TicketPolicy::class, true)) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.authorization.policy', 'a class extending '.TicketPolicy::class);
+        }
+
+        return $class;
+    }
+
+    /**
+     * The transitions a requester may run on their own ticket
+     * (`tickets.authorization.requester_transitions`) — `[]` (or a blank string) allows none;
+     * null is the default.
+     *
+     * @return list<string>
+     */
+    public static function requesterTransitions(): array
+    {
+        $configured = config('tickets.authorization.requester_transitions') ?? ['close', 'reopen'];
+
+        // An empty list is meaningful here (requesters run no transition), so it is read by hand
+        // rather than through the toolkit's list reader, which treats [] as "use the default".
+        if (is_string($configured)) {
+            $configured = trim($configured) === '' ? [] : explode(',', $configured);
+        }
+
+        if (! is_array($configured)) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.authorization.requester_transitions', 'a list of transition names');
+        }
+
+        $names = [];
+
+        foreach ($configured as $name) {
+            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_]{0,63}$/', trim($name)) !== 1) {
+                throw InvalidTicketsConfigurationException::invalid('tickets.authorization.requester_transitions', 'a list of transition names');
+            }
+
+            $names[] = trim($name);
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * Whether a watcher who is not an agent may run the requester transitions too
+     * (`tickets.authorization.participants_can_transition`).
+     */
+    public static function participantsCanTransition(): bool
+    {
+        return self::read()->boolean('tickets.authorization.participants_can_transition', false);
+    }
+
+    /**
+     * Whether anyone signed in may file a ticket for themselves
+     * (`tickets.authorization.self_service`); off = agents only.
+     */
+    public static function selfService(): bool
+    {
+        return self::read()->boolean('tickets.authorization.self_service', true);
+    }
+
+    /**
+     * Whether a requester may edit the subject and description of their unresolved ticket
+     * (`tickets.authorization.requester_can_edit`).
+     */
+    public static function requesterCanEdit(): bool
+    {
+        return self::read()->boolean('tickets.authorization.requester_can_edit', true);
     }
 
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */

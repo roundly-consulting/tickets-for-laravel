@@ -9,6 +9,7 @@ use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 $src = __DIR__.'/../../src';
@@ -21,7 +22,8 @@ ArchPresets::strictTypes('RoundlyConsulting\Tickets');
  *  - the five config-swappable models (pinned non-final below);
  *  - TicketsManager, the facade root TicketsFake extends — an injected manager must still
  *    type-check under Tickets::fake();
- *  - TicketLifecycle, which a host extends to adjust one rule of the shipped statuses.
+ *  - TicketLifecycle, which a host extends to adjust one rule of the shipped statuses;
+ *  - TicketPolicy, which `tickets.authorization.policy` swaps for a subclass.
  */
 ArchPresets::finalByDefault('RoundlyConsulting\Tickets', [
     Ticket::class,
@@ -31,6 +33,7 @@ ArchPresets::finalByDefault('RoundlyConsulting\Tickets', [
     TicketGuest::class,
     TicketsManager::class,
     TicketLifecycle::class,
+    TicketPolicy::class,
 ]);
 
 ArchPresets::swappableModelsAreNotFinal([

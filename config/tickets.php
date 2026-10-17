@@ -11,6 +11,7 @@ use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 
 return [
 
@@ -263,15 +264,34 @@ return [
     | The Gate abilities the package asks about. Define them in your app
     | (`Gate::define('tickets.agent', fn ($user) => $user->is_support)`) or
     | through a permissions package. An undefined ability denies. `agent`
-    | makes a user an agent; `merge` lets an actor merge tickets.
+    | makes a user an agent; `assign` lets one assign others; `merge` lets an
+    | actor merge tickets; `manage` deletes tickets and runs the categories,
+    | fields and tags.
+    |
+    | `policy` (registered for the ticket model with `register_policy`; off =
+    | register your own with Gate::policy()) must extend Policies\TicketPolicy. `agent_scope` (a Contracts\AgentScope; null
+    | = agents see every ticket) narrows what an agent may work on. A requester
+    | may run the `requester_transitions` on their own ticket (a watcher too,
+    | with `participants_can_transition`). `self_service`: anyone signed in may
+    | file a ticket; `requester_can_edit`: the requester may edit the subject
+    | and description of an unresolved ticket.
     |
     */
 
     'authorization' => [
+        'register_policy' => env('TICKETS_REGISTER_POLICY', 'on'),
+        'policy' => TicketPolicy::class,
         'abilities' => [
             'agent' => 'tickets.agent',
+            'assign' => 'tickets.assign',
             'merge' => 'tickets.agent',
+            'manage' => 'tickets.manage',
         ],
+        'agent_scope' => null,
+        'requester_transitions' => ['close', 'reopen'],
+        'participants_can_transition' => env('TICKETS_PARTICIPANTS_CAN_TRANSITION', 'off'),
+        'self_service' => env('TICKETS_SELF_SERVICE', 'on'),
+        'requester_can_edit' => env('TICKETS_REQUESTER_CAN_EDIT', 'on'),
     ],
 
     /*

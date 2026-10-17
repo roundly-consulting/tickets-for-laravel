@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets;
 
 use Closure;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Accessors\Categories;
 use RoundlyConsulting\Tickets\Accessors\Fields;
@@ -81,6 +82,17 @@ class TicketsManager
     public function for(Ticket|string $ticket): TicketHandle
     {
         return new TicketHandle($this, is_string($ticket) ? $this->findOrFail($ticket) : $ticket);
+    }
+
+    /**
+     * The tickets `$user` may see, as a query — the same tickets the policy's `view` allows: as an
+     * agent (narrowed by the agent scope), as the requester, or as a watcher.
+     *
+     * @return Builder<Ticket>
+     */
+    public function visibleTo(Model $user): Builder
+    {
+        return TicketModels::ticket()::query()->visibleTo($user);
     }
 
     /**

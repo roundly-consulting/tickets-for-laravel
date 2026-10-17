@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets;
 
 use Closure;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Events\Dispatcher;
 use RoundlyConsulting\Comments\Events\CommentMentioned;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioned;
@@ -15,7 +16,9 @@ use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
 use RoundlyConsulting\Tickets\Assignment\CategoryDefaultStrategy;
+use RoundlyConsulting\Tickets\Authorization\UnrestrictedAgentScope;
 use RoundlyConsulting\Tickets\Commands\DoctorCommand;
+use RoundlyConsulting\Tickets\Contracts\AgentScope;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
@@ -26,6 +29,7 @@ use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Listeners\OnCommentMentioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
+use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
 final class TicketsServiceProvider extends PackageServiceProvider
@@ -62,6 +66,8 @@ final class TicketsServiceProvider extends PackageServiceProvider
 
         $this->bindFromConfig(AssignmentStrategy::class, 'tickets.assignment.strategy', CategoryDefaultStrategy::class);
         $this->bindFromConfig(DueDateResolver::class, 'tickets.due.resolver', CategoryDueDateResolver::class);
+        // A class default, never null: bindFromConfig binds the default for a blank value.
+        $this->bindFromConfig(AgentScope::class, 'tickets.authorization.agent_scope', UnrestrictedAgentScope::class);
         $this->app->bind(ConversationLock::class, CommentsConversationLock::class);
     }
 
@@ -83,6 +89,24 @@ final class TicketsServiceProvider extends PackageServiceProvider
         // Comments → tickets: a mention in a ticket comment becomes TicketMentioned, only for
         // someone who may read that comment (an internal note reaches agents only).
         $events->listen(CommentMentioned::class, [OnCommentMentioned::class, 'handle']);
+
+        $this->registerPolicy();
+    }
+
+    /**
+     * The ticket policy, for the configured ticket model. A broken setting registers nothing
+     * rather than taking every artisan command down at boot — Laravel's own policy discovery
+     * still finds the shipped policy for the shipped model — and `tickets:doctor` names it.
+     */
+    private function registerPolicy(): void
+    {
+        try {
+            if (TicketsConfig::registerPolicy()) {
+                $this->app->make(Gate::class)->policy(TicketModels::ticket(), TicketsConfig::policy());
+            }
+        } catch (InvalidConfigurationException|TicketsException) {
+            return;
+        }
     }
 
     /**

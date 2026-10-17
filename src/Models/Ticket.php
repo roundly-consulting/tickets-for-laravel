@@ -40,6 +40,7 @@ use RoundlyConsulting\Tickets\Support\FieldFilters;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketStates;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
@@ -264,6 +265,18 @@ class Ticket extends Model implements HasAttributesContract, HasMedia, Lifecycle
     }
 
     // Query scopes — the API's list filters are built on these, so PHP and HTTP filter alike.
+
+    /**
+     * The tickets `$user` may see — exactly the ones the policy's `view` allows: as an agent
+     * (narrowed by the agent scope), as the requester, or as a watcher with
+     * `tickets.watchers.can_view`.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeVisibleTo(Builder $query, Model $user): void
+    {
+        TicketVisibility::constrain($query, $user);
+    }
 
     /**
      * Assigned to any of the models.
