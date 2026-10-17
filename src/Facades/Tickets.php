@@ -14,8 +14,8 @@ use RoundlyConsulting\Tickets\TicketsManager;
  *
  * @method static \RoundlyConsulting\Tickets\Builders\TicketBuilder make()
  * @method static \RoundlyConsulting\Tickets\Models\Ticket create(\RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData $data)
- * @method static \RoundlyConsulting\Tickets\Models\Ticket|null find(string $reference)
- * @method static \RoundlyConsulting\Tickets\Models\Ticket findOrFail(string $reference)
+ * @method static \RoundlyConsulting\Tickets\Models\Ticket|null find(string $reference, bool $withTrashed = false)
+ * @method static \RoundlyConsulting\Tickets\Models\Ticket findOrFail(string $reference, bool $withTrashed = false)
  * @method static \RoundlyConsulting\Tickets\Handles\TicketHandle for(\RoundlyConsulting\Tickets\Models\Ticket|string $ticket)
  * @method static \Illuminate\Database\Eloquent\Builder<\RoundlyConsulting\Tickets\Models\Ticket> visibleTo(\Illuminate\Database\Eloquent\Model $user)
  * @method static \RoundlyConsulting\Tickets\Handles\ProjectTickets project(\Illuminate\Database\Eloquent\Model&\RoundlyConsulting\Tickets\Contracts\TicketProject $project)

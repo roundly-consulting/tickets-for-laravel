@@ -62,19 +62,23 @@ class TicketsManager
     }
 
     /**
-     * The live ticket with this reference (`SUP-42`), or null.
+     * The live ticket with this reference (`SUP-42`), or null — with `$withTrashed`, a
+     * soft-deleted one too (to restore it: `Tickets::for(Tickets::findOrFail('SUP-42', withTrashed: true))->restore()`).
      */
-    public function find(string $reference): ?Ticket
+    public function find(string $reference, bool $withTrashed = false): ?Ticket
     {
-        return TicketModels::ticket()::query()->where('reference', $reference)->first();
+        $query = $withTrashed ? TicketModels::ticket()::withTrashed() : TicketModels::ticket()::query();
+
+        return $query->where('reference', $reference)->first();
     }
 
     /**
-     * The live ticket with this reference, or a {@see TicketNotFoundException}.
+     * The live ticket with this reference (with `$withTrashed`, a soft-deleted one too), or a
+     * {@see TicketNotFoundException}.
      */
-    public function findOrFail(string $reference): Ticket
+    public function findOrFail(string $reference, bool $withTrashed = false): Ticket
     {
-        return $this->find($reference) ?? throw TicketNotFoundException::forReference($reference);
+        return $this->find($reference, $withTrashed) ?? throw TicketNotFoundException::forReference($reference);
     }
 
     /**
@@ -115,7 +119,8 @@ class TicketsManager
     }
 
     /**
-     * Custom field definitions: `make`, `define`, `update`, `delete`, `restore`, `prune`, `for`.
+     * Custom field definitions: `make`, `define`, `update`, `delete`, `restore`, `prune`, `find`,
+     * `for`.
      */
     public function fields(): Fields
     {
@@ -123,7 +128,7 @@ class TicketsManager
     }
 
     /**
-     * Tags: `create`, `findOrCreate`, `rename`, `recolor`, `update`, `delete`, `all`.
+     * Tags: `create`, `findOrCreate`, `rename`, `recolor`, `update`, `delete`, `find`, `all`.
      */
     public function tags(): Tags
     {
@@ -131,7 +136,7 @@ class TicketsManager
     }
 
     /**
-     * Guest requesters: `resolve`, `update`, `convert`, `linkFor`.
+     * Guest requesters: `resolve`, `find`, `update`, `convert`, `linkFor`.
      */
     public function guests(): Guests
     {

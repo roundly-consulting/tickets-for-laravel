@@ -14,6 +14,7 @@ use RoundlyConsulting\Tickets\DataTransferObjects\TagData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTagData;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Support\TagInput;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\TicketsManager;
@@ -78,14 +79,40 @@ final readonly class Tags
         );
     }
 
-    public function delete(TicketTag $tag): void
+    /**
+     * Soft-delete a tag; it comes off every ticket's tag list, and its name stays taken (a
+     * re-create brings it back). Returns the trashed tag.
+     */
+    public function delete(TicketTag $tag): TicketTag
     {
-        $this->manager->perform(
+        return $this->manager->perform(
             TicketOperation::DeleteTag,
             DeleteTagAction::class,
             static fn (DeleteTagAction $action): TicketTag => $action->execute($tag),
             ['tag' => $tag],
         );
+    }
+
+    /**
+     * A live tag by id, or by slug (a name is slugified first). A slug is unique within one
+     * scope, so with `$project` it names the project's own tag, else the global one; without,
+     * the global tag only. An id is unambiguous — with `$project`, a tag the project's tickets
+     * cannot carry is not found.
+     */
+    public function find(int|string $idOrSlug, ?Model $project = null): ?TicketTag
+    {
+        [$type, $id] = TicketInput::morph($project);
+        $query = TicketModels::tag()::query()->where(static fn (Builder $scope): Builder => $type === null
+            ? (is_int($idOrSlug) ? $scope : $scope->whereNull('project_type'))
+            : $scope->whereNull('project_type')->orWhere(static fn (Builder $own): Builder => $own->where('project_type', $type)->where('project_id', $id)));
+
+        if (is_int($idOrSlug)) {
+            return $query->whereKey($idOrSlug)->first();
+        }
+
+        return $query->where('slug', TagInput::slug($idOrSlug))
+            ->orderByRaw('case when project_type is null then 1 else 0 end')
+            ->first();
     }
 
     /**

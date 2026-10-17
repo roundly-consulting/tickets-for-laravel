@@ -15,6 +15,7 @@ use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
+use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateFieldData;
@@ -23,6 +24,7 @@ use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
+use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -30,6 +32,7 @@ use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Testing\TicketsFake;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\TicketsManager;
 
@@ -117,6 +120,100 @@ it('declares the global alias for the facade and never a core facade name', func
     expect($aliases)->toBe(['Tickets' => Tickets::class])
         ->and(class_exists('Illuminate\\Support\\Facades\\Tickets'))->toBeFalse()
         ->and($coreAliases)->not->toContain('tickets');
+});
+
+describe('lookups', function (): void {
+    it('finds a ticket by reference, a soft-deleted one only when asked', function (): void {
+        $ticket = fakeTicket();
+        Tickets::for($ticket)->asSystem()->delete();
+
+        expect(Tickets::find('TCK-1'))->toBeNull()
+            ->and(Tickets::find('TCK-1', withTrashed: true)?->is($ticket))->toBeTrue()
+            ->and(fn () => Tickets::findOrFail('TCK-1'))->toThrow(TicketNotFoundException::class)
+            ->and(fn () => Tickets::for('TCK-1'))->toThrow(TicketNotFoundException::class)
+            ->and(Tickets::for(Tickets::findOrFail('TCK-1', withTrashed: true))->asSystem()->restore()->ticket()->trashed())->toBeFalse()
+            ->and(Tickets::find('TCK-404', withTrashed: true))->toBeNull();
+    });
+
+    it('finds a field by id or key, the project\'s before the global one', function (): void {
+        $sup = Project::query()->create(['name' => 'Helpdesk', 'key' => 'SUP']);
+        $fac = Project::query()->create(['name' => 'Facilities', 'key' => 'FAC']);
+        $global = Tickets::fields()->make('impact', FieldType::Text)->define();
+        $mine = Tickets::fields()->make('asset_tag', FieldType::Text)->project($sup)->define();
+        $theirs = Tickets::fields()->make('asset_tag', FieldType::Text)->project($fac)->define();
+
+        expect(Tickets::fields()->find('impact')?->is($global))->toBeTrue()
+            ->and(Tickets::fields()->find('impact', $sup)?->is($global))->toBeTrue()
+            ->and(Tickets::fields()->find('asset_tag'))->toBeNull()
+            ->and(Tickets::fields()->find('asset_tag', $sup)?->is($mine))->toBeTrue()
+            ->and(Tickets::fields()->find('asset_tag', $fac)?->is($theirs))->toBeTrue()
+            ->and(Tickets::fields()->find($mine->id)?->is($mine))->toBeTrue()
+            ->and(Tickets::fields()->find($mine->id, $sup)?->is($mine))->toBeTrue()
+            ->and(Tickets::fields()->find($mine->id, $fac))->toBeNull()
+            ->and(Tickets::fields()->find('nope'))->toBeNull();
+
+        Tickets::fields()->delete($global);
+
+        expect(Tickets::fields()->find('impact'))->toBeNull();
+    });
+
+    it('finds a tag by id, slug or name, the project\'s own before the global one', function (): void {
+        $sup = Project::query()->create(['name' => 'Helpdesk', 'key' => 'SUP']);
+        $fac = Project::query()->create(['name' => 'Facilities', 'key' => 'FAC']);
+        $global = Tickets::tags()->create('Printer');
+        $own = Tickets::tags()->create('Printer', project: $sup);
+        $toner = Tickets::tags()->create('Toner', project: $fac);
+
+        expect(Tickets::tags()->find('printer')?->is($global))->toBeTrue()
+            ->and(Tickets::tags()->find('Printer')?->is($global))->toBeTrue()
+            ->and(Tickets::tags()->find('printer', $sup)?->is($own))->toBeTrue()
+            ->and(Tickets::tags()->find('printer', $fac)?->is($global))->toBeTrue()
+            ->and(Tickets::tags()->find('toner'))->toBeNull()
+            ->and(Tickets::tags()->find('toner', $fac)?->is($toner))->toBeTrue()
+            ->and(Tickets::tags()->find($toner->id)?->is($toner))->toBeTrue()
+            ->and(Tickets::tags()->find($toner->id, $sup))->toBeNull()
+            ->and(Tickets::tags()->find($global->id, $sup)?->is($global))->toBeTrue();
+    });
+
+    it('returns the trashed tag from delete', function (): void {
+        $tag = Tickets::tags()->create('Printer');
+
+        $deleted = Tickets::tags()->delete($tag);
+
+        expect($deleted->is($tag))->toBeTrue()
+            ->and($deleted->trashed())->toBeTrue()
+            ->and(Tickets::tags()->find('printer'))->toBeNull();
+    });
+
+    it('finds a guest read-only, by a normalised identifying value', function (): void {
+        $fake = Tickets::fake();
+        $jo = fakeGuest();
+        $rows = TicketGuest::query()->count();
+
+        expect(Tickets::guests()->find(['email' => ' JO@acme.test '])?->is($jo))->toBeTrue()
+            ->and(Tickets::guests()->find(new GuestData(['name' => 'Someone else', 'email' => 'jo@acme.test']))?->is($jo))->toBeTrue()
+            ->and(Tickets::guests()->find(['email' => 'ann@acme.test']))->toBeNull()
+            ->and(Tickets::guests()->find(['name' => 'Jo']))->toBeNull()
+            ->and(Tickets::guests()->find(['email' => '   ', 'shoe_size' => 42]))->toBeNull()
+            ->and(TicketGuest::query()->count())->toBe($rows)
+            ->and(fakeGuestFields($jo))->toBe(['email' => 'jo@acme.test', 'name' => 'Jo']);
+
+        $fake->assertNoGuestResolved();
+
+        $jo->delete();
+
+        expect(Tickets::guests()->find(['email' => 'jo@acme.test']))->toBeNull();
+    });
+
+    it('issues a guest link by reference', function (): void {
+        $fake = Tickets::fake();
+        fakeGuestTicket();
+
+        expect(Tickets::guests()->linkFor('TCK-1'))->toBe('https://helpdesk.test/TCK-1')
+            ->and(fn () => Tickets::guests()->linkFor('TCK-404'))->toThrow(TicketNotFoundException::class);
+
+        $fake->assertGuestLinkIssued('TCK-1');
+    });
 });
 
 describe('the fake', function (): void {
@@ -457,4 +554,12 @@ function fakeGuest(): TicketGuest
     return app(TicketsManager::class) instanceof TicketsFake
         ? (new TicketsManager(app()))->guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test'])
         : Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test']);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function fakeGuestFields(TicketGuest $guest): array
+{
+    return $guest->fresh()?->getAttachedAttributes()->sortKeys()->all() ?? [];
 }

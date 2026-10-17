@@ -15,9 +15,13 @@ Initial public release.
   packages.
 - The `Tickets` facade over an injectable `TicketsManager`, with every operation a plain action:
   `Tickets::make()` (a fluent ticket builder) and `Tickets::create(CreateTicketData)`,
-  `find()` / `findOrFail()` by reference, `for($ticket)` (a model or a reference such as `SUP-42`)
-  returning a chainable `TicketHandle`, `visibleTo($user)`, `project($project)`, the `categories()`,
-  `fields()`, `tags()` and `guests()` sub-accessors and `sweep()`.
+  `find()` / `findOrFail()` by reference (a soft-deleted ticket with `withTrashed: true`),
+  `for($ticket)` (a model or a reference such as `SUP-42`) returning a chainable `TicketHandle`,
+  `visibleTo($user)`, `project($project)`, the `categories()`, `fields()`, `tags()` and `guests()`
+  sub-accessors and `sweep()`.
+- Lookups through the model seam: `Tickets::fields()->find()` by id or key and
+  `Tickets::tags()->find()` by id or slug (a project's own before the global one), and the
+  read-only `Tickets::guests()->find()` by a normalised identifying value.
 - Human references (`TCK-42`, or `SUP-42` with a project prefix) from gap-free, row-locked
   sequences — one global sequence plus one per project; numbers are never reused.
 - Publish-only migrations (`tickets-migrations`) for tickets, nested categories, custom field

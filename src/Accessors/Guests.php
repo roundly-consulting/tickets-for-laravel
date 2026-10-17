@@ -13,6 +13,8 @@ use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Support\GuestDirectory;
+use RoundlyConsulting\Tickets\Support\GuestFields;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
@@ -42,6 +44,31 @@ final readonly class Guests
     }
 
     /**
+     * The guest the fields identify, or null — a read-only lookup: the identifying values are
+     * normalised and tried in config order, exactly as `resolve()` matches, but nothing is
+     * created, filled or validated, unknown names are ignored, and a soft-deleted guest is not
+     * returned. Without an identifying value, null.
+     *
+     * @param  GuestData|array<string, scalar|null>  $fields
+     */
+    public function find(GuestData|array $fields): ?TicketGuest
+    {
+        $data = $fields instanceof GuestData ? $fields : new GuestData($fields);
+        $definitions = GuestFields::all();
+        $values = [];
+
+        foreach ($data->fields as $name => $value) {
+            if (isset($definitions[$name])) {
+                $values[$name] = $definitions[$name]->normalise($value);
+            }
+        }
+
+        $guest = GuestDirectory::match($values, $definitions, locking: false);
+
+        return $guest === null || $guest->trashed() ? null : $guest;
+    }
+
+    /**
      * @param  GuestData|array<string, scalar|null>  $fields
      */
     public function update(TicketGuest $guest, GuestData|array $fields): TicketGuest
@@ -57,11 +84,14 @@ final readonly class Guests
     }
 
     /**
-     * A temporary link `$guest` opens the ticket with — the ticket's guest requester by default,
-     * or one of its guest watchers. The same call as `Tickets::for($ticket)->guestLink($guest)`.
+     * A temporary link `$guest` opens the ticket (a model or a reference) with — the ticket's
+     * guest requester by default, or one of its guest watchers. The same call as
+     * `Tickets::for($ticket)->guestLink($guest)`.
      */
-    public function linkFor(Ticket $ticket, ?TicketGuest $guest = null): string
+    public function linkFor(Ticket|string $ticket, ?TicketGuest $guest = null): string
     {
+        $ticket = is_string($ticket) ? $this->manager->findOrFail($ticket) : $ticket;
+
         return $this->manager->perform(
             TicketOperation::IssueGuestLink,
             IssueGuestLinkAction::class,

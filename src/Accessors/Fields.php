@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Accessors;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Actions\Fields\DefineFieldAction;
 use RoundlyConsulting\Tickets\Actions\Fields\DeleteFieldAction;
@@ -21,6 +22,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Support\TicketInput;
+use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
@@ -101,6 +103,35 @@ final readonly class Fields
             static fn (PruneOrphanFieldValuesAction $action): int => $action->execute($dryRun, $chunk),
             ['dry_run' => $dryRun, 'chunk' => $chunk],
         );
+    }
+
+    /**
+     * A live field by id or key. A key is unique among the global fields and one project's, so
+     * with `$project` it names the project's field or the global one; without, the global
+     * field only. An id is unambiguous — with `$project`, a field outside the project's set
+     * (global ∪ its own) is not found.
+     */
+    public function find(int|string $idOrKey, ?Model $project = null): ?TicketField
+    {
+        $query = TicketModels::field()::query();
+
+        if (is_int($idOrKey)) {
+            $query->whereKey($idOrKey);
+        } else {
+            $query->where('key', $idOrKey);
+        }
+
+        [$type, $id] = TicketInput::morph($project);
+
+        if ($type !== null) {
+            $query->where(static fn (Builder $scope): Builder => $scope
+                ->whereNull('project_type')
+                ->orWhere(static fn (Builder $own): Builder => $own->where('project_type', $type)->where('project_id', $id)));
+        } elseif (is_string($idOrKey)) {
+            $query->whereNull('project_type');
+        }
+
+        return $query->orderByRaw('case when project_type is null then 1 else 0 end')->first();
     }
 
     /**
