@@ -605,7 +605,8 @@ class Ticket extends Model implements HasAttributesContract, HasMedia, Lifecycle
 
     /**
      * Whose custom field `$key` lies within the bounds (inclusive); a null bound is open — a
-     * one-sided range. Number, decimal, date and datetime fields only.
+     * one-sided range. Number, decimal, date and datetime fields only. A datetime field's upper
+     * bound given as a whole day (`'2026-10-17'`) runs to the end of that day.
      *
      * @param  Builder<static>  $query
      */

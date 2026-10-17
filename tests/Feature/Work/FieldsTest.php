@@ -410,6 +410,18 @@ describe('field_keys_and_filters', function (): void {
             ->and($ids(fn ($query) => $query->whereFieldBetween('panel_size', 'abc', null)))->toBe([]);
     });
 
+    it('runs a whole-day upper bound of a datetime field to the end of that day', function (): void {
+        Tickets::fields()->make('visit', FieldType::DateTime)->define();
+        $ticket = fieldTicket(fields: ['visit' => '2030-01-05 09:00:00']);
+
+        $ids = static fn (mixed $to): array => Ticket::query()->whereFieldBetween('visit', null, $to)->pluck('id')->all();
+
+        expect($ids('2030-01-05'))->toBe([$ticket->id])
+            ->and($ids('2030-01-04'))->toBe([])
+            ->and($ids('2030-01-05 08:59:59'))->toBe([])
+            ->and($ids(CarbonImmutable::parse('2030-01-05')))->toBe([]);
+    });
+
     it('matches a key defined with different types in different projects', function (): void {
         $sup = Project::query()->create(['name' => 'Helpdesk', 'key' => 'SUP']);
         $fac = Project::query()->create(['name' => 'Facilities', 'key' => 'FAC']);

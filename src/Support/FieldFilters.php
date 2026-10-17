@@ -100,11 +100,32 @@ final class FieldFilters
         return match ($type) {
             FieldType::Number => [$from === null ? PHP_INT_MIN : $cast($from), $to === null ? PHP_INT_MAX : $cast($to)],
             FieldType::Decimal => [$from === null ? -1.0e15 : $cast($from), $to === null ? 1.0e15 : $cast($to)],
+            FieldType::DateTime => [
+                $from === null ? CarbonImmutable::parse('0001-01-01 00:00:00', 'UTC') : $cast($from),
+                $to === null ? CarbonImmutable::parse('9999-12-31 23:59:59', 'UTC') : self::throughDay($to, $cast($to)),
+            ],
             default => [
                 $from === null ? CarbonImmutable::parse('0001-01-01 00:00:00', 'UTC') : $cast($from),
                 $to === null ? CarbonImmutable::parse('9999-12-31 23:59:59', 'UTC') : $cast($to),
             ],
         };
+    }
+
+    /**
+     * Whether a bound names a whole day (`2026-10-17`) rather than a moment. An inclusive upper
+     * bound that does runs to the end of that day, so it keeps what happened on it.
+     */
+    public static function isWholeDay(mixed $input): bool
+    {
+        return is_string($input) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($input)) === 1;
+    }
+
+    /**
+     * A datetime upper bound: the end of the day for a whole day, else the moment as given.
+     */
+    private static function throughDay(mixed $input, int|float|CarbonImmutable|null $bound): int|float|CarbonImmutable|null
+    {
+        return $bound instanceof CarbonImmutable && self::isWholeDay($input) ? $bound->endOfDay() : $bound;
     }
 
     private static function date(mixed $value): ?CarbonImmutable

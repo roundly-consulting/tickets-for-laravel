@@ -18,6 +18,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - `Tickets::fake()->assertGuestLinkIssued($ticket, $guest)` now matches a `guestLink()` or
   `Tickets::guests()->linkFor()` call that named no guest when `$guest` is the ticket's guest
   requester, the guest the link went to. It used to fail with "none matched".
+- A date-only upper bound now includes that whole day: `filter[created_to]=2026-10-17`,
+  `filter[due_to]=…` and, on a datetime custom field, `filter[fields.<key>.to]=…` and
+  `whereFieldBetween($key, $from, '2026-10-17')` used to stop at midnight and leave out everything
+  later that day. A datetime bound keeps its exact moment.
 
 ## 1.0.0 - 2026-10-17
 

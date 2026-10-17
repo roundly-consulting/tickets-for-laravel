@@ -138,6 +138,27 @@ describe('the index', function (): void {
         'filter[watching]=someone',
     ]);
 
+    it('reads a date-only upper bound as the end of that day, and a datetime as that moment', function (string $query, bool $matches): void {
+        $agent = apiAgent();
+        Tickets::fields()->make('visit', FieldType::DateTime)->define();
+        CarbonImmutable::setTestNow('2026-10-17 09:00:00');
+        $ticket = Tickets::make()->subject('Printer jammed')->requester(apiUser())->asSystem()
+            ->due(CarbonImmutable::parse('2026-10-17 15:00:00'))->fields(['visit' => '2026-10-17 09:00:00'])->create();
+        CarbonImmutable::setTestNow();
+
+        expect(indexReferences($this->actingAs($agent)->getJson('/api/tickets?'.$query)))->toBe($matches ? [$ticket->reference] : []);
+    })->with([
+        'created_to a date' => ['filter[created_to]=2026-10-17', true],
+        'due_to a date' => ['filter[due_to]=2026-10-17', true],
+        'created_from and created_to the same date' => ['filter[created_from]=2026-10-17&filter[created_to]=2026-10-17', true],
+        'a datetime field to a date' => ['filter[fields.visit.to]=2026-10-17', true],
+        'a datetime field from and to the same date' => ['filter[fields.visit.from]=2026-10-17&filter[fields.visit.to]=2026-10-17', true],
+        'created_to the day before' => ['filter[created_to]=2026-10-16', false],
+        'created_to a datetime before it' => ['filter[created_to]=2026-10-17T08:59:59Z', false],
+        'due_to a datetime before it' => ['filter[due_to]=2026-10-17T14:59:59Z', false],
+        'a datetime field to a datetime before it' => ['filter[fields.visit.to]=2026-10-17T08:59:59Z', false],
+    ]);
+
     it('refuses a malformed date and an unknown filter or sort', function (string $query, int $status): void {
         $this->actingAs(apiAgent())->getJson('/api/tickets?'.$query)->assertStatus($status);
     })->with([

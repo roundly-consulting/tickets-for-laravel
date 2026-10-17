@@ -20,6 +20,7 @@ use RoundlyConsulting\Tickets\Exceptions\UnknownMorphAliasException;
 use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketField;
+use RoundlyConsulting\Tickets\Support\FieldFilters;
 use RoundlyConsulting\Tickets\Support\Messages;
 use RoundlyConsulting\Tickets\Support\MorphAliases;
 use RoundlyConsulting\Tickets\Support\TicketModels;
@@ -152,9 +153,9 @@ final class TicketIndexQuery
                 }
             }, booleans: true),
             self::date('due_from', 'dueFrom'),
-            self::date('due_to', 'dueTo'),
+            self::date('due_to', 'dueTo', upper: true),
             self::date('created_from', 'createdFrom'),
-            self::date('created_to', 'createdTo'),
+            self::date('created_to', 'createdTo', upper: true),
             self::scope('channel', static fn (array $values): array => ['viaChannel' => $values]),
             AllowedFilter::callback('merged', static function (Builder $query, mixed $value): void {
                 if (is_bool($value)) {
@@ -247,13 +248,22 @@ final class TicketIndexQuery
         });
     }
 
-    private static function date(string $name, string $scope): AllowedFilter
+    /**
+     * A date filter; an upper bound (`*_to`) given as a whole day includes that day.
+     */
+    private static function date(string $name, string $scope, bool $upper = false): AllowedFilter
     {
-        return AllowedFilter::callback($name, static function (Builder $query, mixed $value) use ($name, $scope): void {
+        return AllowedFilter::callback($name, static function (Builder $query, mixed $value) use ($name, $scope, $upper): void {
+            $input = self::single($value);
+
             try {
-                $at = CarbonImmutable::parse(self::single($value));
+                $at = CarbonImmutable::parse($input);
             } catch (Throwable) {
                 throw ValidationException::withMessages(['filter.'.$name => [Messages::get('http.invalid_date', ['filter' => $name])]]);
+            }
+
+            if ($upper && FieldFilters::isWholeDay($input)) {
+                $at = $at->endOfDay();
             }
 
             $query->scopes([$scope => [$at]]);
