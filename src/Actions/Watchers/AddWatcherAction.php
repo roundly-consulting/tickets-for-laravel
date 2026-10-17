@@ -17,8 +17,9 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
  * Adds a watcher — a user, any host model, or a CC'd guest. Idempotent: someone already
- * watching changes nothing (no activity, no event). A non-agent watcher may then view the
- * ticket and reply as a participant (`tickets.watchers.can_view`).
+ * watching changes nothing (no activity, no event), except that an automatic watch becomes a
+ * chosen one, which a requester hand-over keeps. A non-agent watcher may then view the ticket
+ * and reply as a participant (`tickets.watchers.can_view`).
  */
 final readonly class AddWatcherAction
 {
@@ -35,7 +36,7 @@ final readonly class AddWatcherAction
         return TicketTransaction::run($ticket, function () use ($ticket, $watcher, $actor, $system): Ticket {
             TicketLocker::lock($ticket);
 
-            if (! $this->watch->execute($ticket, $watcher)) {
+            if (! $this->watch->execute($ticket, $watcher, auto: false)) {
                 return $ticket;
             }
 

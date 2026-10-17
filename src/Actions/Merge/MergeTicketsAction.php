@@ -195,7 +195,7 @@ final readonly class MergeTicketsAction
     private function mergeWatchers(Ticket $source, Ticket $target): void
     {
         foreach (TicketWatcher::query()->where('ticket_id', $source->getKey())->orderBy('id')->get() as $watch) {
-            $this->watch->morph($target, $watch->watcher_type, $watch->watcher_id);
+            $this->watch->morph($target, $watch->watcher_type, $watch->watcher_id, $watch->auto);
         }
 
         if ($source->requester_type !== $target->requester_type || (string) $source->requester_id !== (string) $target->requester_id) {

@@ -14,12 +14,14 @@ use RoundlyConsulting\Tickets\Support\TicketModels;
 
 /**
  * Someone following a ticket: a user, any host model, or a CC'd guest. A hard row, unique
- * per (ticket, watcher) — no soft deletes.
+ * per (ticket, watcher) — no soft deletes. `auto` marks a watch a `tickets.watchers.auto` rule
+ * or a merge made; a watcher added on purpose (`watchers()->add()`) is not automatic.
  *
  * @property int $id
  * @property int|string $ticket_id
  * @property string $watcher_type
  * @property int|string $watcher_id
+ * @property bool $auto
  * @property Carbon|null $created_at
  * @property-read Ticket $ticket
  * @property-read Model $watcher
@@ -34,6 +36,15 @@ final class TicketWatcher extends Model
     protected $table = 'ticket_watchers';
 
     protected $guarded = [];
+
+    /** @var array<string, mixed> */
+    protected $attributes = ['auto' => false];
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['auto' => 'boolean'];
+    }
 
     /** @return BelongsTo<Ticket, $this> */
     public function ticket(): BelongsTo

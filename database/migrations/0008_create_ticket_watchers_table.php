@@ -19,6 +19,9 @@ return new class extends Migration
             $table->ownerKey('ticket_id', $primaryKeyType, index: false);
             $table->foreign('ticket_id')->references('id')->on('tickets')->cascadeOnDelete();
             $table->morphKey('watcher', $keyType);
+            // Made by a `tickets.watchers.auto` rule (or a merge), not added on purpose — a
+            // hand-over drops the previous requester's automatic watch only.
+            $table->boolean('auto')->default(false);
             $table->timestamp('created_at')->nullable();
 
             $table->unique(['ticket_id', 'watcher_type', 'watcher_id']);

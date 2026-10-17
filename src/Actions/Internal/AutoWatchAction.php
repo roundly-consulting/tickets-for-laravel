@@ -15,27 +15,43 @@ use RoundlyConsulting\Tickets\Models\TicketWatcher;
  * aborts the surrounding transaction (Postgres would on a failed insert). Inside the calling
  * action's transaction; the auto-watches of `tickets.watchers.auto` record no activity.
  *
+ * `$auto` marks the row automatic; a watch added on purpose (`$auto` false) also turns an
+ * existing automatic row into a chosen one, which a requester hand-over then keeps.
+ *
  * @internal
  */
 final readonly class AutoWatchAction
 {
-    public function execute(Ticket $ticket, Model $watcher): bool
+    public function execute(Ticket $ticket, Model $watcher, bool $auto = true): bool
     {
         $key = $watcher->getKey();
 
-        return $this->morph($ticket, $watcher->getMorphClass(), is_int($key) ? $key : (string) $key);
+        return $this->morph($ticket, $watcher->getMorphClass(), is_int($key) ? $key : (string) $key, $auto);
     }
 
     /**
      * The same, for a watcher known only by its morph — a merge copies watch rows as stored.
      */
-    public function morph(Ticket $ticket, string $type, int|string $key): bool
+    public function morph(Ticket $ticket, string $type, int|string $key, bool $auto = true): bool
     {
-        return TicketWatcher::query()->toBase()->insertOrIgnore([
+        $added = TicketWatcher::query()->toBase()->insertOrIgnore([
             'ticket_id' => $ticket->getKey(),
             'watcher_type' => $type,
             'watcher_id' => $key,
+            'auto' => $auto,
             'created_at' => CarbonImmutable::now(),
         ]) > 0;
+
+        if (! $added && ! $auto) {
+            TicketWatcher::query()
+                ->where('ticket_id', $ticket->getKey())
+                ->where('watcher_type', $type)
+                ->where('watcher_id', $key)
+                ->where('auto', true)
+                ->toBase()
+                ->update(['auto' => false]);
+        }
+
+        return $added;
     }
 }

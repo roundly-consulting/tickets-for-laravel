@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
+use RoundlyConsulting\Tickets\Events\GuestAccessRevoked;
 use RoundlyConsulting\Tickets\Events\TicketCategoryChanged;
 use RoundlyConsulting\Tickets\Events\TicketDeleted;
 use RoundlyConsulting\Tickets\Events\TicketDueDateChanged;
@@ -17,6 +19,7 @@ use RoundlyConsulting\Tickets\Events\TicketPriorityChanged;
 use RoundlyConsulting\Tickets\Events\TicketRequesterChanged;
 use RoundlyConsulting\Tickets\Events\TicketRestored;
 use RoundlyConsulting\Tickets\Events\TicketUpdated;
+use RoundlyConsulting\Tickets\Exceptions\GuestAccessDeniedException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
 use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
 use RoundlyConsulting\Tickets\Exceptions\TicketTrashedException;
@@ -26,6 +29,8 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Notifications\TicketRepliedNotification;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 
@@ -203,6 +208,59 @@ it('hands a ticket to another requester or a guest', function (): void {
         ->and($ticket->activities()->where('type', 'requester_changed')->count())->toBe(2);
 
     Event::assertDispatchedTimes(TicketRequesterChanged::class, 2);
+});
+
+describe('a hand-over takes the ticket away from the previous requester', function (): void {
+    it('drops their automatic watch, so they neither read the ticket nor hear of it', function (): void {
+        defineAgents();
+        Notification::fake();
+        $wrong = User::query()->create(['name' => 'Wrong']);
+        $right = User::query()->create(['name' => 'Right']);
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $ticket = Tickets::make()->subject('Mis-filed')->requester($wrong)->asSystem()->create();
+
+        Tickets::for($ticket)->by($agent)->changeRequester($right);
+        Tickets::for($ticket)->by($agent)->reply('PRIVATE-ANSWER-FOR-RIGHT');
+
+        expect(TicketVisibility::canView($wrong, $ticket))->toBeFalse()
+            ->and(Tickets::for($ticket)->watchers()->has($wrong))->toBeFalse();
+        Notification::assertNotSentTo($wrong, TicketRepliedNotification::class);
+        Notification::assertSentTo($right, TicketRepliedNotification::class);
+    });
+
+    it('keeps a watch an agent added on purpose', function (): void {
+        defineAgents();
+        $wrong = User::query()->create(['name' => 'Wrong']);
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $ticket = Tickets::make()->subject('Mis-filed')->requester($wrong)->asSystem()->create();
+        $cc = User::query()->create(['name' => 'Cc']);
+
+        // Already watching (automatically): the explicit add makes the watch a chosen one.
+        Tickets::for($ticket)->by($agent)->watchers()->add($wrong)->add($cc);
+        Tickets::for($ticket)->by($agent)->changeRequester(User::query()->create(['name' => 'Right']));
+
+        expect(Tickets::for($ticket)->watchers()->has($wrong))->toBeTrue()
+            ->and(TicketVisibility::canView($wrong, $ticket))->toBeTrue()
+            ->and(Tickets::for($ticket)->watchers()->has($cc))->toBeTrue();
+    });
+
+    it('revokes a guest requester’s links and mail', function (): void {
+        defineAgents();
+        Notification::fake();
+        Event::fake([GuestAccessRevoked::class]);
+        $guest = Tickets::guests()->resolve(['name' => 'Jo', 'email' => 'jo@acme.test']);
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $ticket = Tickets::make()->subject('Mis-filed')->requester($guest)->asSystem()->create();
+        $version = $ticket->guest_access_version;
+
+        Tickets::for($ticket)->by($agent)->changeRequester(User::query()->create(['name' => 'Right']));
+        Tickets::for($ticket)->by($agent)->reply('PRIVATE-ANSWER-FOR-RIGHT');
+
+        Notification::assertNotSentTo($guest, TicketRepliedNotification::class);
+        Event::assertDispatched(GuestAccessRevoked::class);
+        expect($ticket->fresh()?->guest_access_version)->toBe($version + 1)
+            ->and(fn () => Tickets::for($ticket)->guestLink($guest))->toThrow(GuestAccessDeniedException::class);
+    });
 });
 
 it('updates subject and description in one activity and delegates the rest', function (): void {
