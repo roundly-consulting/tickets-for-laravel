@@ -135,6 +135,25 @@ describe('agent scope', function (): void {
             ->and(Gate::forUser($scoped)->allows('note', $own))->toBeFalse();
     });
 
+    it('narrows the agent-only key subquery to the tickets isAgentFor allows', function (): void {
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $customer = User::query()->create(['name' => 'Ada']);
+        $sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $inside = Tickets::make()->subject('x')->requester($customer)->project($sup)->asSystem()->create();
+        Tickets::make()->subject('y')->requester($customer)->asSystem()->create();
+
+        // Unrestricted: every ticket, so no subquery at all.
+        expect(TicketVisibility::agentTickets($agent))->toBeNull()
+            ->and(TicketVisibility::agentTickets($customer)?->pluck('id')->all())->toBe([]);
+
+        app()->bind(AgentScope::class, ProjectAgentScope::class);
+        $scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+
+        expect(TicketVisibility::agentTickets($scoped)?->pluck('id')->all())->toBe([$inside->id])
+            ->and(TicketVisibility::agentTickets($agent)?->count())->toBe(2)
+            ->and(TicketVisibility::agentTickets($customer)?->pluck('id')->all())->toBe([]);
+    });
+
     it('never treats a guest as an agent', function (): void {
         $guest = TicketGuest::factory()->create();
         $ticket = Tickets::make()->subject('x')->requester($guest)->asSystem()->create();
