@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use RoundlyConsulting\Lifecycle\Facades\Lifecycles;
@@ -20,6 +21,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketWatcher;
+use RoundlyConsulting\Tickets\Notifications\TicketMergedNotification;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 
 beforeEach(fn () => apiAbilities());
@@ -47,6 +49,44 @@ describe('guest links', function (): void {
             ->and(fn () => Tickets::for($ticket)->guestLink(guestJo('eve@acme.test')))->toThrow(GuestAccessDeniedException::class)
             ->and(fn () => Tickets::for($ticket)->guestLink(User::query()->create()))->toThrow(GuestAccessDeniedException::class)
             ->and(fn () => Tickets::for(apiTicket())->guestLink())->toThrow(GuestAccessDeniedException::class);
+    });
+
+    it('lets a guest watcher in only while watchers may view (watchers.can_view)', function (): void {
+        $agent = apiAgent();
+        $ticket = apiTicket(apiUser());
+        Tickets::for($ticket)->by($agent)->reply('PUBLIC-REPLY');
+        $cc = guestJo('cc@acme.test');
+        TicketWatcher::query()->create(['ticket_id' => $ticket->getKey(), 'watcher_type' => $cc->getMorphClass(), 'watcher_id' => $cc->getKey()]);
+        $minted = Tickets::for($ticket)->guestLink($cc);
+        $this->getJson($minted)->assertOk();
+
+        config()->set('tickets.watchers.can_view', false);
+
+        expect(fn () => Tickets::for($ticket)->guestLink($cc))->toThrow(GuestAccessDeniedException::class);
+        $refused = $this->getJson($minted)->assertForbidden()->assertJson(['code' => 'guest_link_invalid']);
+        expect((string) $refused->getContent())->not->toContain('PUBLIC-REPLY');
+    });
+
+    it('mails a merged guest requester no link to a target they may not view', function (): void {
+        config()->set('tickets.watchers.can_view', false);
+        Notification::fake();
+        $agent = apiAgent();
+        $guest = guestJo();
+        $source = guestTicket($guest, 'Guest source');
+        $target = apiTicket(apiUser(), 'Target with SECRET-SUBJECT');
+
+        Tickets::for($source)->by($agent)->mergeInto($target);
+
+        $sent = null;
+        Notification::assertSentTo($guest, TicketMergedNotification::class, function (TicketMergedNotification $notification) use (&$sent): bool {
+            $sent = $notification;
+
+            return true;
+        });
+        $mail = $sent?->toMail($guest);
+
+        expect($mail?->actionUrl)->toBeNull()
+            ->and(fn () => Tickets::for($target)->guestLink($guest))->toThrow(GuestAccessDeniedException::class);
     });
 
     it('refuses a link to a deleted ticket', function (): void {

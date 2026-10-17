@@ -13,8 +13,9 @@ use RoundlyConsulting\Tickets\Support\GuestAccess;
 
 /**
  * A temporary link a guest opens the ticket with, from the bound {@see GuestLinkGenerator}. The
- * recipient is the ticket's guest requester (the default) or one of its guest watchers; anyone
- * else is refused (`GuestAccessDeniedException`), and so is a deleted ticket. The link carries
+ * recipient is the ticket's guest requester (the default) or one of its guest watchers while
+ * watchers may view (`tickets.watchers.can_view`); anyone else is refused
+ * (`GuestAccessDeniedException`), and so is a deleted ticket. The link carries
  * the current `guest_access_version`, so revoking access voids it.
  */
 final readonly class IssueGuestLinkAction
