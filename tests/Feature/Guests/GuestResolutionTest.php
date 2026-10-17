@@ -165,8 +165,9 @@ describe('guest_conversion', function (): void {
             ->and($second->fresh()?->requester->is($user))->toBeTrue()
             ->and($first->activities()->where('type', 'requester_changed')->first()?->properties['converted'] ?? null)->toBeTrue()
             ->and(TicketWatcher::query()->where('watcher_type', $guest->getMorphClass())->count())->toBe(0)
+            // The guest watched its own two tickets from creation (tickets.watchers.auto.requester).
             ->and(TicketWatcher::query()->where('watcher_type', $user->getMorphClass())->pluck('ticket_id')->sort()->values()->all())
-            ->toEqual([$watched->id, $alreadyWatched->id])
+            ->toEqual([$first->id, $second->id, $watched->id, $alreadyWatched->id])
             ->and($guest->fresh()?->trashed())->toBeTrue()
             ->and(guestFields($guest))->toBe(['name' => 'Jo']);
 

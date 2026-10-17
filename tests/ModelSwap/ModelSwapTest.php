@@ -8,6 +8,7 @@ use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomCategory;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomField;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomGuest;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomTag;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomTicket;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 
@@ -43,4 +44,15 @@ it('resolves guests as the configured guest model', function (): void {
 
 it('defines fields as the configured field model', function (): void {
     expect('tickets.models.field')->toHonourModelSwap(CustomField::class, fn () => Tickets::fields()->make('asset_tag', FieldType::Text)->define());
+});
+
+it('creates and attaches tags as the configured tag model', function (): void {
+    expect('tickets.models.tag')->toHonourModelSwap(CustomTag::class, function (): array {
+        $created = Tickets::tags()->create('printer', color: '#f24e29');
+        $found = Tickets::tags()->findOrCreate('printer');
+        $ticket = Tickets::make()->subject('a')->requester(User::query()->create())->tags(['scanner'])->create();
+        Tickets::for($ticket)->tags()->attach('toner');
+
+        return [$created, $found, ...Tickets::tags()->all(), ...Tickets::for($ticket)->tags()->all(), ...$ticket->tags()->get()];
+    });
 });

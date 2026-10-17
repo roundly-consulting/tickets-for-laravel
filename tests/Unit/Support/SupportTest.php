@@ -10,6 +10,7 @@ use RoundlyConsulting\Tickets\Support\Durations;
 use RoundlyConsulting\Tickets\Support\GuestFields;
 use RoundlyConsulting\Tickets\Support\MorphAliases;
 use RoundlyConsulting\Tickets\Support\Optional;
+use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Tests\Fixtures\IntPriority;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
@@ -128,3 +129,9 @@ it('refuses an int-backed priority enum', function (): void {
 
     TicketsConfig::priorityEnum();
 })->throws(InvalidTicketsConfigurationException::class, 'string-backed');
+
+it('orders primary keys numerically, and uuid or ulid keys as text', function (): void {
+    expect(TicketLocker::compareKeys(9, 10))->toBe(-1)
+        ->and(TicketLocker::compareKeys('01J2B', '01J2A'))->toBeGreaterThan(0)
+        ->and(TicketLocker::compareKeys(null, 'a'))->toBeLessThan(0);
+});

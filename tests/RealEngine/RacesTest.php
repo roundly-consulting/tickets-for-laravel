@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
+use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLinkException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Models\TicketLink;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\Tests\Support\Racer;
@@ -109,5 +113,45 @@ describe('advisory_locks', function (): void {
 
         expect($racer->outcome())->not->toBe('billing')
             ->and(TicketCategory::query()->pluck('slug')->unique()->count())->toBe(2);
+    })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
+
+    it('finds or creates one global tag under concurrent findOrCreate calls', function (): void {
+        $racer = new Racer;
+
+        $parentTag = DB::transaction(function () use ($racer): TicketTag {
+            $tag = Tickets::tags()->findOrCreate('printer');
+
+            $racer->run(static fn (): string => (string) Tickets::tags()->findOrCreate('Printer')->getKey())->waitUntilBlockedOrDone();
+
+            return $tag;
+        });
+
+        expect($racer->outcome())->toBe((string) $parentTag->getKey())
+            ->and(TicketTag::withTrashed()->count())->toBe(1)
+            ->and($parentTag->slug)->toBe('printer');
+    })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
+
+    it('lets only one of two crossing blocks links through', function (): void {
+        $requester = User::query()->create(['name' => 'Ada']);
+        $a = Tickets::make()->subject('a')->requester($requester)->asSystem()->create();
+        $b = Tickets::make()->subject('b')->requester($requester)->asSystem()->create();
+        $racer = new Racer;
+
+        DB::transaction(function () use ($a, $b, $racer): void {
+            Tickets::for($a)->asSystem()->links()->add($b, LinkType::Blocks);
+
+            $racer->run(static function () use ($a, $b): string {
+                try {
+                    Tickets::for(Ticket::on('racer')->findOrFail($b->id))->asSystem()->links()->add(Ticket::on('racer')->findOrFail($a->id), LinkType::Blocks);
+
+                    return 'linked';
+                } catch (InvalidTicketLinkException) {
+                    return 'cycle';
+                }
+            })->waitUntilBlockedOrDone();
+        });
+
+        expect($racer->outcome())->toBe('cycle')
+            ->and(TicketLink::query()->count())->toBe(1);
     })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
 });

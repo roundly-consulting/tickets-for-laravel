@@ -2,21 +2,30 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\ExpectationFailedException;
 use RoundlyConsulting\Comments\Facades\Comments;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\MediaLibrary\Models\Media;
+use RoundlyConsulting\Tickets\Actions\Fields\DefineFieldAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
+use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
+use RoundlyConsulting\Tickets\DataTransferObjects\UpdateFieldData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\FieldType;
+use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Testing\TicketsFake;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\TicketsManager;
@@ -132,7 +141,92 @@ describe('the fake', function (): void {
         'noted' => [fn () => Tickets::for(fakeTicket())->asSystem()->note('Psst.'), 'assertNoted', ['TCK-1'], 'assertNothingNoted'],
         'comment updated' => [fn () => Tickets::for(fakeTicket())->asSystem()->editComment(fakeComment(), 'Edited.'), 'assertCommentUpdated', [], 'assertNoCommentUpdated'],
         'comment deleted' => [fn () => Tickets::for(fakeTicket())->asSystem()->deleteComment(fakeComment()), 'assertCommentDeleted', [], 'assertNoCommentDeleted'],
+        'assigned' => [fn () => Tickets::for(fakeTicket())->asSystem()->assign(fakeAgent()), 'assertAssigned', ['TCK-1'], 'assertNothingAssigned'],
+        'unassigned' => [fn () => Tickets::for(fakeTicket())->asSystem()->unassign(), 'assertUnassigned', ['TCK-1'], 'assertNothingUnassigned'],
+        'claimed' => [fn () => Tickets::for(fakeTicket())->by(fakeAgent())->claim(), 'assertClaimed', ['TCK-1'], 'assertNothingClaimed'],
+        'watched' => [fn () => Tickets::for(fakeTicket())->asSystem()->watchers()->add(User::query()->create()), 'assertWatched', ['TCK-1'], 'assertNothingWatched'],
+        'unwatched' => [fn () => Tickets::for(fakeTicket())->asSystem()->watchers()->remove(User::query()->create()), 'assertUnwatched', ['TCK-1'], 'assertNothingUnwatched'],
+        'tagged' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->attach('printer'), 'assertTagged', ['TCK-1', 'printer'], 'assertNothingTagged'],
+        'untagged' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->detach('printer'), 'assertUntagged', ['TCK-1', 'printer'], 'assertNothingUntagged'],
+        'tags synced' => [fn () => Tickets::for(fakeTicket())->asSystem()->tags()->sync(['printer']), 'assertTagsSynced', ['TCK-1', 'printer'], 'assertNothingTagsSynced'],
+        'linked' => [fn () => Tickets::for(fakeTicket())->asSystem()->links()->add(Ticket::factory()->create(), LinkType::Blocks), 'assertLinked', ['TCK-1', LinkType::Blocks], 'assertNothingLinked'],
+        'unlinked' => [fn () => Tickets::for(fakeTicket())->asSystem()->links()->add($other = Ticket::factory()->create(), LinkType::Blocks)->remove($other, LinkType::Blocks), 'assertUnlinked', ['TCK-1', LinkType::Blocks], 'assertNothingUnlinked'],
+        'merged' => [fn () => Tickets::for(fakeTicket())->asSystem()->mergeInto(Ticket::factory()->create()), 'assertMerged', ['TCK-1'], 'assertNothingMerged'],
+        'attached' => [fn () => fakeAttachment(), 'assertAttached', ['TCK-1'], 'assertNothingAttached'],
+        'attachment removed' => [fn () => tap(fakeAttachment(), static fn (Media $media) => Tickets::for('TCK-1')->asSystem()->attachments()->remove($media)), 'assertAttachmentRemoved', ['TCK-1'], 'assertNoAttachmentRemoved'],
+        'fields set' => [fn () => Tickets::for(fakeTicket())->asSystem()->fields()->set(fakeField()->key, 'PRN-1'), 'assertFieldsSet', ['TCK-1', 'asset_tag'], 'assertNoFieldsSet'],
+        'fields forgotten' => [fn () => Tickets::for(fakeTicket())->asSystem()->fields()->forget(fakeField()->key), 'assertFieldsForgotten', ['TCK-1', 'asset_tag'], 'assertNoFieldsForgotten'],
+        'field updated' => [fn () => Tickets::fields()->update(fakeField(), new UpdateFieldData(position: 2)), 'assertFieldUpdated', ['asset_tag'], 'assertNoFieldUpdated'],
+        'field deleted' => [fn () => Tickets::fields()->delete(fakeField()), 'assertFieldDeleted', ['asset_tag'], 'assertNoFieldDeleted'],
+        'field restored' => [fn () => Tickets::fields()->restore(fakeField()), 'assertFieldRestored', ['asset_tag'], 'assertNoFieldRestored'],
+        'fields pruned' => [fn () => Tickets::fields()->prune(dryRun: true), 'assertFieldsPruned', [true], 'assertNoFieldsPruned'],
+        'tag created' => [fn () => Tickets::tags()->findOrCreate('printer'), 'assertTagCreated', ['printer'], 'assertNoTagCreated'],
+        'tag updated' => [fn () => Tickets::tags()->rename(fakeTag(), 'scanner'), 'assertTagUpdated', [], 'assertNoTagUpdated'],
+        'tag deleted' => [fn () => Tickets::tags()->delete(fakeTag()), 'assertTagDeleted', [], 'assertNoTagDeleted'],
     ]);
+
+    it('fails a work-management assertion whose operation ran on something else', function (): void {
+        $fake = Tickets::fake();
+        $ticket = fakeTicket();
+        $agent = fakeAgent();
+        $other = User::query()->create(['name' => 'Other']);
+        $otherTag = TicketTag::factory()->create();
+        $target = Ticket::factory()->create();
+
+        Tickets::for($ticket)->asSystem()->assign($agent)->watchers()->add($agent)->remove($agent);
+        Tickets::for($ticket)->asSystem()->tags()->attach('printer')->detach('printer')->sync(['scanner']);
+        Tickets::for($ticket)->asSystem()->links()->add($target, LinkType::Blocks)->remove($target, LinkType::Blocks);
+        $field = fakeField();
+        Tickets::for($ticket)->asSystem()->fields()->set('asset_tag', 'PRN-1')->forget('asset_tag');
+        Tickets::fields()->update($field, new UpdateFieldData(position: 3));
+        Tickets::fields()->delete($field);
+        Tickets::fields()->restore($field);
+        Tickets::fields()->prune();
+        Tickets::tags()->create('toner');
+        $tag = Tickets::tags()->create('drum');
+        Tickets::tags()->rename($tag, 'drums');
+        Tickets::tags()->delete($tag);
+        Tickets::for($ticket)->asSystem()->mergeInto($target);
+
+        $mismatches = [
+            fn () => $fake->assertAssigned($ticket, $other),
+            fn () => $fake->assertWatched($ticket, $other),
+            fn () => $fake->assertUnwatched($ticket, $other),
+            fn () => $fake->assertTagged($ticket, 'nope'),
+            fn () => $fake->assertUntagged($ticket, 'nope'),
+            fn () => $fake->assertTagsSynced($ticket, 'printer'),
+            fn () => $fake->assertLinked($ticket, LinkType::ParentOf),
+            fn () => $fake->assertUnlinked($ticket, LinkType::ParentOf),
+            fn () => $fake->assertMerged($ticket, 'TCK-404'),
+            fn () => $fake->assertMerged($ticket, $ticket),
+            fn () => $fake->assertFieldsSet($ticket, 'nope'),
+            fn () => $fake->assertFieldsForgotten($ticket, 'nope'),
+            fn () => $fake->assertFieldUpdated('nope'),
+            fn () => $fake->assertFieldDeleted('nope'),
+            fn () => $fake->assertFieldRestored('nope'),
+            fn () => $fake->assertFieldsPruned(true),
+            fn () => $fake->assertTagCreated('nope'),
+            fn () => $fake->assertTagUpdated($otherTag),
+            fn () => $fake->assertTagDeleted($otherTag),
+        ];
+
+        foreach ($mismatches as $mismatch) {
+            expect($mismatch)->toThrow(ExpectationFailedException::class, 'none matched');
+        }
+
+        $fake->assertAssigned($ticket, $agent);
+        $fake->assertWatched($ticket, $agent);
+        $fake->assertUnwatched($ticket, $agent);
+        $fake->assertTagsSynced($ticket, 'scanner');
+        $fake->assertLinked($ticket, LinkType::Blocks);
+        $fake->assertMerged($ticket, $target);
+        $fake->assertMerged($ticket, $target->reference);
+        $fake->assertFieldUpdated('asset_tag');
+        $fake->assertFieldsPruned(false);
+        $fake->assertTagCreated('toner');
+        $fake->assertTagUpdated($tag);
+        $fake->assertTagDeleted($tag);
+    });
 
     it('fails an assertion whose operation ran, but on something else', function (): void {
         $fake = Tickets::fake();
@@ -204,6 +298,38 @@ function fakeTicket(): Ticket
 function fakeComment(): Comment
 {
     return Comment::query()->first() ?? Comments::on(Ticket::query()->firstOrFail())->body('Original.')->post();
+}
+
+function fakeAgent(): User
+{
+    return User::query()->where('name', 'Grace')->first() ?? User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+}
+
+/**
+ * The `asset_tag` field, defined once — straight through the action, so the fake records
+ * nothing for it.
+ */
+function fakeField(): TicketField
+{
+    return TicketField::withTrashed()->where('key', 'asset_tag')->first()
+        ?? app(DefineFieldAction::class)->execute(new FieldData('asset_tag', FieldType::Text, 'Asset tag'));
+}
+
+function fakeTag(): TicketTag
+{
+    return TicketTag::query()->first() ?? TicketTag::factory()->create();
+}
+
+/**
+ * A file on TCK-1, on a faked private disk.
+ */
+function fakeAttachment(): Media
+{
+    Storage::fake('local');
+
+    $ticket = Ticket::query()->where('reference', 'TCK-1')->first() ?? fakeTicket();
+
+    return Tickets::for($ticket)->asSystem()->attachments()->add(UploadedFile::fake()->createWithContent('a.txt', 'Some plain text.'));
 }
 
 function fakeCategory(): TicketCategory

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
-use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\Tests\Fixtures\SwappedModelsTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UlidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UuidKeyTestCase;
@@ -48,5 +48,5 @@ function keySorted(?array $value): ?array
  */
 function defineAgents(): void
 {
-    Gate::define('tickets.agent', static fn (User $user): bool => $user->is_agent === true);
+    Gate::define('tickets.agent', static fn (Model $user): bool => (bool) $user->getAttribute('is_agent'));
 }

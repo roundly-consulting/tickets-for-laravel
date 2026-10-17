@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Tests\Fixtures;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomCategory;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomField;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomGuest;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomTag;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomTicket;
 use RoundlyConsulting\Tickets\Tests\TestCase;
 
@@ -22,6 +23,7 @@ abstract class SwappedModelsTestCase extends TestCase
         $this->swapModel('tickets.models.category', CustomCategory::class);
         $this->swapModel('tickets.models.guest', CustomGuest::class);
         $this->swapModel('tickets.models.field', CustomField::class);
+        $this->swapModel('tickets.models.tag', CustomTag::class);
 
         parent::defineEnvironment($app);
     }

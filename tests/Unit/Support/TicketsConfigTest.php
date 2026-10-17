@@ -85,3 +85,34 @@ it('reads the conversation switches and the agent ability, blank as the default'
     expect(TicketsConfig::agentAbility())->toBe('tickets.agent')
         ->and(TicketsConfig::autoApproveReplies())->toBeFalse();
 });
+
+it('reads the work-management settings, blank as the default', function (): void {
+    expect(TicketsConfig::mergeAbility())->toBe('tickets.agent')
+        ->and(TicketsConfig::autoWatch('requester'))->toBeTrue()
+        ->and(TicketsConfig::autoWatch('mentioned'))->toBeFalse()
+        ->and(TicketsConfig::freeFormTags())->toBeTrue()
+        ->and(TicketsConfig::crossProjectLinks())->toBeTrue()
+        ->and(TicketsConfig::maxLinkDepth())->toBe(50)
+        ->and(TicketsConfig::crossProjectMerge())->toBeFalse()
+        ->and(TicketsConfig::mergeMovesAttachments())->toBeTrue()
+        ->and(TicketsConfig::attachmentsBucket())->toBe('attachments')
+        ->and(TicketsConfig::attachmentsDisk())->toBe('local')
+        ->and(TicketsConfig::attachmentMimes())->toContain('application/pdf')
+        ->and(TicketsConfig::attachmentMaxKilobytes())->toBe(10240);
+});
+
+it('refuses a broken work-management setting, naming the key', function (string $key, mixed $value, Closure $read): void {
+    config()->set($key, $value);
+
+    expect($read)->toThrow(InvalidTicketsConfigurationException::class, $key);
+})->with([
+    'auto-watch flag' => ['tickets.watchers.auto.requester', 'maybe', fn () => TicketsConfig::autoWatch('requester')],
+    'bucket' => ['tickets.attachments.bucket', 'Bad Bucket', fn () => TicketsConfig::attachmentsBucket()],
+    'mime' => ['tickets.attachments.mimes', ['not a mime'], fn () => TicketsConfig::attachmentMimes()],
+    'max kb' => ['tickets.attachments.max_kb', 0, fn () => TicketsConfig::attachmentMaxKilobytes()],
+    'link depth' => ['tickets.links.max_depth', 0, fn () => TicketsConfig::maxLinkDepth()],
+]);
+
+it('refuses an auto-watch trigger it does not know', function (): void {
+    TicketsConfig::autoWatch('everyone');
+})->throws(InvalidTicketsConfigurationException::class, 'tickets.watchers.auto.everyone');

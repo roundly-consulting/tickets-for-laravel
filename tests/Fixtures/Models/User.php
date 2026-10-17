@@ -38,7 +38,7 @@ final class User extends Authenticatable implements Assignee
 
     public function isEligibleTicketAssignee(Ticket $ticket): bool
     {
-        return $this->is_agent;
+        return $this->is_agent === true;
     }
 
     /**
