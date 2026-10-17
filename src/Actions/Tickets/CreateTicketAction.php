@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
 use RoundlyConsulting\Tickets\Actions\Guests\ResolveGuestAction;
 use RoundlyConsulting\Tickets\Actions\Internal\AllocateReferenceAction;
+use RoundlyConsulting\Tickets\Actions\Internal\ApplyAutomationAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
@@ -17,6 +18,7 @@ use RoundlyConsulting\Tickets\Contracts\TicketProject;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\Automation;
 use RoundlyConsulting\Tickets\Events\TicketAssigned;
 use RoundlyConsulting\Tickets\Events\TicketCreated;
 use RoundlyConsulting\Tickets\Exceptions\DuplicateTicketReferenceException;
@@ -43,6 +45,7 @@ final readonly class CreateTicketAction
         private ResolveGuestAction $resolveGuest,
         private AssignmentStrategy $strategy,
         private DueDateResolver $dueDates,
+        private ApplyAutomationAction $automations,
         private Dispatcher $events,
     ) {}
 
@@ -123,6 +126,9 @@ final readonly class CreateTicketAction
                 ], system: $data->system);
 
                 $this->events->dispatch(new TicketAssigned($ticket, $assignee, $actor));
+
+                // Assigning a new ticket opens it (the `Assigned` automation).
+                $this->automations->execute($ticket, Automation::Assigned, $actor);
             }
 
             $this->events->dispatch(new TicketCreated($ticket, $actor));
