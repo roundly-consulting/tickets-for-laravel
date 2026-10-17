@@ -55,7 +55,7 @@
         "pestphp/pest-plugin-arch": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpstan/extension-installer": "^1.4",
-        "roundly-consulting/testing-for-laravel": "^1.5.0"
+        "roundly-consulting/testing-for-laravel": "^1.6.0"
     },
     "suggest": {
         "roundly-consulting/teams-for-laravel": "Assign tickets to teams (a Team implementing Contracts\\Assignee).",
