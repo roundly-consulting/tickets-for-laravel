@@ -2,65 +2,83 @@
 
 declare(strict_types=1);
 
+use RoundlyConsulting\Tickets\Enums\TicketPriority;
+use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
+use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketField;
+use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Models\TicketTag;
+
 return [
 
     /*
     |--------------------------------------------------------------------------
-    | Enabled
+    | Key types
     |--------------------------------------------------------------------------
     |
-    | Placeholder setting so the service provider has something real to merge,
-    | publish, and report via `php artisan about`. Replace with the package's
-    | real configuration — every key here must be read somewhere under src/,
-    | and ConfigContractTest enforces both directions.
+    | Set both BEFORE running the migrations: they pick the column types.
     |
-    | Pass env values through raw — never `(bool) env()` or `filter_var()` —
-    | and read them with the toolkit's `Config::boolean()`: a typo then throws
-    | naming the key instead of silently becoming true or false. The false
-    | spellings are false/0/off/no.
+    | `primary_key_type` keys the ticket and the guest — the models other
+    | packages point at (lifecycle subject, commentable, attribute and media
+    | owner). It must equal `lifecycle.key_type`, `attributes.key_type` and
+    | `comments.key_type`.
     |
-    | Blank means not set: a host's `TICKETS_ENABLED=` (an empty or
-    | whitespace-only value) reads exactly like an absent key, so the default
-    | applies. The same holds for every key below.
+    | `key_type` keys the morphs tickets point OUT at — requester, assignee,
+    | project, watcher, actor. It must equal your user model's key type and
+    | `lifecycle.actor_key_type`. Because `comments.key_type` covers both the
+    | comment author (a user) and the commentable (a ticket), all three must be
+    | the same in one installation.
+    |
+    | Supported: bigint, uuid, ulid.
     |
     */
 
-    'enabled' => env('TICKETS_ENABLED', true),
+    'primary_key_type' => env('TICKETS_PRIMARY_KEY_TYPE', 'bigint'),
+
+    'key_type' => env('TICKETS_KEY_TYPE', 'bigint'),
 
     /*
     |--------------------------------------------------------------------------
-    | Timeout (an integer setting)
+    | Models
     |--------------------------------------------------------------------------
     |
-    | Placeholder showing how every number is read. Pass the env through raw —
-    | never `(int) env()`, `intval()` or an `is_numeric() ? … : default` guard,
-    | which turn `five` into 0 (a timeout of none) — and read it with
-    | `Config::integer($key, $default, min: …, max: …)`. An int or a canonical
-    | integer string (`'30'`) passes; `'five'`, `'5.5'`, `'30s'` or a value out
-    | of range throws naming the key. A key that is not set — absent, null or
-    | blank (`TICKETS_TIMEOUT=`) — takes the default. Bound every
-    | number by its domain: a timeout or TTL of 0 must be impossible unless 0
-    | means something and is documented.
+    | Swap a model by extending the packaged class and naming the subclass here.
     |
     */
 
-    'timeout' => env('TICKETS_TIMEOUT', 30),
+    'models' => [
+        'ticket' => Ticket::class,
+        'category' => TicketCategory::class,
+        'field' => TicketField::class,
+        'tag' => TicketTag::class,
+        'guest' => TicketGuest::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Mode (a fixed vocabulary)
+    | Lifecycle
     |--------------------------------------------------------------------------
     |
-    | Placeholder showing how a setting with a fixed set of values is read:
-    | `Config::oneOf($key, ['sync', 'queue'], 'sync')`, or — once the package
-    | has a backed enum for it — `Config::enum($key, Mode::class, Mode::Sync)`.
-    | Never `Enum::tryFrom(config(…)) ?? Default`, `in_array() ? … : default`
-    | or `=== 'queue' ? A : B`: a typo must throw, listing the allowed values,
-    | not quietly become the default. A blank `TICKETS_MODE=` is not
-    | set and takes the default.
+    | The lifecycle-for-laravel definition of the ticket statuses. A swap must
+    | implement Contracts\TicketLifecycle, and its states enum
+    | Contracts\TicketState.
     |
     */
 
-    'mode' => env('TICKETS_MODE', 'sync'),
+    'lifecycle' => TicketLifecycle::class,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Priority
+    |--------------------------------------------------------------------------
+    |
+    | `enum` is a string-backed enum implementing Contracts\Priority.
+    |
+    */
+
+    'priority' => [
+        'enum' => TicketPriority::class,
+    ],
 
 ];
