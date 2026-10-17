@@ -40,6 +40,7 @@ use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
  * Merges `$source` into `$target`, in one transaction with both tickets locked in primary-key
@@ -63,7 +64,7 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  *
  * Refused (`InvalidMergeException`): the same ticket, a Closed or already-merged source or
  * target, a cross-project merge with `tickets.merge.cross_project` off, and an actor the merge
- * ability does not allow. Custom field values are not merged.
+ * ability does not allow or the agent scope keeps off either ticket. Custom field values are not merged.
  */
 final readonly class MergeTicketsAction
 {
@@ -88,7 +89,7 @@ final readonly class MergeTicketsAction
             throw InvalidMergeException::same();
         }
 
-        if ($actor !== null && ! ($actor instanceof Authenticatable && $this->gate->forUser($actor)->allows(TicketsConfig::mergeAbility()))) {
+        if ($actor !== null && ! $this->mayMerge($actor, $source, $target)) {
             throw InvalidMergeException::unauthorized();
         }
 
@@ -131,6 +132,17 @@ final readonly class MergeTicketsAction
 
             return $result;
         });
+    }
+
+    /**
+     * The merge ability, held by an agent the agent scope lets work on both tickets.
+     */
+    private function mayMerge(Model $actor, Ticket $source, Ticket $target): bool
+    {
+        return $actor instanceof Authenticatable
+            && $this->gate->forUser($actor)->allows(TicketsConfig::mergeAbility())
+            && TicketVisibility::isAgentFor($actor, $source)
+            && TicketVisibility::isAgentFor($actor, $target);
     }
 
     /**

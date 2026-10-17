@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use RoundlyConsulting\Tickets\Enums\FieldType;
+use RoundlyConsulting\Tickets\Exceptions\InvalidMergeException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Http\Resources\TicketGuestResource;
 use RoundlyConsulting\Tickets\Http\Viewer;
@@ -171,6 +172,33 @@ describe('hidden_tickets_answer_like_missing_ones', function (): void {
 
         expect($mine->fresh()?->trashed())->toBeFalse()
             ->and($inScope->fresh()?->trashed())->toBeFalse();
+    });
+});
+
+describe('agent_scope_holds_across_tickets', function (): void {
+    beforeEach(function (): void {
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        $this->sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $this->hr = Project::query()->create(['name' => 'People', 'key' => 'HR']);
+        $this->scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+    });
+
+    it('refuses a merge to an agent outside the scope of either ticket', function (): void {
+        $hrAgent = apiAgent('Hilda');
+        $first = Tickets::make()->subject('Payslip wrong')->requester($this->scoped)->project($this->hr)->asSystem()->create();
+        $second = Tickets::make()->subject('Payslip still wrong')->requester($this->scoped)->project($this->hr)->asSystem()->create();
+        $inScope = Tickets::make()->subject('VPN drops')->requester(apiUser())->project($this->sup)->asSystem()->create();
+        Tickets::for($first)->by($hrAgent)->note('HR-INTERNAL: salary dispute');
+
+        // Not their tickets to work on: no transition beyond the requester's — and no merge.
+        $this->actingAs($this->scoped)->postJson("/api/tickets/{$first->reference}/transitions/dismiss", ['reason' => 'x'])->assertForbidden();
+        $this->actingAs($this->scoped)->postJson("/api/tickets/{$first->reference}/merge", ['target' => $second->reference])->assertForbidden();
+        $this->actingAs($this->scoped)->postJson("/api/tickets/{$inScope->reference}/merge", ['target' => $first->reference])->assertForbidden();
+
+        expect(fn () => Tickets::for($first)->by($this->scoped)->mergeInto($second))->toThrow(InvalidMergeException::class)
+            ->and(fn () => Tickets::for($inScope)->by($this->scoped)->mergeInto($first))->toThrow(InvalidMergeException::class)
+            ->and($first->fresh()?->merged_into_id)->toBeNull()
+            ->and($inScope->fresh()?->merged_into_id)->toBeNull();
     });
 });
 

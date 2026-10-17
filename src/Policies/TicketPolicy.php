@@ -219,11 +219,12 @@ class TicketPolicy
     }
 
     /**
-     * The `merge` ability, on a ticket the user may view.
+     * The `merge` ability, held by an agent the agent scope lets work on the ticket (the API asks
+     * for both tickets).
      */
     public function merge(Model $user, Ticket $ticket): bool
     {
-        return TicketVisibility::canView($user, $ticket) && self::allows($user, TicketsConfig::mergeAbility());
+        return TicketVisibility::isAgentFor($user, $ticket) && self::allows($user, TicketsConfig::mergeAbility());
     }
 
     public function manageCategories(Model $user): bool

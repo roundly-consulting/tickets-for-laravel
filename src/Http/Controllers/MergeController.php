@@ -25,6 +25,7 @@ final class MergeController extends Controller
         $this->authorize($viewer, 'view', [$source]);
         $this->authorize($viewer, 'merge', [$source]);
         $this->authorize($viewer, 'view', [$target]);
+        $this->authorize($viewer, 'merge', [$target]);
 
         $result = $this->handle($source, $viewer)->mergeInto($target, $request->reason());
 
