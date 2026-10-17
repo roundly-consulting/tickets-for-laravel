@@ -6,6 +6,8 @@ namespace RoundlyConsulting\Tickets\Models;
 
 use BackedEnum;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,13 +22,16 @@ use RoundlyConsulting\Lifecycle\Casts\AsLifecycleState;
 use RoundlyConsulting\Lifecycle\Concerns\HasLifecycle;
 use RoundlyConsulting\Lifecycle\Contracts\LifecycleSubject;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleDefinition;
+use RoundlyConsulting\PackageToolkit\Support\RawExpression;
 use RoundlyConsulting\Tickets\Concerns\HasConfigurableKey;
 use RoundlyConsulting\Tickets\Contracts\Priority;
 use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\Database\Factories\TicketFactory;
 use RoundlyConsulting\Tickets\Enums\StatusCategory;
+use RoundlyConsulting\Tickets\Support\CategoryTree;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
+use RoundlyConsulting\Tickets\Support\TicketStates;
 
 /**
  * A support ticket. Its `status` is owned by lifecycle-for-laravel (never written directly),
@@ -182,6 +187,219 @@ class Ticket extends Model implements LifecycleSubject
     public function activities(): HasMany
     {
         return $this->hasMany(TicketActivity::class, 'ticket_id')->orderBy('occurred_at')->orderBy('id');
+    }
+
+    // Query scopes — the API's list filters are built on these, so PHP and HTTP filter alike.
+
+    /**
+     * Assigned to any of the models.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeAssignedTo(Builder $query, Model ...$assignees): void
+    {
+        self::whereMorphIn($query, 'assignee', array_values($assignees));
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeUnassigned(Builder $query): void
+    {
+        $query->whereNull($query->qualifyColumn('assignee_type'));
+    }
+
+    /**
+     * Requested by the model — a host model or a TicketGuest.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeRequestedBy(Builder $query, Model $requester): void
+    {
+        self::whereMorphIn($query, 'requester', [$requester]);
+    }
+
+    /**
+     * In the project, or — with null — in no project.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeInProject(Builder $query, ?Model $project): void
+    {
+        if ($project === null) {
+            $query->whereNull($query->qualifyColumn('project_type'));
+
+            return;
+        }
+
+        self::whereMorphIn($query, 'project', [$project]);
+    }
+
+    /**
+     * In the category, and with `$descendants` in any category below it (a walk bounded by
+     * `tickets.categories.max_depth`).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeInCategory(Builder $query, TicketCategory|int $category, bool $descendants = false): void
+    {
+        $id = $category instanceof TicketCategory ? (int) $category->getKey() : $category;
+
+        $query->whereIn($query->qualifyColumn('category_id'), $descendants ? [$id, ...CategoryTree::descendantIds($id)] : [$id]);
+    }
+
+    /**
+     * In any of the exact states.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWithStatus(Builder $query, BackedEnum|string ...$states): void
+    {
+        $query->whereIn($query->qualifyColumn('status'), array_map(TicketStates::stored(...), $states));
+    }
+
+    /**
+     * In any state of the categories — mapped through the configured lifecycle's states, so
+     * it follows a swapped status enum.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWithStatusCategory(Builder $query, StatusCategory ...$categories): void
+    {
+        $query->whereIn($query->qualifyColumn('status'), TicketStates::valuesIn(array_values($categories)));
+    }
+
+    /**
+     * Still needing work: Open, Active or Waiting.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeUnresolved(Builder $query): void
+    {
+        $query->whereIn($query->qualifyColumn('status'), TicketStates::valuesIn(StatusCategory::unresolved()));
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeWithPriority(Builder $query, BackedEnum|string ...$priorities): void
+    {
+        $query->whereIn(
+            $query->qualifyColumn('priority'),
+            array_map(static fn (BackedEnum|string $priority): string|int => $priority instanceof BackedEnum ? $priority->value : $priority, $priorities),
+        );
+    }
+
+    /**
+     * Tagged with any of the tags (by slug or model).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeTaggedWith(Builder $query, string|TicketTag ...$tags): void
+    {
+        $slugs = array_values(array_filter($tags, is_string(...)));
+        $ids = array_map(static fn (TicketTag $tag): mixed => $tag->getKey(), array_values(array_filter($tags, static fn (string|TicketTag $tag): bool => $tag instanceof TicketTag)));
+
+        $query->whereHas('tags', static function (Builder $tag) use ($slugs, $ids): void {
+            $tag->where(static function (Builder $any) use ($slugs, $ids): void {
+                $any->whereIn($any->qualifyColumn('slug'), $slugs)->orWhereIn($any->qualifyColumn('id'), $ids);
+            });
+        });
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeWatchedBy(Builder $query, Model $watcher): void
+    {
+        $query->whereHas('watchers', static function (Builder $watch) use ($watcher): void {
+            $watch->where('watcher_type', $watcher->getMorphClass())->where('watcher_id', $watcher->getKey());
+        });
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeDueBefore(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('due_at'), '<', $at);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeDueAfter(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('due_at'), '>', $at);
+    }
+
+    /**
+     * Past the due date and still unresolved (Open, Active or Waiting — waiting counts:
+     * manual dates are absolute).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeOverdue(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('due_at'), '<', CarbonImmutable::now())
+            ->whereIn($query->qualifyColumn('status'), TicketStates::valuesIn(StatusCategory::unresolved()));
+    }
+
+    /**
+     * Merged into another ticket — or, with false, not merged.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeMerged(Builder $query, bool $merged = true): void
+    {
+        $merged
+            ? $query->whereNotNull($query->qualifyColumn('merged_into_id'))
+            : $query->whereNull($query->qualifyColumn('merged_into_id'));
+    }
+
+    /**
+     * Order by the configured priority enum's weights (a bound `CASE`); a stored value the
+     * enum no longer has weighs 0.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeOrderByPriority(Builder $query, string $direction = 'desc'): void
+    {
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+        $cases = TicketsConfig::priorityEnum()::cases();
+        $sql = 'case '.$query->getQuery()->getGrammar()->wrap($query->qualifyColumn('priority'));
+        $bindings = [];
+
+        foreach ($cases as $case) {
+            $sql .= ' when ? then ?';
+            $bindings[] = $case->value;
+            $bindings[] = $case->weight();
+        }
+
+        // The column is grammar-wrapped and every value is bound — nothing from input.
+        $query->getQuery()->addBinding($bindings, 'order');
+        $query->orderBy(new RawExpression($sql.' else 0 end'), $direction);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @param  list<Model>  $models
+     */
+    private static function whereMorphIn(Builder $query, string $morph, array $models): void
+    {
+        if ($models === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where(static function (Builder $any) use ($morph, $models): void {
+            foreach ($models as $model) {
+                $any->orWhere(static fn (Builder $one): Builder => $one
+                    ->where($one->qualifyColumn($morph.'_type'), $model->getMorphClass())
+                    ->where($one->qualifyColumn($morph.'_id'), $model->getKey()));
+            }
+        });
     }
 
     protected static function newFactory(): TicketFactory
