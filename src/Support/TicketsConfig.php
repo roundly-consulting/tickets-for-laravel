@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Support;
 
 use BackedEnum;
+use ReflectionEnum;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleDefinition;
 use RoundlyConsulting\PackageToolkit\Support\Config;
+use RoundlyConsulting\PackageToolkit\Support\ConfigValidator;
 use RoundlyConsulting\Tickets\Contracts\Priority;
 use RoundlyConsulting\Tickets\Contracts\TicketLifecycle as TicketLifecycleContract;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
@@ -46,10 +48,133 @@ final class TicketsConfig
     {
         $class = Config::using(InvalidTicketsConfigurationException::class)->string('tickets.priority.enum', TicketPriority::class);
 
-        if (! enum_exists($class) || ! is_subclass_of($class, BackedEnum::class) || ! is_subclass_of($class, Priority::class)) {
-            throw InvalidTicketsConfigurationException::invalid('tickets.priority.enum', 'a backed enum implementing '.Priority::class);
+        if (! enum_exists($class) || ! is_subclass_of($class, BackedEnum::class) || ! is_subclass_of($class, Priority::class)
+            || (new ReflectionEnum($class))->getBackingType()?->getName() !== 'string') {
+            throw InvalidTicketsConfigurationException::invalid('tickets.priority.enum', 'a string-backed enum implementing '.Priority::class);
         }
 
         return $class;
+    }
+
+    /**
+     * The configured priority case for a raw value, or null when the value is not part of
+     * the enum.
+     */
+    public static function priority(BackedEnum|string $value): (BackedEnum&Priority)|null
+    {
+        $enum = self::priorityEnum();
+
+        if ($value instanceof BackedEnum && ! $value instanceof $enum) {
+            return null;
+        }
+
+        return $enum::tryFrom($value instanceof BackedEnum ? $value->value : $value);
+    }
+
+    /**
+     * The priority a ticket gets when neither the caller nor its category gives one
+     * (`tickets.priority.default`).
+     */
+    public static function defaultPriority(): BackedEnum&Priority
+    {
+        $value = self::read()->string('tickets.priority.default', 'normal');
+
+        return self::priority($value)
+            ?? throw InvalidTicketsConfigurationException::invalid('tickets.priority.default', 'a value of '.self::priorityEnum());
+    }
+
+    /**
+     * The reference prefix of tickets without a project (`tickets.reference.prefix`).
+     */
+    public static function referencePrefix(): string
+    {
+        $prefix = self::read()->string('tickets.reference.prefix', 'TCK');
+
+        if (preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.reference.prefix', 'an upper-case letter followed by up to nine upper-case letters or digits');
+        }
+
+        return $prefix;
+    }
+
+    /**
+     * The intake channels a ticket may come in through (`tickets.channels`).
+     *
+     * @return list<string>
+     */
+    public static function channels(): array
+    {
+        return self::read()->list(
+            'tickets.channels',
+            ['web', 'email', 'api', 'phone', 'chat'],
+            static fn (string $channel): bool => preg_match('/^[a-z][a-z0-9_]{0,31}$/', $channel) === 1,
+        );
+    }
+
+    /**
+     * The channel of a ticket created without one (`tickets.default_channel`).
+     */
+    public static function defaultChannel(): string
+    {
+        $channels = self::channels();
+
+        if ($channels === []) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.channels', 'a non-empty list of channels');
+        }
+
+        return self::read()->oneOf('tickets.default_channel', $channels, in_array('api', $channels, true) ? 'api' : $channels[0]);
+    }
+
+    /**
+     * How deep the category tree may grow (`tickets.categories.max_depth`).
+     */
+    public static function maxCategoryDepth(): int
+    {
+        return self::read()->integer('tickets.categories.max_depth', 5, min: 1, max: 50);
+    }
+
+    /**
+     * Whether the activity timeline is written (`tickets.activity.enabled`).
+     */
+    public static function activityEnabled(): bool
+    {
+        return self::read()->boolean('tickets.activity.enabled', true);
+    }
+
+    /**
+     * Whether a call without an explicit actor is attributed to the authenticated user
+     * (`tickets.actor.from_auth`), and through which guard (`tickets.actor.guard`, blank
+     * for the default guard).
+     */
+    public static function actorFromAuth(): bool
+    {
+        return self::read()->boolean('tickets.actor.from_auth', true);
+    }
+
+    public static function actorGuard(): ?string
+    {
+        $guard = self::read()->string('tickets.actor.guard', '');
+
+        return trim($guard) === '' ? null : $guard;
+    }
+
+    /**
+     * The validation rules a custom field definition may use (`tickets.fields.allowed_rules`).
+     *
+     * @return list<string>
+     */
+    public static function allowedFieldRules(): array
+    {
+        return self::read()->list('tickets.fields.allowed_rules', [
+            'min', 'max', 'between', 'regex', 'digits', 'digits_between', 'alpha', 'alpha_num', 'alpha_dash', 'starts_with', 'ends_with',
+        ]);
+    }
+
+    /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
+    public const string PREFIX_PATTERN = '/^[A-Z][A-Z0-9]{0,9}$/';
+
+    private static function read(): ConfigValidator
+    {
+        return Config::using(InvalidTicketsConfigurationException::class);
     }
 }
