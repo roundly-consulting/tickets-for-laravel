@@ -1,7 +1,7 @@
 <!-- roundly-hero:start -->
 <p align="center">
   <a href="https://roundly-consulting.com/open-source/docs/tickets-for-laravel?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel">
-    <img src="art/hero.png" alt="Tickets for Laravel — Roundly open source" width="100%">
+    <img src="https://raw.githubusercontent.com/roundly-consulting/tickets-for-laravel/main/art/hero.png" alt="Tickets for Laravel — Roundly open source" width="100%">
   </a>
 </p>
 <!-- roundly-hero:end -->
