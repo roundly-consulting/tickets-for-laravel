@@ -164,6 +164,30 @@ describe('ticket tags', function (): void {
             ->and($vpn->project?->is($project))->toBeTrue();
     });
 
+    it('prefers a live global tag to a deleted project tag of the same name', function (bool $freeForm): void {
+        config()->set('tickets.tags.free_form', $freeForm);
+        $project = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $global = Tickets::tags()->create('printer');
+        $deleted = Tickets::tags()->delete(Tickets::tags()->create('printer', project: $project));
+        $ticket = tagTicket($project);
+
+        Tickets::for($ticket)->asSystem()->tags()->attach('printer');
+
+        expect(Tickets::for($ticket)->tags()->all()->modelKeys())->toBe([$global->getKey()])
+            ->and($deleted->fresh()?->trashed())->toBeTrue();
+    })->with(['free_form on' => [true], 'free_form off' => [false]]);
+
+    it('brings a deleted project tag back only when no live tag has the name', function (): void {
+        $project = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $deleted = Tickets::tags()->delete(Tickets::tags()->create('printer', project: $project));
+        $ticket = tagTicket($project);
+
+        Tickets::for($ticket)->asSystem()->tags()->attach('printer');
+
+        expect(Tickets::for($ticket)->tags()->all()->modelKeys())->toBe([$deleted->getKey()])
+            ->and($deleted->fresh()?->trashed())->toBeFalse();
+    });
+
     it('refuses an unknown name with free-form tags off', function (): void {
         config()->set('tickets.tags.free_form', 'off');
         $ticket = tagTicket();

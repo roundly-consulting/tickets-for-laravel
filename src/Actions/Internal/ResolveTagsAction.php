@@ -15,9 +15,10 @@ use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
 /**
  * Turns tag names and models into the live tags a ticket may carry: global, or of the
- * ticket's project. A name is looked up in the ticket's project first, then among the global
- * tags; an unknown name is created in the ticket's scope when `$create` and
- * `tickets.tags.free_form` allow it, refused otherwise — or, without `$create`, skipped.
+ * ticket's project. A name is looked up among the live tags of the ticket's project first, then
+ * among the live global ones; an unknown name is created in the ticket's scope (which brings a
+ * deleted tag of that scope back) when `$create` and `tickets.tags.free_form` allow it, refused
+ * otherwise — or, without `$create`, skipped.
  * Names take the `lock:tags` advisory row first, before any ticket row.
  *
  * @internal
@@ -63,11 +64,17 @@ final readonly class ResolveTagsAction
     private function named(string $name, Ticket $ticket, bool $create): ?TicketTag
     {
         $name = TagInput::name($name);
-        $found = ($ticket->project_type === null ? null : TagInput::find($name, $ticket->project_type, $ticket->project_id))
-            ?? TagInput::find($name, null, null);
+        $candidates = [
+            $ticket->project_type === null ? null : TagInput::find($name, $ticket->project_type, $ticket->project_id),
+            TagInput::find($name, null, null),
+        ];
 
-        if ($found !== null && ! $found->trashed()) {
-            return $found;
+        // A live tag first — the project's, then the global one. A deleted one never shadows
+        // a live one; it comes back (through the create) only when no live tag has the name.
+        foreach ($candidates as $found) {
+            if ($found !== null && ! $found->trashed()) {
+                return $found;
+            }
         }
 
         if (! $create) {
