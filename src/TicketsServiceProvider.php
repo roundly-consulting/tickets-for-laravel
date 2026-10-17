@@ -10,6 +10,10 @@ use RoundlyConsulting\PackageToolkit\Enums\KeyType;
 use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
+use RoundlyConsulting\Tickets\Assignment\CategoryDefaultStrategy;
+use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
+use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
+use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
@@ -29,6 +33,8 @@ final class TicketsServiceProvider extends PackageServiceProvider
                 'Key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.key_type')->value),
                 'Lifecycle' => self::orInvalid(static fn (): string => class_basename(TicketsConfig::lifecycle())),
                 'Priority enum' => self::orInvalid(static fn (): string => class_basename(TicketsConfig::priorityEnum())),
+                'Reference prefix' => self::orInvalid(static fn (): string => TicketsConfig::referencePrefix()),
+                'Activity' => self::orInvalid(static fn (): string => TicketsConfig::activityEnabled() ? 'ON' : 'OFF'),
             ]);
     }
 
@@ -37,6 +43,9 @@ final class TicketsServiceProvider extends PackageServiceProvider
         parent::register();
 
         $this->app->singleton(TicketsManager::class);
+
+        $this->bindFromConfig(AssignmentStrategy::class, 'tickets.assignment.strategy', CategoryDefaultStrategy::class);
+        $this->bindFromConfig(DueDateResolver::class, 'tickets.due.resolver', CategoryDueDateResolver::class);
     }
 
     public function boot(): void

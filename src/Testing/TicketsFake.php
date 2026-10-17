@@ -4,58 +4,302 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Testing;
 
+use BackedEnum;
 use Closure;
 use Illuminate\Contracts\Container\Container;
 use PHPUnit\Framework\Assert as PHPUnit;
-use RoundlyConsulting\Tickets\DataTransferObjects\ExampleTicketsData;
+use RoundlyConsulting\Tickets\Enums\TicketOperation;
+use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketField;
+use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
- * Test double installed by `Tickets::fake()`. It extends the manager, so injected
- * managers keep type-checking, and it records every call instead of running the action.
- *
- * Grow it with the manager: override every mutating method (including the ones sub-accessors
- * and model traits reach), record the call, and ship an `assert<Verb>()` plus an
- * `assertNothing<Verb>()` for each.
+ * A recording, still-performing manager, installed by `Tickets::fake()`. Every operation
+ * runs for real (rows, events, policies) and each successful one is recorded — however it
+ * was called: the facade, an injected manager, a handle, a sub-accessor, a builder or a
+ * model method. A call that throws records nothing.
  */
 final class TicketsFake extends TicketsManager
 {
-    /** @var list<ExampleTicketsData> */
-    private array $examples = [];
+    /** @var list<RecordedTicketOperation> */
+    private array $recorded = [];
 
     public function __construct(Container $container)
     {
         parent::__construct($container);
     }
 
-    public function example(ExampleTicketsData $data): string
+    /**
+     * @internal
+     *
+     * @template TAction of object
+     * @template TResult
+     *
+     * @param  class-string<TAction>  $action
+     * @param  Closure(TAction): TResult  $execute
+     * @param  array<string, mixed>  $context
+     * @return TResult
+     */
+    public function perform(TicketOperation $operation, string $action, Closure $execute, array $context = []): mixed
     {
-        $this->examples[] = $data;
+        $result = parent::perform($operation, $action, $execute, $context);
 
-        // Nothing ran, so there is nothing real to return — a canned value keeps the type.
-        return '';
+        $this->recorded[] = new RecordedTicketOperation($operation, $context, $result);
+
+        return $result;
     }
 
     /**
-     * @param  (Closure(ExampleTicketsData): bool)|null  $callback
+     * Every recorded operation, optionally of one kind, in call order.
+     *
+     * @return list<RecordedTicketOperation>
      */
-    public function assertExampleCalled(?Closure $callback = null): void
+    public function recorded(?TicketOperation $operation = null): array
     {
-        $matching = array_filter(
-            $this->examples,
-            static fn (ExampleTicketsData $data): bool => $callback === null || $callback($data),
-        );
-
-        PHPUnit::assertNotEmpty($matching, $callback === null
-            ? 'Expected example() to be called, but it was not.'
-            : 'Expected example() to be called with matching data, but no call matched.');
+        return array_values(array_filter(
+            $this->recorded,
+            static fn (RecordedTicketOperation $recorded): bool => $operation === null || $recorded->operation === $operation,
+        ));
     }
 
-    public function assertNothingCalled(): void
+    public function assertNothingHappened(): void
     {
         PHPUnit::assertEmpty(
-            $this->examples,
-            sprintf('Expected nothing to be called, but example() was called %d time(s).', count($this->examples)),
+            $this->recorded,
+            sprintf('Expected no ticket operations, but %d were recorded.', count($this->recorded)),
         );
+    }
+
+    // Tickets -------------------------------------------------------------------------
+
+    /**
+     * @param  (Closure(Ticket): bool)|null  $callback
+     */
+    public function assertCreated(?Closure $callback = null): void
+    {
+        $this->assertRecorded(TicketOperation::Create, static function (RecordedTicketOperation $recorded) use ($callback): bool {
+            $ticket = $recorded->ticket();
+
+            return $callback === null || ($ticket !== null && $callback($ticket));
+        });
+    }
+
+    public function assertNothingCreated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Create);
+    }
+
+    public function assertUpdated(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Update, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Update);
+    }
+
+    public function assertPrioritized(Ticket|string|null $ticket = null, BackedEnum|string|null $priority = null): void
+    {
+        $expected = $priority instanceof BackedEnum ? $priority->value : $priority;
+
+        $this->assertRecorded(TicketOperation::ChangePriority, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($expected === null || $recorded->context['priority'] === $expected));
+    }
+
+    public function assertNothingPrioritized(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ChangePriority);
+    }
+
+    public function assertCategorized(Ticket|string|null $ticket = null, TicketCategory|int|null $category = null): void
+    {
+        $expected = $category instanceof TicketCategory ? $category->getKey() : $category;
+
+        $this->assertRecorded(TicketOperation::ChangeCategory, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($expected === null || $recorded->context['category'] === $expected));
+    }
+
+    public function assertNothingCategorized(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ChangeCategory);
+    }
+
+    public function assertDueSet(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::SetDueDate, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingDueSet(): void
+    {
+        $this->assertNotRecorded(TicketOperation::SetDueDate);
+    }
+
+    public function assertRequesterChanged(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::ChangeRequester, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingRequesterChanged(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ChangeRequester);
+    }
+
+    public function assertDeleted(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Delete, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingDeleted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Delete);
+    }
+
+    public function assertRestored(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Restore, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingRestored(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Restore);
+    }
+
+    // Categories ----------------------------------------------------------------------
+
+    /**
+     * @param  (Closure(TicketCategory): bool)|null  $callback
+     */
+    public function assertCategoryCreated(?Closure $callback = null): void
+    {
+        $this->assertRecorded(TicketOperation::CreateCategory, static fn (RecordedTicketOperation $recorded): bool => $callback === null
+            || ($recorded->result instanceof TicketCategory && $callback($recorded->result)));
+    }
+
+    public function assertNoCategoryCreated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::CreateCategory);
+    }
+
+    public function assertCategoryUpdated(?TicketCategory $category = null): void
+    {
+        $this->assertCategoryOperation(TicketOperation::UpdateCategory, $category);
+    }
+
+    public function assertNoCategoryUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::UpdateCategory);
+    }
+
+    public function assertCategoryMoved(?TicketCategory $category = null): void
+    {
+        $this->assertCategoryOperation(TicketOperation::MoveCategory, $category);
+    }
+
+    public function assertNoCategoryMoved(): void
+    {
+        $this->assertNotRecorded(TicketOperation::MoveCategory);
+    }
+
+    public function assertCategoryDeleted(?TicketCategory $category = null): void
+    {
+        $this->assertCategoryOperation(TicketOperation::DeleteCategory, $category);
+    }
+
+    public function assertNoCategoryDeleted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DeleteCategory);
+    }
+
+    public function assertCategoryRestored(?TicketCategory $category = null): void
+    {
+        $this->assertCategoryOperation(TicketOperation::RestoreCategory, $category);
+    }
+
+    public function assertNoCategoryRestored(): void
+    {
+        $this->assertNotRecorded(TicketOperation::RestoreCategory);
+    }
+
+    // Fields --------------------------------------------------------------------------
+
+    public function assertFieldDefined(?string $key = null): void
+    {
+        $this->assertRecorded(TicketOperation::DefineField, static fn (RecordedTicketOperation $recorded): bool => $key === null
+            || ($recorded->result instanceof TicketField && $recorded->result->key === $key));
+    }
+
+    public function assertNoFieldDefined(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DefineField);
+    }
+
+    // Guests --------------------------------------------------------------------------
+
+    /**
+     * @param  (Closure(TicketGuest): bool)|null  $callback
+     */
+    public function assertGuestResolved(?Closure $callback = null): void
+    {
+        $this->assertRecorded(TicketOperation::ResolveGuest, static fn (RecordedTicketOperation $recorded): bool => $callback === null
+            || ($recorded->result instanceof TicketGuest && $callback($recorded->result)));
+    }
+
+    public function assertNoGuestResolved(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ResolveGuest);
+    }
+
+    public function assertGuestUpdated(?TicketGuest $guest = null): void
+    {
+        $this->assertRecorded(TicketOperation::UpdateGuest, static fn (RecordedTicketOperation $recorded): bool => $guest === null
+            || ($recorded->model('guest')?->is($guest) ?? false));
+    }
+
+    public function assertNoGuestUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::UpdateGuest);
+    }
+
+    public function assertGuestConverted(?TicketGuest $guest = null): void
+    {
+        $this->assertRecorded(TicketOperation::ConvertGuest, static fn (RecordedTicketOperation $recorded): bool => $guest === null
+            || ($recorded->model('guest')?->is($guest) ?? false));
+    }
+
+    public function assertNoGuestConverted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ConvertGuest);
+    }
+
+    // Plumbing ------------------------------------------------------------------------
+
+    private function assertCategoryOperation(TicketOperation $operation, ?TicketCategory $category): void
+    {
+        $this->assertRecorded($operation, static fn (RecordedTicketOperation $recorded): bool => $category === null
+            || ($recorded->model('category')?->is($category) ?? false));
+    }
+
+    /**
+     * @param  Closure(RecordedTicketOperation): bool  $matches
+     */
+    private function assertRecorded(TicketOperation $operation, Closure $matches): void
+    {
+        $recorded = $this->recorded($operation);
+
+        PHPUnit::assertNotEmpty($recorded, "Expected a [{$operation->value}] ticket operation, but none was recorded.");
+        PHPUnit::assertNotEmpty(
+            array_filter($recorded, $matches),
+            "A [{$operation->value}] ticket operation was recorded, but none matched.",
+        );
+    }
+
+    private function assertNotRecorded(TicketOperation $operation): void
+    {
+        $count = count($this->recorded($operation));
+
+        PHPUnit::assertSame(0, $count, "Expected no [{$operation->value}] ticket operation, but {$count} were recorded.");
     }
 }

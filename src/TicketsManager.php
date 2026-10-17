@@ -4,32 +4,28 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets;
 
+use Closure;
 use Illuminate\Contracts\Container\Container;
-use RoundlyConsulting\Tickets\Actions\ExampleTicketsAction;
-use RoundlyConsulting\Tickets\DataTransferObjects\ExampleTicketsData;
+use RoundlyConsulting\Tickets\Accessors\Categories;
+use RoundlyConsulting\Tickets\Accessors\Fields;
+use RoundlyConsulting\Tickets\Accessors\Guests;
+use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
+use RoundlyConsulting\Tickets\Builders\TicketBuilder;
+use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
+use RoundlyConsulting\Tickets\Enums\TicketOperation;
+use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
+use RoundlyConsulting\Tickets\Handles\TicketHandle;
+use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Support\TicketModels;
 
 /**
- * The package's public API: the root behind the Tickets facade, injectable by its
- * own class-string. Bound as a singleton in TicketsServiceProvider::register().
+ * The package's public API: the root behind the `Tickets` facade, injectable by its own
+ * class-string (a container singleton). Every method is thin — the behaviour lives in the
+ * actions, each resolved through the container on every call, so host overrides and
+ * `Tickets::fake()` apply.
  *
- * Follows the `laravel-package-developer` skill section
- * "Public API: Actions → Manager → Facade (REQUIRED)":
- *
- *  - Every method is thin — resolve one action through the container and call `execute()`.
- *    Never `new` an action, so host container overrides and the fake both apply.
- *  - Flat methods for the core verbs; a small `final readonly` sub-accessor per sub-area once
- *    there are two or more; `for($model)` for a model-scoped handle.
- *  - Every host-facing action (no `@internal`) must be reachable from here.
- *  - Model traits and model methods call this manager (`app(TicketsManager::class)`),
- *    never an action — so the fake sees them too.
- *
- * Not final on purpose: TicketsFake extends it, so code that constructor-injects this
- * class still type-checks under `Tickets::fake()`. The arch test exempts it from
- * `finalByDefault` by name.
- *
- * Exempt shapes — a pure trait, a per-request static builder, package-author or dev-only
- * tooling — have no host-facing stateful behaviour: delete this manager, the facade, the fake,
- * the example action and FacadeTest, and say why in one README line.
+ * Not final on purpose: TicketsFake extends it, so an injected manager still type-checks
+ * under `Tickets::fake()`.
  */
 class TicketsManager
 {
@@ -38,10 +34,92 @@ class TicketsManager
     ) {}
 
     /**
-     * REPLACE ME — rename after the real verb the action performs.
+     * A fluent builder for a new ticket: `Tickets::make()->subject(…)->requester($user)->create()`.
      */
-    public function example(ExampleTicketsData $data): string
+    public function make(): TicketBuilder
     {
-        return $this->container->make(ExampleTicketsAction::class)->execute($data);
+        return new TicketBuilder($this);
+    }
+
+    /**
+     * File a ticket from a DTO — the same code path as the builder.
+     */
+    public function create(CreateTicketData $data): Ticket
+    {
+        return $this->perform(
+            TicketOperation::Create,
+            CreateTicketAction::class,
+            static fn (CreateTicketAction $action): Ticket => $action->execute($data),
+            ['data' => $data],
+        );
+    }
+
+    /**
+     * The live ticket with this reference (`SUP-42`), or null.
+     */
+    public function find(string $reference): ?Ticket
+    {
+        return TicketModels::ticket()::query()->where('reference', $reference)->first();
+    }
+
+    /**
+     * The live ticket with this reference, or a {@see TicketNotFoundException}.
+     */
+    public function findOrFail(string $reference): Ticket
+    {
+        return $this->find($reference) ?? throw TicketNotFoundException::forReference($reference);
+    }
+
+    /**
+     * A handle scoped to one ticket, by model or by reference (`Tickets::for('SUP-42')`).
+     * An unknown or soft-deleted reference throws {@see TicketNotFoundException}.
+     */
+    public function for(Ticket|string $ticket): TicketHandle
+    {
+        return new TicketHandle($this, is_string($ticket) ? $this->findOrFail($ticket) : $ticket);
+    }
+
+    /**
+     * Categories: `make`, `create`, `update`, `move`, `delete`, `restore`, `find`, `tree`.
+     */
+    public function categories(): Categories
+    {
+        return new Categories($this);
+    }
+
+    /**
+     * Custom field definitions: `make`, `define`.
+     */
+    public function fields(): Fields
+    {
+        return new Fields($this);
+    }
+
+    /**
+     * Guest requesters: `resolve`, `update`, `convert`.
+     */
+    public function guests(): Guests
+    {
+        return new Guests($this);
+    }
+
+    /**
+     * Run one state-changing operation. Every handle, sub-accessor, builder and model
+     * method funnels its terminal call through here, resolving the action from the
+     * container, so host overrides apply and the fake records the call.
+     *
+     * @internal
+     *
+     * @template TAction of object
+     * @template TResult
+     *
+     * @param  class-string<TAction>  $action
+     * @param  Closure(TAction): TResult  $execute
+     * @param  array<string, mixed>  $context
+     * @return TResult
+     */
+    public function perform(TicketOperation $operation, string $action, Closure $execute, array $context = []): mixed
+    {
+        return $execute($this->container->make($action));
     }
 }
