@@ -5,16 +5,24 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets;
 
 use Closure;
+use Illuminate\Contracts\Events\Dispatcher;
+use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioned;
+use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
 use RoundlyConsulting\PackageToolkit\Concerns\RegistersBlueprintMacros;
 use RoundlyConsulting\PackageToolkit\Enums\KeyType;
 use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
 use RoundlyConsulting\Tickets\Assignment\CategoryDefaultStrategy;
+use RoundlyConsulting\Tickets\Commands\DoctorCommand;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
+use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
+use RoundlyConsulting\Tickets\Conversation\CommentsConversationLock;
 use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
+use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
+use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
 final class TicketsServiceProvider extends PackageServiceProvider
@@ -28,6 +36,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasMigrations()
             ->hasTranslations()
+            ->hasCommands([DoctorCommand::class])
             ->contributesToAbout(static fn (): array => [
                 'Primary key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.primary_key_type')->value),
                 'Key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.key_type')->value),
@@ -35,6 +44,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
                 'Priority enum' => self::orInvalid(static fn (): string => class_basename(TicketsConfig::priorityEnum())),
                 'Reference prefix' => self::orInvalid(static fn (): string => TicketsConfig::referencePrefix()),
                 'Activity' => self::orInvalid(static fn (): string => TicketsConfig::activityEnabled() ? 'ON' : 'OFF'),
+                'Auto-close' => self::orInvalid(static fn (): string => TicketsConfig::autoCloseAfter()?->spec() ?? 'OFF'),
             ]);
     }
 
@@ -46,6 +56,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
 
         $this->bindFromConfig(AssignmentStrategy::class, 'tickets.assignment.strategy', CategoryDefaultStrategy::class);
         $this->bindFromConfig(DueDateResolver::class, 'tickets.due.resolver', CategoryDueDateResolver::class);
+        $this->app->bind(ConversationLock::class, CommentsConversationLock::class);
     }
 
     public function boot(): void
@@ -56,6 +67,12 @@ final class TicketsServiceProvider extends PackageServiceProvider
         // `morphKey` / `ownerKey` macros, so they must exist before `migrate` runs.
         // Idempotent — the toolkit guards each macro with `hasMacro()`.
         $this->registerBlueprintMacros();
+
+        // Lifecycle → tickets: each listener filters on the configured ticket model and the
+        // `status` lifecycle, so other lifecycle subjects of the host pass straight through.
+        $events = $this->app->make(Dispatcher::class);
+        $events->listen(LifecycleTransitioning::class, [OnTicketTransitioning::class, 'handle']);
+        $events->listen(LifecycleTransitioned::class, [OnTicketTransitioned::class, 'handle']);
     }
 
     /**

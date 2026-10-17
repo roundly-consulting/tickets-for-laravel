@@ -9,6 +9,14 @@ return [
 
     'lifecycle' => [
         'not_a_definition' => 'The ticket lifecycle [:class] must extend a lifecycle definition and implement the TicketLifecycle contract.',
+        'broken' => 'The ticket lifecycle [:class] cannot be used: :problem',
+        'unknown_transition' => 'The ticket lifecycle has no transition [:transition]. Use transition() with one of its own names.',
+        'not_status_attribute' => 'The ticket model [:model] must map its lifecycle to the `status` attribute, first in lifecycleDefinitions().',
+        'state_not_ticket_state' => 'The state [:state] does not implement the TicketState contract.',
+        'automation_unknown' => 'The :automation automation names the transition [:transition], which the lifecycle does not have.',
+        'automation_not_system' => 'The :automation automation\'s transition [:transition] must allow system context (allowSystem() or systemOnly()).',
+        'automation_source' => 'The :automation automation\'s transition [:transition] must leave the state [:state].',
+        'automation_target' => 'The :automation automation\'s transition [:transition] leads to [:state], a status category it may not enter.',
     ],
 
     'activity' => [
@@ -67,5 +75,10 @@ return [
         'unknown_field' => 'The guest field [:field] is not configured.',
         'identifying_required' => 'Give at least one way to reach you, such as an e-mail address or a phone number.',
         'taken' => 'Another guest already uses this :field.',
+    ],
+
+    'doctor' => [
+        'lifecycle_ok' => 'The lifecycle [:class] satisfies the ticket contract and every automation.',
+        'conveniences' => 'Named transition conveniences supported: :list.',
     ],
 ];

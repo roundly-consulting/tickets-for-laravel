@@ -48,3 +48,18 @@ Initial public release.
   `TicketAssigned`, `TicketPriorityChanged`, `TicketCategoryChanged`, `TicketDueDateChanged`,
   `TicketRequesterChanged`, `TicketDeleted`, `TicketRestored`, `GuestConverted`).
 - `Tickets::fake()`: a recording, still-performing fake with an assertion per operation.
+- Status changes through lifecycle-for-laravel only: `Tickets::for($ticket)->transition($name,
+  reason:, payload:)` and the chainable conveniences `start()`, `wait()`, `hold()`, `resume()`,
+  `resolve()`, `reopen()`, `close()` and `dismiss()` (also `TicketLifecycle::*` constants), plus
+  `can()`, `allowedTransitions()` and `status()`. A host lifecycle without a convenience's
+  transition throws `UnknownTicketTransitionException`.
+- Automations a lifecycle maps through `Contracts\TicketLifecycle::automation()`, run as the
+  system and credited to the triggering actor: a ticket created with an assignee opens.
+- Auto-close of resolved tickets after `tickets.auto_close.after` (ISO-8601, `P7D` by default,
+  `off` to disable) through `lifecycle:sweep`.
+- A conversation lock driven by status categories: a ticket's comments lock when it enters a
+  Closed state and unlock when it leaves one, for any lifecycle — rollbacks and adoptions too.
+- `TicketStatusChanged`, `TicketResolved`, `TicketClosed` and `TicketReopened` events and a
+  `status_changed` activity written atomically with every state change.
+- `php artisan tickets:doctor` (`--json`): checks the configured lifecycle against the ticket
+  contract and its automations, and lists the transition conveniences it supports.

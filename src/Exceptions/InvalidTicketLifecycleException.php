@@ -14,4 +14,9 @@ final class InvalidTicketLifecycleException extends TicketsException
     {
         return new self(self::translate('lifecycle.not_a_definition', ['class' => $class]));
     }
+
+    public static function broken(string $class, string $problem): self
+    {
+        return new self(self::translate('lifecycle.broken', ['class' => $class, 'problem' => $problem]));
+    }
 }

@@ -9,6 +9,14 @@ return [
 
     'lifecycle' => [
         'not_a_definition' => 'Životný cyklus tiketov [:class] musí rozširovať definíciu životného cyklu a implementovať kontrakt TicketLifecycle.',
+        'broken' => 'Životný cyklus tiketov [:class] nemožno použiť: :problem',
+        'unknown_transition' => 'Životný cyklus tiketov nemá prechod [:transition]. Použite transition() s niektorým z jeho vlastných názvov.',
+        'not_status_attribute' => 'Model tiketu [:model] musí mapovať svoj životný cyklus na atribút `status`, ako prvý v lifecycleDefinitions().',
+        'state_not_ticket_state' => 'Stav [:state] neimplementuje kontrakt TicketState.',
+        'automation_unknown' => 'Automatizácia :automation odkazuje na prechod [:transition], ktorý životný cyklus nemá.',
+        'automation_not_system' => 'Prechod [:transition] automatizácie :automation musí povoľovať systémový kontext (allowSystem() alebo systemOnly()).',
+        'automation_source' => 'Prechod [:transition] automatizácie :automation musí vychádzať zo stavu [:state].',
+        'automation_target' => 'Prechod [:transition] automatizácie :automation vedie do stavu [:state], do ktorého kategórie nesmie viesť.',
     ],
 
     'activity' => [
@@ -67,5 +75,10 @@ return [
         'unknown_field' => 'Pole hosťa [:field] nie je nastavené.',
         'identifying_required' => 'Uveďte aspoň jeden kontakt, napríklad e-mailovú adresu alebo telefónne číslo.',
         'taken' => 'Toto pole :field už používa iný hosť.',
+    ],
+
+    'doctor' => [
+        'lifecycle_ok' => 'Životný cyklus [:class] spĺňa kontrakt tiketov aj všetky automatizácie.',
+        'conveniences' => 'Podporované pomenované prechody: :list.',
     ],
 ];
