@@ -251,6 +251,17 @@ describe('conversation', function (): void {
         $this->actingAs(apiAgent())->postJson("/api/tickets/{$ticket->reference}/notes", ['body' => 'x'])->assertStatus(409)->assertJson(['code' => 'ticket_closed']);
     });
 
+    it('answers 201 to a held reply and leaves the status its transition asked for', function (): void {
+        config()->set('comments.blocklist', ['viagra']);
+        config()->set('comments.blocklist_action', 'pending');
+        $ticket = apiTicket();
+
+        $this->actingAs(apiAgent())->postJson("/api/tickets/{$ticket->reference}/replies", ['body' => 'No viagra here.', 'transition' => 'wait'])
+            ->assertCreated();
+
+        expect($ticket->fresh()?->status?->value)->toBe('new');
+    });
+
     it('answers a reply the host blocklist rejects with 422 comment_rejected', function (): void {
         config()->set('comments.blocklist', ['viagra']);
         config()->set('comments.blocklist_action', 'reject');

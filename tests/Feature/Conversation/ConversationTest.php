@@ -18,6 +18,7 @@ use RoundlyConsulting\Tickets\Enums\TicketStatus;
 use RoundlyConsulting\Tickets\Events\TicketFirstResponded;
 use RoundlyConsulting\Tickets\Events\TicketNoteAdded;
 use RoundlyConsulting\Tickets\Events\TicketReplied;
+use RoundlyConsulting\Tickets\Events\TicketStatusChanged;
 use RoundlyConsulting\Tickets\Exceptions\TicketAccessDeniedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketClosedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketCommentNotFoundException;
@@ -353,6 +354,61 @@ describe('blocklist_hold_is_not_bypassed', function (): void {
 
         Event::assertDispatched(TicketReplied::class, static fn (TicketReplied $event): bool => $event->comment->is($comment)
             && $event->role === AuthorRole::Requester && $event->actor?->is($requester) === true);
+    });
+
+    it('applies no explicit transition while the reply is held', function (Closure $hold): void {
+        $hold();
+        $agent = convAgent();
+        $ticket = convTicket();
+        $public = Tickets::for($ticket)->activity()->count();
+        Event::fake([TicketStatusChanged::class]);
+
+        $comment = Tickets::for($ticket)->by($agent)->reply('Is this a scam? Please send a photo.', transition: 'wait');
+        $entry = $ticket->activities()->where('type', ActivityType::Replied->value)->sole();
+
+        expect($comment->fresh()?->status)->not->toBe(CommentStatus::Approved)
+            ->and($ticket->status)->toBe(TicketStatus::New)
+            ->and($ticket->fresh()?->status)->toBe(TicketStatus::New)
+            ->and(Tickets::for($ticket)->activity()->count())->toBe($public)
+            ->and($entry->visibility)->toBe(ActivityVisibility::Internal)
+            ->and($entry->properties['held'] ?? null)->toBeTrue()
+            ->and($entry->properties['transition'] ?? null)->toBe('wait');
+
+        Event::assertNotDispatched(TicketStatusChanged::class);
+    })->with([
+        'by the blocklist' => [function (): void {
+            config()->set('comments.blocklist', ['scam']);
+            config()->set('comments.blocklist_action', 'pending');
+        }],
+        'by require_approval with auto_approve off' => [function (): void {
+            config()->set('comments.require_approval', true);
+            config()->set('tickets.comments.auto_approve', 'off');
+        }],
+    ]);
+
+    it('neither closes nor locks the conversation for a held reply that asked to close', function (): void {
+        config()->set('comments.blocklist', ['scam']);
+        config()->set('comments.blocklist_action', 'pending');
+        $requester = convRequester();
+        $ticket = convTicket($requester);
+        Tickets::for($ticket)->by(convAgent())->resolve();
+
+        Tickets::for($ticket)->by($requester)->reply('Thanks — no scam after all.', transition: 'close');
+
+        expect($ticket->status)->toBe(TicketStatus::Resolved)
+            ->and($ticket->closed_at)->toBeNull()
+            ->and(Comments::isLocked($ticket))->toBeFalse();
+    });
+
+    it('checks the transition name only when the reply publishes', function (): void {
+        config()->set('comments.blocklist', ['scam']);
+        config()->set('comments.blocklist_action', 'pending');
+        $ticket = convTicket();
+
+        $comment = Tickets::for($ticket)->by(convAgent())->reply('A scam, surely.', transition: 'teleport');
+
+        expect($comment->exists)->toBeTrue()
+            ->and($ticket->status)->toBe(TicketStatus::New);
     });
 
     it('leaves a require_approval hold for a moderator with auto_approve off', function (): void {

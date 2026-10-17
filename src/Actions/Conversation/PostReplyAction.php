@@ -45,8 +45,10 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  *  - the first public agent reply stamps `first_responded_at`, once.
  *
  * A reply the host's moderation holds (a blocklist hold, or a `require_approval` hold with
- * auto-approve off) reaches no one: its activity entry is internal, and it runs no automation,
- * stamps no first response and fires no `TicketReplied`.
+ * auto-approve off) reaches no one and changes nothing but the thread: its activity entry is
+ * internal (it records the transition asked for, if any), and it applies no transition (the
+ * name is not checked either), runs no automation, stamps no first response and fires no
+ * `TicketReplied`.
  */
 final readonly class PostReplyAction
 {
@@ -85,19 +87,25 @@ final readonly class PostReplyAction
                 $ticket,
                 ActivityType::Replied,
                 $author,
-                ['comment' => $comment->getKey(), 'role' => $role->value, ...($published ? [] : ['held' => true])],
+                [
+                    'comment' => $comment->getKey(),
+                    'role' => $role->value,
+                    // A held reply records the transition it asked for and did not get.
+                    ...($published ? [] : ['held' => true, ...($transition === null ? [] : ['transition' => $transition->transition])]),
+                ],
                 $system,
                 $published ? ActivityVisibility::Public : ActivityVisibility::Internal,
             );
 
-            if ($transition !== null) {
-                $this->transitions->execute($ticket, $transition, $author, $system);
-            } elseif ($published && ($role === AuthorRole::Requester || $role === AuthorRole::Participant)) {
-                $this->runAutomation($ticket, $author);
-            }
-
+            // A held reply changes nothing but the thread: no transition, no automation.
             if (! $published) {
                 return $comment;
+            }
+
+            if ($transition !== null) {
+                $this->transitions->execute($ticket, $transition, $author, $system);
+            } elseif ($role === AuthorRole::Requester || $role === AuthorRole::Participant) {
+                $this->runAutomation($ticket, $author);
             }
 
             if ($role === AuthorRole::Agent) {
