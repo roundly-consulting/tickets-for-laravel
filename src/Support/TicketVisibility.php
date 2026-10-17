@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Support;
 use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Authorization\UnrestrictedAgentScope;
 use RoundlyConsulting\Tickets\Contracts\AgentScope;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketWatcher;
@@ -75,6 +76,36 @@ final class TicketVisibility
                     $watch->where('watcher_type', $user->getMorphClass())->where('watcher_id', $user->getKey());
                 });
             }
+        });
+    }
+
+    /**
+     * The tickets `$user` works on as an agent ({@see self::isAgentFor()}) as a key subquery, for
+     * a filter or a sort that must treat them apart from tickets `$user` sees only as the
+     * requester or a watcher. Null when that is every ticket (the default, unrestricted scope);
+     * no ticket for someone without the agent ability.
+     *
+     * @return Builder<Ticket>|null
+     */
+    public static function agentTickets(Model $user): ?Builder
+    {
+        $scope = self::scope();
+
+        if (Agents::is($user) && $scope instanceof UnrestrictedAgentScope) {
+            return null;
+        }
+
+        $model = new (TicketModels::ticket());
+        $keys = $model->newQueryWithoutScopes()->select($model->getQualifiedKeyName());
+
+        if (! Agents::is($user)) {
+            return $keys->whereRaw('1 = 0');
+        }
+
+        return $keys->where(static function (Builder $agent) use ($scope, $user): void {
+            // A scope that adds nothing keeps the group from vanishing.
+            $agent->whereRaw('1 = 1');
+            $scope->constrain($agent, $user);
         });
     }
 

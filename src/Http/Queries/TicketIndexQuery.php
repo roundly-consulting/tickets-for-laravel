@@ -23,6 +23,7 @@ use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Support\Messages;
 use RoundlyConsulting\Tickets\Support\MorphAliases;
 use RoundlyConsulting\Tickets\Support\TicketModels;
+use RoundlyConsulting\Tickets\Support\TicketVisibility;
 use Throwable;
 
 /**
@@ -37,8 +38,9 @@ use Throwable;
  *  - `priority` (list) `withPriority`; `category` (list) `inCategory`, with
  *    `category_descendants=1` its subcategories too;
  *  - `assignee` (list of `alias:key`, `me`, `none`) `assignedTo` / `unassigned`;
- *  - `requester` (list of `alias:key`, `me`) `requestedBy`; `project` (`alias:key`, `none`)
- *    `inProject`; `tag` (list of slugs) `taggedWith`; `watching=me` `watchedBy`;
+ *  - `requester` (list of `alias:key`, `me`) `requestedBy` — `alias:key` is an agent's (for
+ *    anyone else it matches only themselves); `project` (`alias:key`, `none`) `inProject`;
+ *    `tag` (list of slugs) `taggedWith`, agents only; `watching=me` `watchedBy`;
  *  - `overdue=1` `overdue`; `due_from` / `due_to` / `created_from` / `created_to` (inclusive)
  *    `dueFrom` / `dueTo` / `createdFrom` / `createdTo`; `channel` (list) `viaChannel`;
  *    `merged` (boolean) `merged`; `search` `search`;
@@ -47,9 +49,14 @@ use Throwable;
  *    only, and for anyone but an agent only the requester-visible ones;
  *  - `trashed` (`with`, `only`) — for whoever holds the manage ability.
  *
+ * The agent-only filters (`tag`, `requester=alias:key`, a field that is not requester-visible)
+ * match only tickets the agent scope lets the viewer work on: a ticket they see as its requester
+ * or a watcher never answers for a fact its resource hides from them.
+ *
  * Sorts: `created_at`, `updated_at`, `due_at`, `number`, `priority` (the enum weights) and, for
- * agents, `last_activity_at` (a note moves it). The default is `-last_activity_at` for agents
- * and `-created_at` otherwise.
+ * agents, `last_activity_at` (a note moves it — so a ticket outside the agent scope sorts by its
+ * `updated_at`, {@see LastActivitySort}). The default is `-last_activity_at` for agents and
+ * `-created_at` otherwise.
  *
  * @internal
  */
@@ -66,7 +73,7 @@ final class TicketIndexQuery
         $sorts = ['created_at', 'updated_at', 'due_at', 'number', AllowedSort::custom('priority', new PrioritySort)];
 
         if ($viewer->isAgent()) {
-            $sorts[] = 'last_activity_at';
+            $sorts[] = AllowedSort::custom('last_activity_at', new LastActivitySort($viewer));
         }
 
         // The allow-list first: the first call forwarded to the builder applies the request.
@@ -84,7 +91,7 @@ final class TicketIndexQuery
      */
     private static function filters(Request $request, Viewer $viewer): array
     {
-        return [
+        $filters = [
             self::scope('status', static fn (array $values): array => ['withStatus' => $values]),
             self::scope('status_category', static fn (array $values): array => ['withStatusCategory' => array_values(array_filter(
                 array_map(StatusCategory::tryFrom(...), $values),
@@ -111,10 +118,24 @@ final class TicketIndexQuery
                 self::any($query, $scopes);
             }),
             AllowedFilter::callback('requester', static function (Builder $query, mixed $value) use ($viewer): void {
-                self::any($query, array_map(
-                    static fn (string $item): ?array => $item === 'me' ? ['requestedBy' => [$viewer->model]] : self::morphScope('requestedBy', MorphAliases::REQUESTERS, $item),
-                    self::values($value),
-                ));
+                self::any($query, array_map(static function (string $item) use ($viewer): ?Closure {
+                    $scope = $item === 'me' ? ['requestedBy' => [$viewer->model]] : self::morphScope('requestedBy', MorphAliases::REQUESTERS, $item);
+
+                    if ($scope === null) {
+                        return null;
+                    }
+
+                    // Who requested a ticket is an agent's to know — anyone may ask for themselves.
+                    $self = $item === 'me' || $viewer->is($scope['requestedBy'][0]);
+
+                    return static function (Builder $one) use ($scope, $self, $viewer): void {
+                        $one->scopes($scope);
+
+                        if (! $self) {
+                            self::asAgent($one, $viewer);
+                        }
+                    };
+                }, self::values($value)));
             }),
             AllowedFilter::callback('project', static function (Builder $query, mixed $value): void {
                 self::any($query, array_map(
@@ -122,7 +143,6 @@ final class TicketIndexQuery
                     self::values($value),
                 ));
             }),
-            self::scope('tag', static fn (array $values): array => ['taggedWith' => $values]),
             AllowedFilter::callback('watching', static function (Builder $query, mixed $value) use ($viewer): void {
                 self::any($query, self::values($value) === ['me'] ? [['watchedBy' => [$viewer->model]]] : []);
             }),
@@ -146,6 +166,16 @@ final class TicketIndexQuery
                 $query->scopes(['search' => [implode(',', self::values($value))]]);
             }),
         ];
+
+        // Tags are agent-only labels: not even a filter for anyone else (400).
+        if ($viewer->isAgent()) {
+            $filters[] = AllowedFilter::callback('tag', static function (Builder $query, mixed $value) use ($viewer): void {
+                $query->scopes(['taggedWith' => self::values($value)]);
+                self::asAgent($query, $viewer);
+            });
+        }
+
+        return $filters;
     }
 
     /**
@@ -167,18 +197,29 @@ final class TicketIndexQuery
                 continue;
             }
 
-            $filters[] = AllowedFilter::callback('fields.'.$key, static function (Builder $query, mixed $value) use ($key): void {
+            // An agent-only field answers only where the viewer works on the ticket as an agent.
+            $agentOnly = $definitions->contains(static fn (TicketField $field): bool => ! $field->requester_visible);
+            $narrow = static function (Builder $query) use ($agentOnly, $viewer): void {
+                if ($agentOnly) {
+                    self::asAgent($query, $viewer);
+                }
+            };
+
+            $filters[] = AllowedFilter::callback('fields.'.$key, static function (Builder $query, mixed $value) use ($key, $narrow): void {
                 self::any($query, array_map(static fn (string $item): array => ['whereField' => [$key, $item]], self::values($value)));
+                $narrow($query);
             });
 
             $ranged = $definitions->every(static fn (TicketField $field): bool => in_array($field->type, [FieldType::Number, FieldType::Decimal, FieldType::Date, FieldType::DateTime], true));
 
             if ($ranged) {
-                $filters[] = AllowedFilter::callback('fields.'.$key.'.from', static function (Builder $query, mixed $value) use ($key): void {
+                $filters[] = AllowedFilter::callback('fields.'.$key.'.from', static function (Builder $query, mixed $value) use ($key, $narrow): void {
                     $query->scopes(['whereFieldBetween' => [$key, self::single($value), null]]);
+                    $narrow($query);
                 });
-                $filters[] = AllowedFilter::callback('fields.'.$key.'.to', static function (Builder $query, mixed $value) use ($key): void {
+                $filters[] = AllowedFilter::callback('fields.'.$key.'.to', static function (Builder $query, mixed $value) use ($key, $narrow): void {
                     $query->scopes(['whereFieldBetween' => [$key, null, self::single($value)]]);
+                    $narrow($query);
                 });
             }
         }
@@ -221,9 +262,10 @@ final class TicketIndexQuery
 
     /**
      * The rows any of the scope calls match — none for no calls (a null call matches nothing).
+     * A call is scope arguments, or a closure that narrows one OR-ed branch itself.
      *
      * @param  Builder<Model>  $query
-     * @param  list<array<string, list<mixed>>|null>  $scopes
+     * @param  list<array<string, list<mixed>>|Closure(Builder<Model>): void|null>  $scopes
      */
     private static function any(Builder $query, array $scopes): void
     {
@@ -231,9 +273,32 @@ final class TicketIndexQuery
             $any->whereRaw('1 = 0');
 
             foreach (array_filter($scopes) as $scope) {
-                $any->orWhere(static fn (Builder $one): Builder => $one->scopes($scope));
+                $any->orWhere(static function (Builder $one) use ($scope): void {
+                    $scope instanceof Closure ? $scope($one) : $one->scopes($scope);
+                });
             }
         });
+    }
+
+    /**
+     * Only the tickets the viewer works on as an agent — the agent ability, narrowed by the agent
+     * scope ({@see TicketVisibility::agentTickets()}); nothing for anyone else.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private static function asAgent(Builder $query, Viewer $viewer): void
+    {
+        if (! $viewer->isAgent()) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $keys = TicketVisibility::agentTickets($viewer->model);
+
+        if ($keys !== null) {
+            $query->whereIn($query->getModel()->getQualifiedKeyName(), $keys);
+        }
     }
 
     /**

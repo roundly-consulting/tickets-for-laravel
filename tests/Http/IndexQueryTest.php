@@ -17,6 +17,7 @@ use RoundlyConsulting\Tickets\Tests\Fixtures\Lifecycles\HostLifecycle;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
+use RoundlyConsulting\Tickets\Tests\Fixtures\ProjectAgentScope;
 
 beforeEach(fn () => apiAbilities());
 
@@ -181,6 +182,84 @@ describe('the index', function (): void {
         $this->actingAs($agent)->getJson('/api/tickets?per_page=3')->assertUnprocessable();
         expect($this->actingAs($agent)->getJson('/api/tickets')->json('meta.per_page'))->toBe(2);
     });
+});
+
+describe('agent_only_filters_answer_agents_only', function (): void {
+    it('refuses the tag filter to a non-agent', function (): void {
+        $requester = apiUser();
+        $ticket = Tickets::make()->subject('Refund please')->requester($requester)->asSystem()->tags(['angry-customer'])->create();
+
+        expect($this->actingAs($requester)->getJson('/api/tickets/'.$ticket->reference)->assertOk()->json('data'))->not->toHaveKey('tags');
+        $this->actingAs($requester)->getJson('/api/tickets?filter[tag]=angry-customer')->assertStatus(400);
+        $this->actingAs($requester)->getJson('/api/tickets?filter[tag]=vip')->assertStatus(400);
+    });
+
+    it('matches a requester by alias for agents only, and `me` for everyone', function (): void {
+        $requester = apiUser('Secret Sam');
+        $watcher = apiUser('Wendy');
+        $ticket = apiTicket($requester, 'Payroll');
+        TicketWatcher::query()->create(['ticket_id' => $ticket->getKey(), 'watcher_type' => $watcher->getMorphClass(), 'watcher_id' => $watcher->getKey()]);
+        $mine = apiTicket($watcher, 'Mine');
+
+        expect(indexReferences($this->actingAs($watcher)->getJson('/api/tickets?filter[requester]=user:'.$requester->getKey())))->toBe([])
+            ->and(indexReferences($this->actingAs($watcher)->getJson('/api/tickets?filter[requester]=user:999')))->toBe([])
+            ->and(indexReferences($this->actingAs($watcher)->getJson('/api/tickets?filter[requester]=me')))->toBe([$mine->reference])
+            ->and(indexReferences($this->actingAs($watcher)->getJson('/api/tickets?filter[requester]=user:'.$watcher->getKey())))->toBe([$mine->reference])
+            ->and(indexReferences($this->actingAs(apiAgent())->getJson('/api/tickets?filter[requester]=user:'.$requester->getKey())))->toBe([$ticket->reference]);
+    });
+
+    it('narrows the agent-only filters to the tickets the agent scope lets the agent work on', function (string $query): void {
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        $sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $hr = Project::query()->create(['name' => 'People', 'key' => 'HR']);
+        $scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+        $boss = apiUser('Boss');
+        Tickets::fields()->make('risk', FieldType::Number)->agentOnly()->define();
+        $mine = Tickets::make()->subject('Payslip wrong')->requester($boss)->project($hr)->asSystem()->tags(['fraud'])->fields(['risk' => 9])->create();
+        TicketWatcher::query()->create(['ticket_id' => $mine->getKey(), 'watcher_type' => $scoped->getMorphClass(), 'watcher_id' => $scoped->getKey()]);
+        $inScope = Tickets::make()->subject('VPN drops')->requester($boss)->project($sup)->asSystem()->tags(['fraud'])->fields(['risk' => 9])->create();
+
+        // The out-of-scope ticket shows them neither its tags nor the field…
+        $show = $this->actingAs($scoped)->getJson('/api/tickets/'.$mine->reference)->assertOk();
+        expect($show->json('data'))->not->toHaveKey('tags')
+            ->and(collect($show->json('data.fields'))->pluck('key')->all())->not->toContain('risk');
+
+        // …so no filter answers for it; the in-scope ticket still matches.
+        expect(indexReferences($this->actingAs($scoped)->getJson('/api/tickets?'.$query)))->toBe([$inScope->reference]);
+    })->with([
+        'a tag' => ['filter[tag]=fraud'],
+        'an agent-only field' => ['filter[fields.risk]=9'],
+        'an agent-only field range' => ['filter[fields.risk.from]=5'],
+        'a requester by alias' => ['filter[requester]=user:2'],
+    ]);
+
+    it('sorts tickets outside the agent scope by their public updated_at, never by note activity', function (): void {
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        $sup = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $hr = Project::query()->create(['name' => 'People', 'key' => 'HR']);
+        $scoped = User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+        $hrAgent = apiAgent('Hilda');
+
+        CarbonImmutable::setTestNow('2026-10-17 09:00:00');
+        $inScope = Tickets::make()->subject('VPN drops')->requester(apiUser())->project($sup)->asSystem()->create();
+        CarbonImmutable::setTestNow('2026-10-17 10:00:00');
+        $older = Tickets::make()->subject('Payslip wrong')->requester($scoped)->project($hr)->asSystem()->create();
+        CarbonImmutable::setTestNow('2026-10-17 11:00:00');
+        $newer = Tickets::make()->subject('Payslip still wrong')->requester($scoped)->project($hr)->asSystem()->create();
+        CarbonImmutable::setTestNow('2026-10-17 12:00:00');
+        Tickets::for($older)->by($hrAgent)->note('HR-INTERNAL: escalate to legal');
+        CarbonImmutable::setTestNow('2026-10-17 13:00:00');
+        Tickets::for($inScope)->by($scoped)->note('Looking into it.');
+
+        $order = static fn (TestResponse $response): array => collect($response->assertOk()->json('data'))->pluck('reference')->all();
+
+        expect($order($this->actingAs($scoped)->getJson('/api/tickets?sort=-last_activity_at')))->toBe([$inScope->reference, $newer->reference, $older->reference])
+            ->and($order($this->actingAs($scoped)->getJson('/api/tickets')))->toBe([$inScope->reference, $newer->reference, $older->reference])
+            ->and($order($this->actingAs($scoped)->getJson('/api/tickets?sort=last_activity_at')))->toBe([$older->reference, $newer->reference, $inScope->reference])
+            ->and($order($this->actingAs($hrAgent)->getJson('/api/tickets?sort=-last_activity_at')))->toBe([$inScope->reference, $older->reference, $newer->reference]);
+    });
+
+    afterEach(fn () => CarbonImmutable::setTestNow());
 });
 
 describe('index_has_no_n_plus_one', function (): void {
