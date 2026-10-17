@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'ticket_status' => [
+        'new' => 'New',
+        'open' => 'Open',
+        'in_progress' => 'In progress',
+        'pending' => 'Waiting on requester',
+        'on_hold' => 'On hold',
+        'resolved' => 'Resolved',
+        'closed' => 'Closed',
+    ],
+
+    'status_category' => [
+        'open' => 'Open',
+        'active' => 'Active',
+        'waiting' => 'Waiting',
+        'resolved' => 'Resolved',
+        'closed' => 'Closed',
+    ],
+
+    'automation' => [
+        'assigned' => 'Assigned',
+        'requester_replied' => 'Requester replied',
+        'requester_reopened' => 'Requester reopened',
+        'auto_close' => 'Auto-close',
+        'merged' => 'Merged',
+    ],
+
+    'ticket_priority' => [
+        'low' => 'Low',
+        'normal' => 'Normal',
+        'high' => 'High',
+        'urgent' => 'Urgent',
+    ],
+
+    'field_type' => [
+        'text' => 'Text',
+        'textarea' => 'Long text',
+        'email' => 'Email',
+        'url' => 'URL',
+        'number' => 'Number',
+        'decimal' => 'Decimal',
+        'boolean' => 'Yes/No',
+        'date' => 'Date',
+        'datetime' => 'Date and time',
+        'select' => 'Choice',
+        'multiselect' => 'Multiple choice',
+    ],
+
+    'link_type' => [
+        'relates_to' => 'Relates to',
+        'duplicates' => 'Duplicates',
+        'blocks' => 'Blocks',
+        'parent_of' => 'Parent of',
+    ],
+
+    'link_inverse' => [
+        'relates_to' => 'Relates to',
+        'duplicated_by' => 'Duplicated by',
+        'blocked_by' => 'Blocked by',
+        'child_of' => 'Child of',
+    ],
+
+    'activity_type' => [
+        'created' => 'Created',
+        'updated' => 'Updated',
+        'status_changed' => 'Status changed',
+        'priority_changed' => 'Priority changed',
+        'category_changed' => 'Category changed',
+        'assigned' => 'Assigned',
+        'unassigned' => 'Unassigned',
+        'due_changed' => 'Due date changed',
+        'fields_changed' => 'Fields changed',
+        'tagged' => 'Tagged',
+        'untagged' => 'Untagged',
+        'linked' => 'Linked',
+        'unlinked' => 'Unlinked',
+        'merged' => 'Merged',
+        'merged_from' => 'Merged in',
+        'watcher_added' => 'Watcher added',
+        'watcher_removed' => 'Watcher removed',
+        'attachment_added' => 'Attachment added',
+        'attachment_removed' => 'Attachment removed',
+        'replied' => 'Replied',
+        'note_added' => 'Internal note',
+        'requester_changed' => 'Requester changed',
+        'guest_access_revoked' => 'Guest access revoked',
+        'overdue' => 'Overdue',
+        'deleted' => 'Deleted',
+        'restored' => 'Restored',
+    ],
+
+    'activity_visibility' => [
+        'public' => 'Public',
+        'internal' => 'Internal',
+    ],
+
+    'author_role' => [
+        'agent' => 'Agent',
+        'requester' => 'Requester',
+        'participant' => 'Participant',
+        'system' => 'System',
+    ],
+
+    'ticket_channel' => [
+        'web' => 'Web',
+        'email' => 'Email',
+        'api' => 'API',
+        'phone' => 'Phone',
+        'chat' => 'Chat',
+    ],
+];
