@@ -6,6 +6,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+### Fixed
+
+- `tickets:install` and the README now name the step every installation needs before an agent can
+  take a ticket: the user model implements `Contracts\Assignee` with `Concerns\IsTicketAssignee`
+  (without it, `claim()` and `assign()` throw `InvalidAssigneeException`). Both also say that the
+  `is_support` in the printed Gate line stands for your own agent flag.
+
 ## 1.0.0 - 2026-10-17
 
 Initial public release.

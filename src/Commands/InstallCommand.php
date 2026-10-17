@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Commands;
 
 use Illuminate\Console\Command;
+use RoundlyConsulting\Tickets\Concerns\IsTicketAssignee;
+use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Support\Doctor;
 use RoundlyConsulting\Tickets\Support\KeyAlignment;
 use RoundlyConsulting\Tickets\Support\Messages;
@@ -13,9 +15,10 @@ use RoundlyConsulting\Tickets\Support\Messages;
  * Guided installation: publishes the config, the tickets migrations and the migrations of every
  * package tickets builds on (lifecycle, comments and its likes / reports / approvals, media,
  * attributes), shows the key types to settle before migrating, and prints the remaining steps —
- * the abilities, the two scheduler lines, the doctor (and, while guests would be mailed without
- * a link, the three ways to settle that — the doctor's one error on a default install). Each package's migrations keep their own
- * order; no package's tables reference another's, so the order between packages is free.
+ * the user model as an assignee, the abilities, the two scheduler lines, the doctor (and, while
+ * guests would be mailed without a link, the three ways to settle that — the doctor's one error
+ * on a default install). Each package's migrations keep their own order; no package's tables
+ * reference another's, so the order between packages is free.
  * Running it again is harmless: published files are kept unless `--force`, and a republished
  * migration lands on the file it landed on before.
  *
@@ -80,12 +83,17 @@ final class InstallCommand extends Command
         $this->newLine();
         $this->components->info(Messages::get('install.next'));
         $this->line('  1. php artisan migrate');
-        $this->line('  2. '.Messages::get('install.abilities'));
+        $this->line('  2. '.Messages::get('install.assignee'));
+        $this->line('     use '.Assignee::class.';');
+        $this->line('     use '.IsTicketAssignee::class.';');
+        $this->line('     class User extends Authenticatable implements Assignee { use IsTicketAssignee; }');
+        $this->line('  3. '.Messages::get('install.abilities'));
         $this->line("     Gate::define('tickets.agent', fn (\$user) => \$user->is_support);");
-        $this->line('  3. '.Messages::get('install.schedule'));
+        $this->line('     '.Messages::get('install.agent_flag'));
+        $this->line('  4. '.Messages::get('install.schedule'));
         $this->line("     Schedule::command('tickets:sweep')->everyFiveMinutes();");
         $this->line("     Schedule::command('lifecycle:sweep')->everyMinute();");
-        $this->line('  4. php artisan tickets:doctor');
+        $this->line('  5. php artisan tickets:doctor');
 
         if (Doctor::guestMailWithoutLinks()) {
             $this->line('     '.Messages::get('install.guests'));

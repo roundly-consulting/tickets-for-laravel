@@ -45,6 +45,10 @@ Schedule::command('tickets:sweep')->everyFiveMinutes();  // overdue and due-soon
 Schedule::command('lifecycle:sweep')->everyMinute();     // closes resolved tickets after 7 days
 ```
 
+Agents take tickets, so your user model implements the assignee contract:
+`class User extends Authenticatable implements Assignee { use IsTicketAssignee; }`
+(`RoundlyConsulting\Tickets\Contracts\Assignee`, `RoundlyConsulting\Tickets\Concerns\IsTicketAssignee`).
+
 ## Usage
 
 File, work and resolve a ticket through the facade (`$customer` and `$agent` are your users):
@@ -53,7 +57,7 @@ File, work and resolve a ticket through the facade (`$customer` and `$agent` are
 use Illuminate\Support\Facades\Gate;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 
-// Who is an agent is your call — an undefined ability denies.
+// Who is an agent is your call: is_support stands for your own agent flag. An undefined ability denies.
 Gate::define('tickets.agent', fn ($user) => $user->is_support);
 
 // A category, once: its defaults apply to every ticket filed under it.

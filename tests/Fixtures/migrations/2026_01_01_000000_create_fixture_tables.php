@@ -18,6 +18,15 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // A stock users table plus the host's own agent flag — the README's `is_support`.
+        Schema::create('readme_users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->boolean('is_support')->default(false);
+            $table->timestamps();
+        });
+
         // The people of a uuid installation (the uuid key leg).
         Schema::create('uuid_users', function (Blueprint $table): void {
             $table->uuid('id')->primary();

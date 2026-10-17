@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
+use RoundlyConsulting\Tickets\Concerns\IsTicketAssignee;
+use RoundlyConsulting\Tickets\Contracts\Assignee;
 
 /**
  * `tickets:install` publishes the config and every migration a ticketing installation needs —
@@ -54,6 +56,10 @@ it('publishes the config and every migration — each package\'s in its own orde
         ->toContain('before running the migrations')
         ->toContain('php artisan migrate')
         ->toContain("Gate::define('tickets.agent'")
+        ->toContain('use '.Assignee::class.';')
+        ->toContain('use '.IsTicketAssignee::class.';')
+        ->toContain('class User extends Authenticatable implements Assignee { use IsTicketAssignee; }')
+        ->toContain('is_support stands for your own agent flag')
         ->toContain("Schedule::command('tickets:sweep')->everyFiveMinutes();")
         ->toContain("Schedule::command('lifecycle:sweep')->everyMinute();")
         ->toContain('php artisan tickets:doctor')
