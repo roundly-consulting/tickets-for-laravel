@@ -76,6 +76,19 @@ describe('presented values', function (): void {
     });
 });
 
+it('never shows the host\'s metadata, to an agent or the requester', function (): void {
+    $requester = apiUser();
+    $ticket = Tickets::make()->subject('Printer jammed')->requester($requester)->meta(['crm_id' => 'C-SECRET-1'])->asSystem()->create();
+
+    foreach ([apiAgent(), $requester] as $viewer) {
+        $response = $this->actingAs($viewer)->getJson("/api/tickets/{$ticket->reference}")->assertOk();
+        $list = $this->actingAs($viewer)->getJson('/api/tickets')->assertOk();
+
+        expect($response->json('data'))->not->toHaveKey('meta')
+            ->and($response->getContent().$list->getContent())->not->toContain('C-SECRET-1');
+    }
+});
+
 it('reduces a morph outside the alias lists to a nameless type for the requester side', function (): void {
     $requester = apiUser();
     $ticket = apiTicket($requester);

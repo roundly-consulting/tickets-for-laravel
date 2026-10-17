@@ -24,7 +24,10 @@ final readonly class CreateTicketData
      * @param  array<string, mixed>  $fields  custom field values, by key
      * @param  list<string|TicketTag>  $tags  tag names or models
      * @param  list<Model>  $watchers  who follows it from the start
-     * @param  list<UploadedFile|string>  $attachments  uploads or local paths
+     * @param  list<UploadedFile|string>  $attachments  uploads or local paths — never a path taken
+     *                                                  from user input
+     * @param  array<string, mixed>  $meta  host-owned metadata (a CRM id, a source URL); the package
+     *                                      never writes into it and never shows it in the API
      */
     public function __construct(
         public string $subject,
@@ -42,5 +45,6 @@ final readonly class CreateTicketData
         public array $tags = [],
         public array $watchers = [],
         public array $attachments = [],
+        public array $meta = [],
     ) {}
 }

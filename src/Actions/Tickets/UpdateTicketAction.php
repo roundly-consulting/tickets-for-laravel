@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Events\TicketUpdated;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
@@ -18,8 +19,9 @@ use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
- * A partial update in one transaction. The subject and description are written here (one
- * `updated` activity naming the changed keys); priority, category, due date and requester
+ * A partial update in one transaction. The subject, description and host metadata are written
+ * here (an `updated` activity naming the changed keys, never a value — the metadata's in an
+ * agent-only entry of its own); priority, category, due date and requester
  * run through their own actions, so each records its own activity and event.
  */
 final readonly class UpdateTicketAction
@@ -51,10 +53,23 @@ final readonly class UpdateTicketAction
                 $changes['description'] = $data->description;
             }
 
+            if (Optional::given($data->meta) && self::sorted($data->meta) !== self::sorted($ticket->meta ?? [])) {
+                $changes['meta'] = $data->meta === [] ? null : $data->meta;
+            }
+
             if ($changes !== []) {
                 $ticket->forceFill($changes)->save();
+                $visible = array_values(array_diff(array_keys($changes), ['meta']));
 
-                $this->record->execute($ticket, ActivityType::Updated, $actor, ['changed' => array_keys($changes)], $system);
+                if ($visible !== []) {
+                    $this->record->execute($ticket, ActivityType::Updated, $actor, ['changed' => $visible], $system);
+                }
+
+                // The host's metadata is its own business: its change is an agent-only entry.
+                if (array_key_exists('meta', $changes)) {
+                    $this->record->execute($ticket, ActivityType::Updated, $actor, ['changed' => ['meta']], $system, ActivityVisibility::Internal);
+                }
+
                 $this->events->dispatch(new TicketUpdated($ticket, array_keys($changes), $actor));
             }
 
@@ -76,5 +91,21 @@ final readonly class UpdateTicketAction
 
             return $ticket;
         });
+    }
+
+    /**
+     * The metadata with its object keys sorted, recursively — jsonb and MySQL's json reorder
+     * keys, so an unchanged map must still compare equal.
+     *
+     * @param  array<array-key, mixed>  $value
+     * @return array<array-key, mixed>
+     */
+    private static function sorted(array $value): array
+    {
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(static fn (mixed $item): mixed => is_array($item) ? self::sorted($item) : $item, $value);
     }
 }

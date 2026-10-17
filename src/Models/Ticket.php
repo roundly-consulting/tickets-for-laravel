@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use RoundlyConsulting\Attributes\Contracts\HasAttributes as HasAttributesContract;
 use RoundlyConsulting\Attributes\Traits\HasAttributes as HasCustomFields;
@@ -175,6 +176,25 @@ class Ticket extends Model implements HasAttributesContract, HasMedia, Lifecycle
     public function statusCategory(): ?StatusCategory
     {
         return $this->status?->category();
+    }
+
+    /**
+     * The host's metadata, or the value at a dot-notation path (`$ticket->meta('crm.id')`). The
+     * package never writes into it and never shows it in the API.
+     */
+    public function meta(?string $path = null, mixed $default = null): mixed
+    {
+        $meta = $this->meta ?? [];
+
+        return $path === null ? $meta : data_get($meta, $path, $default);
+    }
+
+    /**
+     * Whether the metadata holds the dot-notation path (a `null` value counts as present).
+     */
+    public function hasMeta(string $path): bool
+    {
+        return Arr::has($this->meta ?? [], $path);
     }
 
     // Read helpers — each mirrors its query scope, so a badge and a list filter agree.

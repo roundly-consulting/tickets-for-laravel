@@ -102,6 +102,7 @@ final readonly class CreateTicketAction
                 'category_id' => $category?->getKey(),
                 'channel' => $channel,
                 'guest_access_version' => 1,
+                'meta' => $data->meta === [] ? null : $data->meta,
             ]);
 
             $ticket->setRelation('category', $category);

@@ -57,6 +57,9 @@ final class TicketBuilder
     /** @var list<UploadedFile|string> */
     private array $attachments = [];
 
+    /** @var array<string, mixed> */
+    private array $meta = [];
+
     public function __construct(
         private readonly TicketsManager $manager,
     ) {}
@@ -184,6 +187,19 @@ final class TicketBuilder
     }
 
     /**
+     * Host-owned metadata — a CRM id, a source URL. Top-level keys merge with earlier calls;
+     * read it back with `$ticket->meta('crm_id')`. Never shown in the API.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function meta(array $meta): self
+    {
+        $this->meta = array_replace($this->meta, $meta);
+
+        return $this;
+    }
+
+    /**
      * Who files it (default: the authenticated user, with `tickets.actor.from_auth`).
      */
     public function by(?Model $actor): self
@@ -230,6 +246,7 @@ final class TicketBuilder
             tags: $this->tags,
             watchers: $this->watchers,
             attachments: $this->attachments,
+            meta: $this->meta,
         );
     }
 

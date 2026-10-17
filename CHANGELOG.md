@@ -22,6 +22,9 @@ Initial public release.
 - Lookups through the model seam: `Tickets::fields()->find()` by id or key and
   `Tickets::tags()->find()` by id or slug (a project's own before the global one), and the
   read-only `Tickets::guests()->find()` by a normalised identifying value.
+- Host-owned ticket metadata: `TicketBuilder::meta()` (merging), `CreateTicketData::$meta`,
+  `UpdateTicketData::$meta` (replacing) and `$ticket->meta('crm.id')` / `hasMeta()` — never written
+  by the package, never shown in the API, and recorded as a changed key only.
 - Human references (`TCK-42`, or `SUP-42` with a project prefix) from gap-free, row-locked
   sequences — one global sequence plus one per project; numbers are never reused.
 - Publish-only migrations (`tickets-migrations`) for tickets, nested categories, custom field
