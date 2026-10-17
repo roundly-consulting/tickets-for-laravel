@@ -19,13 +19,13 @@ return [
     | naming the key instead of silently becoming true or false. The false
     | spellings are false/0/off/no.
     |
-    | Blank means not set: a host's `PACKAGE_TEMPLATE_ENABLED=` (an empty or
+    | Blank means not set: a host's `TICKETS_ENABLED=` (an empty or
     | whitespace-only value) reads exactly like an absent key, so the default
     | applies. The same holds for every key below.
     |
     */
 
-    'enabled' => env('PACKAGE_TEMPLATE_ENABLED', true),
+    'enabled' => env('TICKETS_ENABLED', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -38,13 +38,13 @@ return [
     | `Config::integer($key, $default, min: …, max: …)`. An int or a canonical
     | integer string (`'30'`) passes; `'five'`, `'5.5'`, `'30s'` or a value out
     | of range throws naming the key. A key that is not set — absent, null or
-    | blank (`PACKAGE_TEMPLATE_TIMEOUT=`) — takes the default. Bound every
+    | blank (`TICKETS_TIMEOUT=`) — takes the default. Bound every
     | number by its domain: a timeout or TTL of 0 must be impossible unless 0
     | means something and is documented.
     |
     */
 
-    'timeout' => env('PACKAGE_TEMPLATE_TIMEOUT', 30),
+    'timeout' => env('TICKETS_TIMEOUT', 30),
 
     /*
     |--------------------------------------------------------------------------
@@ -56,11 +56,11 @@ return [
     | has a backed enum for it — `Config::enum($key, Mode::class, Mode::Sync)`.
     | Never `Enum::tryFrom(config(…)) ?? Default`, `in_array() ? … : default`
     | or `=== 'queue' ? A : B`: a typo must throw, listing the allowed values,
-    | not quietly become the default. A blank `PACKAGE_TEMPLATE_MODE=` is not
+    | not quietly become the default. A blank `TICKETS_MODE=` is not
     | set and takes the default.
     |
     */
 
-    'mode' => env('PACKAGE_TEMPLATE_MODE', 'sync'),
+    'mode' => env('TICKETS_MODE', 'sync'),
 
 ];

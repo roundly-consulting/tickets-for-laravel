@@ -1,11 +1,11 @@
 {
-    "name": "roundly-consulting/package-template-for-laravel",
+    "name": "roundly-consulting/tickets-for-laravel",
     "description": "TODO: replace with a one-line description of the new package.",
     "keywords": [
         "roundly-consulting",
         "laravel"
     ],
-    "homepage": "https://roundly-consulting.com/open-source/docs/package-template-for-laravel",
+    "homepage": "https://roundly-consulting.com/open-source/docs/tickets-for-laravel",
     "license": "MIT",
     "authors": [
         {
@@ -15,7 +15,7 @@
         }
     ],
     "support": {
-        "docs": "https://roundly-consulting.com/open-source/docs/package-template-for-laravel"
+        "docs": "https://roundly-consulting.com/open-source/docs/tickets-for-laravel"
     },
     "require": {
         "php": "^8.4",
@@ -35,12 +35,12 @@
     },
     "autoload": {
         "psr-4": {
-            "RoundlyConsulting\\PackageTemplate\\": "src"
+            "RoundlyConsulting\\Tickets\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "RoundlyConsulting\\PackageTemplate\\Tests\\": "tests"
+            "RoundlyConsulting\\Tickets\\Tests\\": "tests"
         }
     },
     "scripts": {
@@ -60,10 +60,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "RoundlyConsulting\\PackageTemplate\\PackageTemplateServiceProvider"
+                "RoundlyConsulting\\Tickets\\TicketsServiceProvider"
             ],
             "aliases": {
-                "PackageTemplate": "RoundlyConsulting\\PackageTemplate\\Facades\\PackageTemplate"
+                "Tickets": "RoundlyConsulting\\Tickets\\Facades\\Tickets"
             }
         }
     }

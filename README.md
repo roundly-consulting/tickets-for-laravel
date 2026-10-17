@@ -1,15 +1,15 @@
 <!-- roundly-badges:start -->
 <p align="center">
-  <a href="https://packagist.org/packages/roundly-consulting/package-template-for-laravel"><img src="https://img.shields.io/packagist/v/roundly-consulting/package-template-for-laravel?style=flat-square&label=release" alt="Latest release"></a>
-  <a href="https://github.com/roundly-consulting/package-template-for-laravel/actions/workflows/run-tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/roundly-consulting/package-template-for-laravel/run-tests.yml?branch=main&style=flat-square&label=tests" alt="Tests"></a>
-  <a href="https://github.com/roundly-consulting/package-template-for-laravel/actions/workflows/fix-php-code-style-issues.yml"><img src="https://img.shields.io/github/actions/workflow/status/roundly-consulting/package-template-for-laravel/fix-php-code-style-issues.yml?branch=main&style=flat-square&label=code%20style" alt="Code style"></a>
+  <a href="https://packagist.org/packages/roundly-consulting/tickets-for-laravel"><img src="https://img.shields.io/packagist/v/roundly-consulting/tickets-for-laravel?style=flat-square&label=release" alt="Latest release"></a>
+  <a href="https://github.com/roundly-consulting/tickets-for-laravel/actions/workflows/run-tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/roundly-consulting/tickets-for-laravel/run-tests.yml?branch=main&style=flat-square&label=tests" alt="Tests"></a>
+  <a href="https://github.com/roundly-consulting/tickets-for-laravel/actions/workflows/fix-php-code-style-issues.yml"><img src="https://img.shields.io/github/actions/workflow/status/roundly-consulting/tickets-for-laravel/fix-php-code-style-issues.yml?branch=main&style=flat-square&label=code%20style" alt="Code style"></a>
   <a href="https://donate.stripe.com/dRmeVe8FX5PF1Qd9pXcEw00"><img src="https://img.shields.io/badge/donate-support%20our%20open%20source-F24E29?style=flat-square&logo=stripe&logoColor=white" alt="Donate"></a>
   <a href="https://www.patreon.com/cw/roundly"><img src="https://img.shields.io/badge/patreon-become%20a%20patron-F96854?style=flat-square&logo=patreon&logoColor=white" alt="Patreon"></a>
-  <a href="https://roundly-consulting.com/support-us?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=package-template-for-laravel#crypto"><img src="https://img.shields.io/badge/crypto-BTC%20%C2%B7%20ETH%20%C2%B7%20BNB%20%C2%B7%20SOL-F7931A?style=flat-square&logo=bitcoin&logoColor=white" alt="Crypto"></a>
+  <a href="https://roundly-consulting.com/support-us?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel#crypto"><img src="https://img.shields.io/badge/crypto-BTC%20%C2%B7%20ETH%20%C2%B7%20BNB%20%C2%B7%20SOL-F7931A?style=flat-square&logo=bitcoin&logoColor=white" alt="Crypto"></a>
 </p>
 <!-- roundly-badges:end -->
 
-# package-template-for-laravel
+# tickets-for-laravel
 
 A GitHub **template repository** for scaffolding new `roundly-consulting/*-for-laravel`
 packages. It is not itself a shippable package — it's a working, green skeleton that
@@ -66,11 +66,11 @@ day one compliant instead of retrofitted later.
      framework's;
    - a PHP reserved word as the API name (the facade class would not parse), `Package` (the
      provider would collide with the toolkit's `PackageServiceProvider`), and a domain that
-     names the template or a Tier-0 dependency (`PackageTemplate`, `PackageToolkit`,
+     names the template or a Tier-0 dependency (`Tickets`, `PackageToolkit`,
      `Testing`) or still carries the `ForLaravel` suffix.
 
-   It rewrites every `PackageTemplate` / `packageTemplate` / `package-template` /
-   `package_template` / `PACKAGE_TEMPLATE` occurrence per the table above and renames every
+   It rewrites every `Tickets` / `tickets` / `tickets` /
+   `tickets` / `TICKETS` occurrence per the table above and renames every
    file that carries the name in its filename (`src/CreditsServiceProvider.php`,
    `config/credits.php`, `src/CreditsManager.php`, `src/Facades/Credits.php`,
    `src/Testing/CreditsFake.php`, `src/Actions/ExampleCreditsAction.php`,
@@ -125,15 +125,15 @@ day one compliant instead of retrofitted later.
 
 ```
 src/
-├── Actions/ExamplePackageTemplateAction.php          # placeholder action — replace me
-├── DataTransferObjects/ExamplePackageTemplateData.php # its input DTO — replace me
-├── Facades/PackageTemplate.php        # final facade, @method static docblock, real fake()
-├── Testing/PackageTemplateFake.php    # extends the manager, records calls, assert*()
-├── PackageTemplateManager.php         # the facade root: thin, resolves actions via the container
+├── Actions/ExampleTicketsAction.php          # placeholder action — replace me
+├── DataTransferObjects/ExampleTicketsData.php # its input DTO — replace me
+├── Facades/Tickets.php        # final facade, @method static docblock, real fake()
+├── Testing/TicketsFake.php    # extends the manager, records calls, assert*()
+├── TicketsManager.php         # the facade root: thin, resolves actions via the container
 ├── Commands/ Events/ Exceptions/ Jobs/ Models/ Traits/
 │   (empty — the standard topic folders, ready for real code)
-└── PackageTemplateServiceProvider.php # extends PackageServiceProvider; binds the manager
-config/package-template.php            # placeholder keys (bool, int, vocabulary), merged + published + read strictly
+└── TicketsServiceProvider.php # extends PackageServiceProvider; binds the manager
+config/tickets.php            # placeholder keys (bool, int, vocabulary), merged + published + read strictly
 database/{factories,migrations}/       # empty — populate as the package grows
 tests/
 ├── TestCase.php           # extends PackageTestCase (testing-for-laravel)
@@ -171,50 +171,50 @@ example action + DTO, `tests/Feature/FacadeTest.php` and the `aliases` entry in
 > order: facade first, then *Without the facade*, then the fake.
 
 ```php
-use RoundlyConsulting\PackageTemplate\DataTransferObjects\ExamplePackageTemplateData;
-use RoundlyConsulting\PackageTemplate\Facades\PackageTemplate;
+use RoundlyConsulting\Tickets\DataTransferObjects\ExampleTicketsData;
+use RoundlyConsulting\Tickets\Facades\Tickets;
 
-PackageTemplate::example(new ExamplePackageTemplateData('Ada')); // "Hello, Ada!"
+Tickets::example(new ExampleTicketsData('Ada')); // "Hello, Ada!"
 ```
 
-The facade is also aliased globally as `PackageTemplate` (declared in `composer.json` under
+The facade is also aliased globally as `Tickets` (declared in `composer.json` under
 `extra.laravel.aliases`, so package discovery registers it).
 
 ### Without the facade
 
-The facade is sugar over `PackageTemplateManager`, a container singleton — inject it for the
+The facade is sugar over `TicketsManager`, a container singleton — inject it for the
 same API. Or call the action directly; it is the behaviour both of them run.
 
 ```php
-use RoundlyConsulting\PackageTemplate\Actions\ExamplePackageTemplateAction;
-use RoundlyConsulting\PackageTemplate\DataTransferObjects\ExamplePackageTemplateData;
-use RoundlyConsulting\PackageTemplate\PackageTemplateManager;
+use RoundlyConsulting\Tickets\Actions\ExampleTicketsAction;
+use RoundlyConsulting\Tickets\DataTransferObjects\ExampleTicketsData;
+use RoundlyConsulting\Tickets\TicketsManager;
 
 final class GreetController
 {
-    public function __construct(private PackageTemplateManager $packageTemplate) {}
+    public function __construct(private TicketsManager $tickets) {}
 
     public function __invoke(): string
     {
-        return $this->packageTemplate->example(new ExamplePackageTemplateData('Ada'));
+        return $this->tickets->example(new ExampleTicketsData('Ada'));
     }
 }
 
-app(ExamplePackageTemplateAction::class)->execute(new ExamplePackageTemplateData('Ada'));
+app(ExampleTicketsAction::class)->execute(new ExampleTicketsData('Ada'));
 ```
 
 ### Testing with the fake
 
-`PackageTemplate::fake()` swaps the manager for a recording fake — behind the facade and in
+`Tickets::fake()` swaps the manager for a recording fake — behind the facade and in
 the container, so injected managers are faked too. Nothing runs; every call is recorded.
 
 ```php
-$fake = PackageTemplate::fake();
+$fake = Tickets::fake();
 
 // ... code under test ...
 
 $fake->assertExampleCalled();
-$fake->assertExampleCalled(fn (ExamplePackageTemplateData $data): bool => $data->name === 'Ada');
+$fake->assertExampleCalled(fn (ExampleTicketsData $data): bool => $data->name === 'Ada');
 
 // or, when the code under test must not call it at all:
 $fake->assertNothingCalled();
@@ -226,21 +226,21 @@ $fake->assertNothingCalled();
 > Every key is read strictly through the toolkit's `Config` readers: a key that is not set
 > takes its default, and an invalid value throws `InvalidConfigurationException` naming the
 > key — nothing falls back silently. **Blank means not set:** an absent key, `null` and a
-> blank value (a host's `PACKAGE_TEMPLATE_TIMEOUT=`, empty or whitespace only) all take the
+> blank value (a host's `TICKETS_TIMEOUT=`, empty or whitespace only) all take the
 > default. Pass env values through raw (`env('X', 30)`, never `(int) env('X', 30)`), so the
 > reader sees the typo.
 
 Publish the config file with:
 
 ```bash
-php artisan vendor:publish --tag=package-template-config
+php artisan vendor:publish --tag=tickets-config
 ```
 
 | Key | Env | Default | Meaning |
 |---|---|---|---|
-| `enabled` | `PACKAGE_TEMPLATE_ENABLED` | `true` | Placeholder flag, reported by `php artisan about`. Read with the toolkit's `Config::boolean()`, so `true`/`false`, `1`/`0`, `on`/`off` and `yes`/`no` all mean what they say, a blank value takes the default, and anything else throws `InvalidConfigurationException` naming the key. |
-| `timeout` | `PACKAGE_TEMPLATE_TIMEOUT` | `30` | Placeholder integer (seconds, 1–300), reported by `php artisan about`. Read with `Config::integer()`: an int or an integer string (`'45'`) passes, a blank value takes the default; `'five'`, `'5.5'`, `'30s'`, `0` or `301` throws. |
-| `mode` | `PACKAGE_TEMPLATE_MODE` | `sync` | Placeholder vocabulary (`sync` or `queue`), reported by `php artisan about`. Read with `Config::oneOf()` (use `Config::enum()` once the package has an enum for it): a blank value takes the default; a typo such as `queued` throws, listing the allowed values. |
+| `enabled` | `TICKETS_ENABLED` | `true` | Placeholder flag, reported by `php artisan about`. Read with the toolkit's `Config::boolean()`, so `true`/`false`, `1`/`0`, `on`/`off` and `yes`/`no` all mean what they say, a blank value takes the default, and anything else throws `InvalidConfigurationException` naming the key. |
+| `timeout` | `TICKETS_TIMEOUT` | `30` | Placeholder integer (seconds, 1–300), reported by `php artisan about`. Read with `Config::integer()`: an int or an integer string (`'45'`) passes, a blank value takes the default; `'five'`, `'5.5'`, `'30s'`, `0` or `301` throws. |
+| `mode` | `TICKETS_MODE` | `sync` | Placeholder vocabulary (`sync` or `queue`), reported by `php artisan about`. Read with `Config::oneOf()` (use `Config::enum()` once the package has an enum for it): a blank value takes the default; a typo such as `queued` throws, listing the allowed values. |
 
 ## Testing
 
@@ -252,7 +252,7 @@ composer test
 ## Documentation
 
 The full documentation — configuration, every feature and its API, and testing — lives on our
-website: **[roundly-consulting.com/open-source/docs/package-template-for-laravel](https://roundly-consulting.com/open-source/docs/package-template-for-laravel?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=package-template-for-laravel)**
+website: **[roundly-consulting.com/open-source/docs/tickets-for-laravel](https://roundly-consulting.com/open-source/docs/tickets-for-laravel?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel)**
 
 Release notes are in [CHANGELOG.md](CHANGELOG.md). To contribute, see the
 [contributing guide](https://github.com/roundly-consulting/.github/blob/main/CONTRIBUTING.md).
@@ -262,14 +262,14 @@ Release notes are in [CHANGELOG.md](CHANGELOG.md). To contribute, see the
 ## Support our work
 
 This package is free and open source, built and maintained by
-[Roundly Consulting](https://roundly-consulting.com/open-source?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=package-template-for-laravel).
+[Roundly Consulting](https://roundly-consulting.com/open-source?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel).
 If it saves you time, please consider supporting our open-source work — a one-time donation, a
 monthly pledge on Patreon or a crypto donation helps fund maintenance, new features and new
 packages.
 
 <a href="https://donate.stripe.com/dRmeVe8FX5PF1Qd9pXcEw00"><img src="https://img.shields.io/badge/Donate-Support%20Roundly%20open%20source-F24E29?style=for-the-badge&logo=stripe&logoColor=white" alt="Donate to Roundly open source"></a>
 <a href="https://www.patreon.com/cw/roundly"><img src="https://img.shields.io/badge/Patreon-Become%20a%20patron-F96854?style=for-the-badge&logo=patreon&logoColor=white" alt="Become a patron on Patreon"></a>
-<a href="https://roundly-consulting.com/support-us?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=package-template-for-laravel#crypto"><img src="https://img.shields.io/badge/Crypto-BTC%20%C2%B7%20ETH%20%C2%B7%20BNB%20%C2%B7%20SOL-F7931A?style=for-the-badge&logo=bitcoin&logoColor=white" alt="Donate crypto: BTC, ETH, BNB or SOL"></a>
+<a href="https://roundly-consulting.com/support-us?utm_source=github&utm_medium=readme&utm_campaign=open-source&utm_content=tickets-for-laravel#crypto"><img src="https://img.shields.io/badge/Crypto-BTC%20%C2%B7%20ETH%20%C2%B7%20BNB%20%C2%B7%20SOL-F7931A?style=for-the-badge&logo=bitcoin&logoColor=white" alt="Donate crypto: BTC, ETH, BNB or SOL"></a>
 <!-- roundly-support:end -->
 
 ## License

@@ -14,7 +14,7 @@ use RoundlyConsulting\PackageToolkit\Support\Config;
  * key as the real configuration replaces these placeholders.
  */
 afterEach(function (): void {
-    foreach (['PACKAGE_TEMPLATE_ENABLED', 'PACKAGE_TEMPLATE_TIMEOUT', 'PACKAGE_TEMPLATE_MODE'] as $name) {
+    foreach (['TICKETS_ENABLED', 'TICKETS_TIMEOUT', 'TICKETS_MODE'] as $name) {
         Env::getRepository()->clear($name);
     }
 });
@@ -24,7 +24,7 @@ afterEach(function (): void {
  */
 function shippedPackageConfig(): array
 {
-    return require __DIR__.'/../../config/package-template.php';
+    return require __DIR__.'/../../config/tickets.php';
 }
 
 it('defaults the enabled flag on when the env is unset', function (): void {
@@ -32,7 +32,7 @@ it('defaults the enabled flag on when the env is unset', function (): void {
 });
 
 it('hands an unreadable switch to the reader raw (strict config)', function (): void {
-    Env::getRepository()->set('PACKAGE_TEMPLATE_ENABLED', 'disabled');
+    Env::getRepository()->set('TICKETS_ENABLED', 'disabled');
 
     expect(shippedPackageConfig()['enabled'])->toBe('disabled');
 });
@@ -45,16 +45,16 @@ it('defaults the integer and vocabulary settings when the env is unset', functio
 it('reads a blank env line as not set, so every default applies (strict config)', function (): void {
     // A host's `KEY=` arrives as '' — the config file passes it through raw, and the strict
     // reader treats blank exactly like an absent key: the default, never false, 0 or a throw.
-    foreach (['PACKAGE_TEMPLATE_ENABLED', 'PACKAGE_TEMPLATE_TIMEOUT', 'PACKAGE_TEMPLATE_MODE'] as $name) {
+    foreach (['TICKETS_ENABLED', 'TICKETS_TIMEOUT', 'TICKETS_MODE'] as $name) {
         Env::getRepository()->set($name, '');
     }
 
-    config()->set('package-template', shippedPackageConfig());
+    config()->set('tickets', shippedPackageConfig());
 
-    expect(config('package-template'))->toBe(['enabled' => '', 'timeout' => '', 'mode' => ''])
-        ->and(Config::boolean('package-template.enabled', true))->toBeTrue()
-        ->and(Config::integer('package-template.timeout', 30, min: 1, max: 300))->toBe(30)
-        ->and(Config::oneOf('package-template.mode', ['sync', 'queue'], 'sync'))->toBe('sync');
+    expect(config('tickets'))->toBe(['enabled' => '', 'timeout' => '', 'mode' => ''])
+        ->and(Config::boolean('tickets.enabled', true))->toBeTrue()
+        ->and(Config::integer('tickets.timeout', 30, min: 1, max: 300))->toBe(30)
+        ->and(Config::oneOf('tickets.mode', ['sync', 'queue'], 'sync'))->toBe('sync');
 });
 
 it('hands a junk number and a typo to the reader raw (strict config)', function (string $env, string $key, string $value): void {
@@ -62,6 +62,6 @@ it('hands a junk number and a typo to the reader raw (strict config)', function 
 
     expect(shippedPackageConfig()[$key])->toBe($value);
 })->with([
-    'timeout' => ['PACKAGE_TEMPLATE_TIMEOUT', 'timeout', 'five'],
-    'mode' => ['PACKAGE_TEMPLATE_MODE', 'mode', 'queued'],
+    'timeout' => ['TICKETS_TIMEOUT', 'timeout', 'five'],
+    'mode' => ['TICKETS_MODE', 'mode', 'queued'],
 ]);

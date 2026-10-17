@@ -11,15 +11,15 @@ use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
  * first argument once the package reads any (API keys, signing keys, DSNs).
  */
 it('renders its about section', function (): void {
-    expect('package-template')->toLeakNoSecrets([], mustRender: ['Enabled', 'YES', 'Timeout', '30s', 'Mode', 'sync']);
+    expect('tickets')->toLeakNoSecrets([], mustRender: ['Enabled', 'YES', 'Timeout', '30s', 'Mode', 'sync']);
 });
 
 it('reads the enabled flag the way an env string means it', function (string|bool $value, string $shown): void {
-    // env() only maps true/false/(true)/(false); `PACKAGE_TEMPLATE_ENABLED=off` arrives as the
+    // env() only maps true/false/(true)/(false); `TICKETS_ENABLED=off` arrives as the
     // string 'off', which a bare truthiness check reported as YES.
-    config()->set('package-template.enabled', $value);
+    config()->set('tickets.enabled', $value);
 
-    Artisan::call('about', ['--only' => 'package-template']);
+    Artisan::call('about', ['--only' => 'tickets']);
 
     expect(Artisan::output())->toMatch('/Enabled\W+'.$shown.'\b/');
 })->with([
@@ -35,30 +35,30 @@ it('reads the enabled flag the way an env string means it', function (string|boo
 
 it('refuses an enabled flag it cannot read (strict config)', function (): void {
     // A typo must fail loudly, naming the key, instead of quietly reading as a default.
-    config()->set('package-template.enabled', 'disabled');
+    config()->set('tickets.enabled', 'disabled');
 
-    expect(fn () => Artisan::call('about', ['--only' => 'package-template']))->toThrow(
+    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
         InvalidConfigurationException::class,
-        'Configuration value [package-template.enabled] must be a boolean',
+        'Configuration value [tickets.enabled] must be a boolean',
     );
 });
 
 it('reads an integer setting from an env string (strict config)', function (): void {
     // Every env value is a string: a canonical integer string is the number it spells.
-    config()->set('package-template.timeout', '45');
+    config()->set('tickets.timeout', '45');
 
-    Artisan::call('about', ['--only' => 'package-template']);
+    Artisan::call('about', ['--only' => 'tickets']);
 
     expect(Artisan::output())->toMatch('/Timeout\W+45s\b/');
 });
 
 it('refuses a junk or out-of-range integer instead of casting it (strict config)', function (mixed $value, string $expected): void {
     // `(int) 'five'` is 0 — a timeout of none. Config::integer() throws instead, naming the key.
-    config()->set('package-template.timeout', $value);
+    config()->set('tickets.timeout', $value);
 
-    expect(fn () => Artisan::call('about', ['--only' => 'package-template']))->toThrow(
+    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
         InvalidConfigurationException::class,
-        "Configuration value [package-template.timeout] must be {$expected}",
+        "Configuration value [tickets.timeout] must be {$expected}",
     );
 })->with([
     'word' => ['five', 'an integer'],
@@ -72,22 +72,22 @@ it('refuses a junk or out-of-range integer instead of casting it (strict config)
 it('refuses a value outside a fixed vocabulary instead of using the default (strict config)', function (mixed $value): void {
     // Config::oneOf() (or Config::enum() once the package has an enum for it) lists the
     // allowed values; a typo never falls back to the default.
-    config()->set('package-template.mode', $value);
+    config()->set('tickets.mode', $value);
 
-    expect(fn () => Artisan::call('about', ['--only' => 'package-template']))->toThrow(
+    expect(fn () => Artisan::call('about', ['--only' => 'tickets']))->toThrow(
         InvalidConfigurationException::class,
-        'Configuration value [package-template.mode] must be one of [sync, queue]',
+        'Configuration value [tickets.mode] must be one of [sync, queue]',
     );
 })->with(['typo' => ['queued'], 'casing' => ['Sync'], 'number' => [1]]);
 
 it('uses the defaults when a key is not set (strict config)', function (?string $value): void {
     // Blank means not set: an absent key, null and a host's `KEY=` (empty or whitespace
     // only) all take the default — on a switch too, where a blank is never read as false.
-    config()->set('package-template.enabled', $value);
-    config()->set('package-template.timeout', $value);
-    config()->set('package-template.mode', $value);
+    config()->set('tickets.enabled', $value);
+    config()->set('tickets.timeout', $value);
+    config()->set('tickets.mode', $value);
 
-    Artisan::call('about', ['--only' => 'package-template']);
+    Artisan::call('about', ['--only' => 'tickets']);
 
     expect(Artisan::output())
         ->toMatch('/Enabled\W+YES\b/')

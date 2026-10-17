@@ -20,7 +20,7 @@ use Illuminate\Foundation\Application;
  * a growing package needs, such as excluding a file that renders keys instead of reading them.
  */
 it('ships exactly the config keys it reads', function (): void {
-    expect(__DIR__.'/../config/package-template.php')->toSatisfyConfigContract(__DIR__.'/../src');
+    expect(__DIR__.'/../config/tickets.php')->toSatisfyConfigContract(__DIR__.'/../src');
 });
 
 it('never claims a config handle Laravel ships itself', function (): void {
@@ -29,5 +29,5 @@ it('never claims a config handle Laravel ships itself', function (): void {
     $framework = dirname((string) (new ReflectionClass(Application::class))->getFileName(), 4);
 
     expect($framework.'/config/app.php')->toBeFile()
-        ->and($framework.'/config/'.basename(__DIR__.'/../config/package-template.php'))->not->toBeFile();
+        ->and($framework.'/config/'.basename(__DIR__.'/../config/tickets.php'))->not->toBeFile();
 });
