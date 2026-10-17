@@ -88,8 +88,9 @@ jobs:
           TESTING_DB_DATABASE: testing
           TESTING_DB_USERNAME: testing
           TESTING_DB_PASSWORD: secret
-        # Coverage is enforced on the sqlite matrix; this is a correctness leg.
-        run: vendor/bin/pest --ci
+        # Coverage is enforced on the sqlite matrix; this is a correctness leg. Parallel
+        # workers each get their own database (testing-for-laravel's DriverMatrix).
+        run: vendor/bin/pest --ci --parallel
 
   test-mysql:
     runs-on: ubuntu-latest
@@ -135,5 +136,7 @@ jobs:
           TESTING_DB_DATABASE: testing
           TESTING_DB_USERNAME: root
           TESTING_DB_PASSWORD: secret
-        # Coverage is enforced on the sqlite matrix; this is a correctness leg.
-        run: vendor/bin/pest --ci
+        # Coverage is enforced on the sqlite matrix; this is a correctness leg. Parallel
+        # workers each get their own database — InnoDB DDL makes the per-test schema reset
+        # the slowest part of the suite.
+        run: vendor/bin/pest --ci --parallel
