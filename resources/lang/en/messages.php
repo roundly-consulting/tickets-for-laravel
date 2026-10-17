@@ -156,4 +156,9 @@ return [
         'attachments_public' => 'Ticket attachments go to the [:disk] disk, which is served on the web: a private file is reachable under /storage without a signature. Set tickets.attachments.disk to a private disk such as local.',
         'attachments_ok' => 'Ticket attachments go to the private [:disk] disk.',
     ],
+
+    'sweep' => [
+        'overdue' => '{1} :count ticket became overdue.|[0,*] :count tickets became overdue.',
+        'due_soon' => '{1} :count ticket is due soon.|[0,*] :count tickets are due soon.',
+    ],
 ];

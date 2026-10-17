@@ -143,6 +143,11 @@ return [
     | Swap either with a class implementing Contracts\AssignmentStrategy /
     | Contracts\DueDateResolver.
     |
+    | `tickets:sweep` (schedule it every five minutes) flags each unresolved
+    | ticket past its due date once (TicketOverdue), and once more when it
+    | comes within `soon_window` of it (TicketDueSoon) — an ISO-8601 duration,
+    | or `off`. Moving a due date re-arms both.
+    |
     */
 
     'assignment' => [
@@ -151,6 +156,7 @@ return [
 
     'due' => [
         'resolver' => CategoryDueDateResolver::class,
+        'soon_window' => env('TICKETS_DUE_SOON_WINDOW', 'PT4H'),
     ],
 
     /*

@@ -12,10 +12,12 @@ use RoundlyConsulting\Tickets\Accessors\Categories;
 use RoundlyConsulting\Tickets\Accessors\Fields;
 use RoundlyConsulting\Tickets\Accessors\Guests;
 use RoundlyConsulting\Tickets\Accessors\Tags;
+use RoundlyConsulting\Tickets\Actions\Due\SweepDueDatesAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\Builders\TicketBuilder;
 use RoundlyConsulting\Tickets\Contracts\TicketProject;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
+use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
 use RoundlyConsulting\Tickets\Handles\ProjectTickets;
@@ -134,6 +136,20 @@ class TicketsManager
     public function guests(): Guests
     {
         return new Guests($this);
+    }
+
+    /**
+     * The due-date sweep behind `tickets:sweep`: flags every unresolved ticket past its due
+     * date (`TicketOverdue`) or within `tickets.due.soon_window` of it (`TicketDueSoon`) —
+     * each exactly once per due date.
+     */
+    public function sweep(): SweepResult
+    {
+        return $this->perform(
+            TicketOperation::Sweep,
+            SweepDueDatesAction::class,
+            static fn (SweepDueDatesAction $action): SweepResult => $action->execute(),
+        );
     }
 
     /**

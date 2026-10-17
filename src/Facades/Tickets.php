@@ -23,9 +23,12 @@ use RoundlyConsulting\Tickets\TicketsManager;
  * @method static \RoundlyConsulting\Tickets\Accessors\Fields fields()
  * @method static \RoundlyConsulting\Tickets\Accessors\Tags tags()
  * @method static \RoundlyConsulting\Tickets\Accessors\Guests guests()
+ * @method static \RoundlyConsulting\Tickets\DataTransferObjects\SweepResult sweep()
  * @method static void assertCreated(\Closure|null $callback = null)
  * @method static void assertNothingCreated()
  * @method static void assertNothingHappened()
+ * @method static void assertSwept(\Closure|null $callback = null)
+ * @method static void assertNothingSwept()
  *
  * @see TicketsManager
  */

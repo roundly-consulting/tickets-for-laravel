@@ -156,4 +156,9 @@ return [
         'attachments_public' => 'Prílohy tiketov sa ukladajú na disk [:disk], ktorý je dostupný z webu: súkromný súbor je dostupný pod /storage aj bez podpisu. Nastavte tickets.attachments.disk na súkromný disk, napríklad local.',
         'attachments_ok' => 'Prílohy tiketov sa ukladajú na súkromný disk [:disk].',
     ],
+
+    'sweep' => [
+        'overdue' => '{1} :count tiket je po termíne.|[2,4] :count tikety sú po termíne.|[0,*] :count tiketov je po termíne.',
+        'due_soon' => '{1} :count tiketu sa blíži termín.|[2,4] :count tiketom sa blíži termín.|[0,*] :count tiketom sa blíži termín.',
+    ],
 ];

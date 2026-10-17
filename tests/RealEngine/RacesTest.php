@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
+use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLinkException;
@@ -153,5 +156,26 @@ describe('advisory_locks', function (): void {
 
         expect($racer->outcome())->toBe('cycle')
             ->and(TicketLink::query()->count())->toBe(1);
+    })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
+});
+
+describe('overdue_fires_once', function (): void {
+    it('flags an overdue ticket once under two concurrent sweeps', function (): void {
+        $ticket = Tickets::make()->subject('Renew the certificate')->requester(User::query()->create(['name' => 'Ada']))
+            ->due(CarbonImmutable::now()->subHour())->asSystem()->create();
+        $racer = new Racer;
+
+        $parent = DB::transaction(function () use ($racer): SweepResult {
+            $result = Tickets::sweep();
+
+            // The racer reads the ticket as not flagged yet, then waits on the parent's row lock.
+            $racer->run(static fn (): string => (string) Tickets::sweep()->overdue)->waitUntilBlockedOrDone();
+
+            return $result;
+        });
+
+        expect($parent->overdue)->toBe(1)
+            ->and($racer->outcome())->toBe('0')
+            ->and($ticket->activities()->where('type', ActivityType::Overdue->value)->count())->toBe(1);
     })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
 });

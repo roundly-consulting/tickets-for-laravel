@@ -20,4 +20,14 @@ final class Messages
 
         return is_string($line) ? $line : $key;
     }
+
+    /**
+     * A counted line (`trans_choice`), `:count` filled in.
+     *
+     * @param  array<string, string|int>  $replace
+     */
+    public static function choice(string $key, int $count, array $replace = []): string
+    {
+        return trans_choice('tickets::messages.'.$key, $count, ['count' => $count, ...$replace]);
+    }
 }

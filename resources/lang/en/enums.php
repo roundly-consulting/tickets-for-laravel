@@ -160,5 +160,6 @@ return [
         'convert_guest' => 'Convert guest',
         'issue_guest_link' => 'Issue guest link',
         'revoke_guest_access' => 'Revoke guest access',
+        'sweep' => 'Sweep due dates',
     ],
 ];

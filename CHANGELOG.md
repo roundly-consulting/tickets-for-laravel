@@ -152,3 +152,6 @@ Initial public release.
   routes without an `auth` middleware and about guest links the default generator cannot mint;
   `about` shows the routes and guest access.
 
+- `Tickets::sweep()` and `php artisan tickets:sweep`: `TicketOverdue` and `TicketDueSoon`
+  (`tickets.due.soon_window`, `PT4H` by default) exactly once per due date, safe under concurrent
+  sweeps; a `SweepResult`, an `overdue` activity entry and `Tickets::fake()->assertSwept()`.

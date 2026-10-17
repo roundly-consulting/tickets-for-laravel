@@ -15,6 +15,7 @@ use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
+use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateFieldData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
@@ -168,6 +169,7 @@ describe('the fake', function (): void {
         'guest link issued' => [fn () => Tickets::for(fakeGuestTicket())->guestLink(), 'assertGuestLinkIssued', ['TCK-1'], 'assertNoGuestLinkIssued'],
         'guest link issued by the accessor' => [fn () => Tickets::guests()->linkFor(fakeGuestTicket()), 'assertGuestLinkIssued', ['TCK-1'], 'assertNoGuestLinkIssued'],
         'guest access revoked' => [fn () => Tickets::for(fakeTicket())->asSystem()->revokeGuestAccess(), 'assertGuestAccessRevoked', ['TCK-1'], 'assertNoGuestAccessRevoked'],
+        'swept' => [fn () => Tickets::sweep(), 'assertSwept', [fn (SweepResult $result): bool => $result->total() === 0], 'assertNothingSwept'],
     ]);
 
     it('fails a guest-link assertion for another guest', function (): void {

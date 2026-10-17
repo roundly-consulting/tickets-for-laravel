@@ -541,6 +541,22 @@ final class TicketsConfig
         return self::read()->integer('tickets.routes.bulk.max', 100, min: 1, max: 1000);
     }
 
+    /**
+     * How close to its due date an unresolved ticket is flagged as due soon by `tickets:sweep`
+     * (`tickets.due.soon_window`: an ISO-8601 duration, or `off` for never).
+     */
+    public static function dueSoonWindow(): ?CarbonInterval
+    {
+        $value = self::read()->string('tickets.due.soon_window', 'PT4H');
+
+        if (strtolower(trim($value)) === 'off') {
+            return null;
+        }
+
+        return Durations::parse($value)
+            ?? throw InvalidTicketsConfigurationException::invalid('tickets.due.soon_window', 'an ISO-8601 duration (PT4H, P1D) or off');
+    }
+
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
     public const string PREFIX_PATTERN = '/^[A-Z][A-Z0-9]{0,9}$/';
 

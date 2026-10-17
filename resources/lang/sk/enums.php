@@ -160,5 +160,6 @@ return [
         'convert_guest' => 'Prevod hosťa',
         'issue_guest_link' => 'Vydanie odkazu pre hosťa',
         'revoke_guest_access' => 'Odvolanie prístupu hostí',
+        'sweep' => 'Kontrola termínov',
     ],
 ];

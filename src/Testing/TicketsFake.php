@@ -10,6 +10,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Assert as PHPUnit;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
@@ -618,6 +619,24 @@ final class TicketsFake extends TicketsManager
     public function assertNoGuestAccessRevoked(): void
     {
         $this->assertNotRecorded(TicketOperation::RevokeGuestAccess);
+    }
+
+    // Due dates -----------------------------------------------------------------------
+
+    /**
+     * The due-date sweep ran — and, with `$callback`, its result matched.
+     *
+     * @param  (Closure(SweepResult): bool)|null  $callback
+     */
+    public function assertSwept(?Closure $callback = null): void
+    {
+        $this->assertRecorded(TicketOperation::Sweep, static fn (RecordedTicketOperation $recorded): bool => $callback === null
+            || ($recorded->result instanceof SweepResult && $callback($recorded->result)));
+    }
+
+    public function assertNothingSwept(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Sweep);
     }
 
     // Plumbing ------------------------------------------------------------------------

@@ -64,6 +64,7 @@ enum TicketOperation: string implements HasColor
     case ConvertGuest = 'convert_guest';
     case IssueGuestLink = 'issue_guest_link';
     case RevokeGuestAccess = 'revoke_guest_access';
+    case Sweep = 'sweep';
 
     public function color(): string
     {

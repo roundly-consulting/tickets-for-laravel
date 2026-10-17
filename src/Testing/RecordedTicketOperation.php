@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Testing;
 
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
@@ -15,7 +16,8 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * (conversation edits); `assignee`, `watcher`, `tags` (names or slugs), `related` + `type`
  * (links), `target` + `reason` (merges), `media` (uuid), `keys` (custom field values);
  * `parent`, `reassign_to` (categories); `field`, `dry_run` (fields); `tag` (tags); `guest`,
- * `user` (guests and guest links).
+ * `user` (guests and guest links). The sweep records no context — its result is the
+ * {@see SweepResult}.
  */
 final readonly class RecordedTicketOperation
 {
