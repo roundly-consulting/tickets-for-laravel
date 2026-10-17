@@ -16,6 +16,11 @@ final class InvalidAssigneeException extends TicketsException
         return new self(self::translate('assignee.not_an_assignee', ['class' => $model::class]));
     }
 
+    public static function noActor(): self
+    {
+        return new self(self::translate('assignee.no_actor'));
+    }
+
     public static function ineligible(Model $model): self
     {
         return new self(self::translate('assignee.ineligible', ['class' => $model::class]));

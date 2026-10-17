@@ -59,6 +59,7 @@ return [
     ],
 
     'assignee' => [
+        'no_actor' => 'Prevzatie tiketu potrebuje aktéra — zavolajte by() s používateľom, ktorý ho preberá.',
         'not_an_assignee' => 'Modelu [:class] nemožno priradiť tikety: musí implementovať kontrakt Assignee.',
         'ineligible' => 'Model [:class] nemôže byť riešiteľom tohto tiketu.',
     ],
@@ -76,6 +77,13 @@ return [
         'unexpected_options' => 'Pole [:key] nie je výberové a nemôže mať možnosti.',
         'rule_not_allowed' => 'Pravidlo [:rule] poľa [:key] nie je povolené.',
         'empty_label' => 'Pole [:key] potrebuje označenie.',
+        'unknown' => 'Pole [:key] nie je poľom tohto tiketu.',
+        'not_editable' => 'Pole [:key] môže meniť iba agent.',
+        'type_locked' => 'Pole [:key] už obsahuje hodnoty, preto nemožno zmeniť jeho typ.',
+        'encryption_locked' => 'Pole [:key] už obsahuje hodnoty, preto nemožno zmeniť jeho šifrovanie.',
+        'options_in_use' => 'Možnosti [:options] poľa [:key] sa ešte používajú.',
+        'not_filterable' => 'Tikety nemožno filtrovať podľa poľa [:key].',
+        'not_filterable_encrypted' => 'Pole [:key] je šifrované a nemožno podľa neho filtrovať.',
     ],
 
     'guest' => [
@@ -84,11 +92,50 @@ return [
         'taken' => 'Toto pole :field už používa iný hosť.',
     ],
 
+    'watcher' => [
+        'no_actor' => 'Sledovanie tiketu potrebuje aktéra — zavolajte by() s používateľom, ktorý ho sleduje.',
+    ],
+
+    'tag' => [
+        'invalid_name' => 'Štítok potrebuje názov s najviac 64 znakmi.',
+        'invalid_color' => 'Farba štítka [:color] musí byť hexadecimálna farba, napríklad #f24e29.',
+        'duplicate' => 'Štítok s názvom [:name] tu už existuje.',
+        'unknown' => 'Štítok s názvom [:name] neexistuje a nové štítky nemožno vytvárať priebežne.',
+        'project_mismatch' => 'Štítok [:name] patrí inému projektu.',
+    ],
+
+    'link' => [
+        'self' => 'Tiket nemožno prepojiť so sebou samým.',
+        'cycle' => 'Toto prepojenie :type by uzavrelo cyklus.',
+        'second_parent' => 'Tiket [:reference] už má nadradený tiket.',
+        'cross_project' => 'Tikety rôznych projektov nemožno prepojiť.',
+        'too_deep' => 'Reťazec prepojení je hlbší ako :max úrovní a nemožno ho skontrolovať na cykly.',
+        'not_linked' => 'Prepojenie :type s tiketom [:reference] tu neexistuje.',
+    ],
+
+    'merge' => [
+        'same' => 'Tiket nemožno zlúčiť so sebou samým.',
+        'source_closed' => 'Tiket [:reference] je uzavretý a nemožno ho zlúčiť.',
+        'source_merged' => 'Tiket [:reference] už bol zlúčený.',
+        'target_closed' => 'Tiket [:reference] je uzavretý a nemožno doň zlučovať.',
+        'target_merged' => 'Tiket [:reference] bol zlúčený do [:final]. Zlúčte ho radšej do toho tiketu.',
+        'cross_project' => 'Tikety rôznych projektov nemožno zlúčiť.',
+        'unauthorized' => 'Nemáte oprávnenie zlučovať tikety.',
+        'note_on_target' => 'Tiket :source bol zlúčený do tohto tiketu.',
+        'reply_on_source' => 'Tento tiket bol zlúčený do :target.',
+    ],
+
+    'attachment' => [
+        'not_found' => 'Príloha [:media] nepatrí k tiketu [:reference].',
+    ],
+
     'doctor' => [
         'lifecycle_ok' => 'Životný cyklus [:class] spĺňa kontrakt tiketov aj všetky automatizácie.',
         'conveniences' => 'Podporované pomenované prechody: :list.',
         'meta_missing' => 'Tabuľka komentárov nemá stĺpec `meta`. Zverejnite a spustite migrácie comments-for-laravel 1.1.',
         'meta_ok' => 'Tabuľka komentárov má stĺpec `meta`, do ktorého sa zapisujú odpovede a poznámky.',
         'comments_authorization' => 'Nastavenie comments.authorization je zapnuté: komentáre overujú prihláseného používateľa pri každej odpovedi, poznámke, schválení a uzamknutí tiketu. Povoľte vo svojej CommentPolicy komentáre k tiketom, inak budú odpovede hostí, systémové poznámky aj automatické uzamknutie odmietnuté.',
+        'attachments_public' => 'Prílohy tiketov sa ukladajú na disk [:disk], ktorý je dostupný z webu: súkromný súbor je dostupný pod /storage aj bez podpisu. Nastavte tickets.attachments.disk na súkromný disk, napríklad local.',
+        'attachments_ok' => 'Prílohy tiketov sa ukladajú na súkromný disk [:disk].',
     ],
 ];

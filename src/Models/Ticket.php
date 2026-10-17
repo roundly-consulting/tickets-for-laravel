@@ -17,19 +17,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use RoundlyConsulting\Attributes\Contracts\HasAttributes as HasAttributesContract;
+use RoundlyConsulting\Attributes\Traits\HasAttributes as HasCustomFields;
 use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Comments\Traits\HasComments;
 use RoundlyConsulting\Lifecycle\Casts\AsLifecycleState;
 use RoundlyConsulting\Lifecycle\Concerns\HasLifecycle;
 use RoundlyConsulting\Lifecycle\Contracts\LifecycleSubject;
 use RoundlyConsulting\Lifecycle\Definition\LifecycleDefinition;
+use RoundlyConsulting\MediaLibrary\Concerns\InteractsWithMedia;
+use RoundlyConsulting\MediaLibrary\Contracts\HasMedia;
 use RoundlyConsulting\PackageToolkit\Support\RawExpression;
 use RoundlyConsulting\Tickets\Concerns\HasConfigurableKey;
 use RoundlyConsulting\Tickets\Contracts\Priority;
 use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\Database\Factories\TicketFactory;
 use RoundlyConsulting\Tickets\Enums\StatusCategory;
+use RoundlyConsulting\Tickets\Exceptions\UnknownTicketFieldException;
+use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Support\CategoryTree;
+use RoundlyConsulting\Tickets\Support\FieldFilters;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketStates;
@@ -37,7 +44,8 @@ use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
  * A support ticket. Its `status` is owned by lifecycle-for-laravel (never written directly),
- * its conversation by comments-for-laravel.
+ * its conversation by comments-for-laravel, its custom field values by attributes-for-laravel
+ * and its attachments by media-library-for-laravel.
  *
  * Swappable through `tickets.models.ticket`: extend this class and name the subclass there.
  *
@@ -81,15 +89,17 @@ use RoundlyConsulting\Tickets\TicketsManager;
  * @property-read Collection<int, TicketLink> $links
  * @property-read Collection<int, TicketActivity> $activities
  */
-class Ticket extends Model implements LifecycleSubject
+class Ticket extends Model implements HasAttributesContract, HasMedia, LifecycleSubject
 {
     use HasComments;
     use HasConfigurableKey;
+    use HasCustomFields;
 
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
 
     use HasLifecycle;
+    use InteractsWithMedia;
     use SoftDeletes;
 
     protected $table = 'tickets';
@@ -102,6 +112,40 @@ class Ticket extends Model implements LifecycleSubject
     public function lifecycleDefinitions(): array
     {
         return ['status' => TicketsConfig::lifecycle()];
+    }
+
+    /**
+     * The custom fields that apply to this ticket — global, its project's, and its category's
+     * (ancestors included) — as the raw definitions attributes-for-laravel reads. A ticket's
+     * attributes are its custom field values only.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function attributeDefinitions(): array
+    {
+        return app(FieldSetResolver::class)->attributeDefinitions($this);
+    }
+
+    /**
+     * The ticket's attachments bucket: private, on `tickets.attachments.disk` (`local` by
+     * default — never media-library's web-served `public` default), with the configured mime
+     * types and size cap.
+     */
+    public function registerMediaBuckets(): void
+    {
+        $disk = TicketsConfig::attachmentsDisk();
+
+        $bucket = $this->addMediaBucket(TicketsConfig::attachmentsBucket())
+            ->private()
+            ->useDisk($disk)
+            ->storingVariantsOnDisk($disk)
+            ->maxFileSize(TicketsConfig::attachmentMaxKilobytes() * 1024);
+
+        $mimes = TicketsConfig::attachmentMimes();
+
+        if ($mimes !== []) {
+            $bucket->acceptsMimeTypes($mimes);
+        }
     }
 
     /**
@@ -148,6 +192,16 @@ class Ticket extends Model implements LifecycleSubject
     public function note(string $body, ?Model $author = null): Comment
     {
         return app(TicketsManager::class)->for($this)->by($author)->note($body);
+    }
+
+    /**
+     * Assign the ticket — the same call as `Tickets::for($ticket)->by($actor)->assign($assignee)`.
+     */
+    public function assignTo(Model $assignee, ?Model $actor = null): static
+    {
+        app(TicketsManager::class)->for($this)->by($actor)->assign($assignee);
+
+        return $this;
     }
 
     /** @return BelongsTo<TicketCategory, $this> */
@@ -375,6 +429,53 @@ class Ticket extends Model implements LifecycleSubject
         $merged
             ? $query->whereNotNull($query->qualifyColumn('merged_into_id'))
             : $query->whereNull($query->qualifyColumn('merged_into_id'));
+    }
+
+    /**
+     * Whose custom field `$key` equals the value — cast to the field's type first, so a request
+     * string `"42"` matches a number field's integer rows. An unknown, encrypted or multiselect
+     * field throws {@see UnknownTicketFieldException}.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWhereField(Builder $query, string $key, mixed $value): void
+    {
+        $types = FieldFilters::types($key);
+
+        $query->where(static function (Builder $any) use ($types, $key, $value): void {
+            $any->whereRaw('1 = 0');
+
+            foreach ($types as $type) {
+                $cast = FieldFilters::cast($type, $value);
+
+                if ($cast !== null) {
+                    $any->orWhere(static fn (Builder $one): Builder => $one->whereAttribute($key, $cast));
+                }
+            }
+        });
+    }
+
+    /**
+     * Whose custom field `$key` lies within the bounds (inclusive); a null bound is open — a
+     * one-sided range. Number, decimal, date and datetime fields only.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWhereFieldBetween(Builder $query, string $key, mixed $from, mixed $to): void
+    {
+        $types = FieldFilters::rangeTypes($key);
+
+        $query->where(static function (Builder $any) use ($types, $key, $from, $to): void {
+            $any->whereRaw('1 = 0');
+
+            foreach ($types as $type) {
+                [$low, $high] = FieldFilters::bounds($type, $from, $to);
+
+                if ($low !== null && $high !== null) {
+                    $any->orWhere(static fn (Builder $one): Builder => $one->whereAttributeBetween($key, $low, $high));
+                }
+            }
+        });
     }
 
     /**

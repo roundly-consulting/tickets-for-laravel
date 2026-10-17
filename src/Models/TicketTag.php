@@ -52,6 +52,7 @@ class TicketTag extends Model implements Sluggable
                 ->from('name')
                 ->maxLength(80)
                 ->uniqueWithin('project_type', 'project_id')
+                ->regenerateOnUpdate()
                 ->keepHistory(false),
         );
     }

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Actions\Internal\WriteTicketCommentAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\ReplyData;
@@ -22,6 +23,7 @@ use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
@@ -35,6 +37,7 @@ final readonly class PostNoteAction
 {
     public function __construct(
         private WriteTicketCommentAction $write,
+        private AutoWatchAction $watch,
         private RecordActivityAction $record,
         private Dispatcher $events,
     ) {}
@@ -58,6 +61,10 @@ final readonly class PostNoteAction
             }
 
             $comment = $this->write->execute($ticket, $author, $role, $data, $channel, internal: true);
+
+            if ($role === AuthorRole::Agent && TicketsConfig::autoWatch('agent_repliers')) {
+                $this->watch->execute($ticket, $author);
+            }
             $published = $comment->status === CommentStatus::Approved;
 
             $this->record->execute(

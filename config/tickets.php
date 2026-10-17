@@ -156,16 +156,19 @@ return [
     | Morph alias allow-lists
     |--------------------------------------------------------------------------
     |
-    | API input names a requester, assignee or project as `{type: alias, id}`;
-    | only these aliases are accepted, never a class name. The guest model is
-    | always a requester (`guest`). Assignables must implement
-    | Contracts\Assignee, projects Contracts\TicketProject.
+    | API input names a requester, assignee, watcher or project as
+    | `{type: alias, id}`; only these aliases are accepted, never a class
+    | name. The guest model is always a requester (`guest`). Assignables must
+    | implement Contracts\Assignee, projects Contracts\TicketProject.
+    | `watchables` null = every requester and assignable alias.
     |
     */
 
     'requesters' => ['user' => 'App\\Models\\User'],
 
     'assignables' => ['user' => 'App\\Models\\User'],
+
+    'watchables' => null,
 
     'projects' => [],
 
@@ -236,11 +239,20 @@ return [
     |
     | `can_view`: a watcher who is not an agent (a CC'd colleague, a guest)
     | may see the ticket and its public thread, and reply as a participant.
+    | `auto`: who starts watching on their own — the requester on creation,
+    | the assignee on assignment, an agent who writes on the ticket, and
+    | (off by default) someone mentioned who may read the comment.
     |
     */
 
     'watchers' => [
         'can_view' => env('TICKETS_WATCHERS_CAN_VIEW', 'on'),
+        'auto' => [
+            'requester' => env('TICKETS_AUTO_WATCH_REQUESTER', 'on'),
+            'assignee' => env('TICKETS_AUTO_WATCH_ASSIGNEE', 'on'),
+            'agent_repliers' => env('TICKETS_AUTO_WATCH_AGENT_REPLIERS', 'on'),
+            'mentioned' => env('TICKETS_AUTO_WATCH_MENTIONED', 'off'),
+        ],
     ],
 
     /*
@@ -250,14 +262,69 @@ return [
     |
     | The Gate abilities the package asks about. Define them in your app
     | (`Gate::define('tickets.agent', fn ($user) => $user->is_support)`) or
-    | through a permissions package. An undefined ability denies.
+    | through a permissions package. An undefined ability denies. `agent`
+    | makes a user an agent; `merge` lets an actor merge tickets.
     |
     */
 
     'authorization' => [
         'abilities' => [
             'agent' => 'tickets.agent',
+            'merge' => 'tickets.agent',
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tags, links and merging
+    |--------------------------------------------------------------------------
+    |
+    | `tags.free_form`: an unknown tag name is created on the fly; off = only
+    | existing tags attach. `links.cross_project` allows links between tickets
+    | of different projects; `links.max_depth` bounds the cycle check of
+    | `blocks` and `parent_of`. `merge.cross_project` allows merging across
+    | projects; `merge.move_attachments` moves the source's attachments.
+    |
+    */
+
+    'tags' => [
+        'free_form' => env('TICKETS_TAGS_FREE_FORM', 'on'),
+    ],
+
+    'links' => [
+        'cross_project' => env('TICKETS_LINKS_CROSS_PROJECT', 'on'),
+        'max_depth' => 50,
+    ],
+
+    'merge' => [
+        'cross_project' => env('TICKETS_MERGE_CROSS_PROJECT', 'off'),
+        'move_attachments' => env('TICKETS_MERGE_MOVE_ATTACHMENTS', 'on'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments
+    |--------------------------------------------------------------------------
+    |
+    | Files on the ticket itself (reply and note attachments live on their
+    | comment). The bucket is private and its `disk` must NOT be web-served:
+    | media-library's default `public` disk is reachable under /storage
+    | without a signature. Laravel's `local` disk (storage/app/private) is
+    | not. `mimes`: the accepted mime types ([] = any); `max_kb`: the size cap.
+    |
+    */
+
+    'attachments' => [
+        'bucket' => 'attachments',
+        'disk' => env('TICKETS_ATTACHMENTS_DISK', 'local'),
+        'mimes' => [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'application/pdf', 'text/plain', 'text/csv',
+            'application/zip',
+            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
+        'max_kb' => 10240,
     ],
 
     /*

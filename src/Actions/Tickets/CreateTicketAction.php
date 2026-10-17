@@ -8,10 +8,16 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
+use RoundlyConsulting\Tickets\Actions\Attachments\AddAttachmentAction;
 use RoundlyConsulting\Tickets\Actions\Guests\ResolveGuestAction;
 use RoundlyConsulting\Tickets\Actions\Internal\AllocateReferenceAction;
 use RoundlyConsulting\Tickets\Actions\Internal\ApplyAutomationAction;
+use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
+use RoundlyConsulting\Tickets\Actions\Internal\ChangeTicketTagsAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
+use RoundlyConsulting\Tickets\Actions\Internal\ResolveTagsAction;
+use RoundlyConsulting\Tickets\Actions\Internal\WriteFieldValuesAction;
+use RoundlyConsulting\Tickets\Actions\Watchers\AddWatcherAction;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\Contracts\TicketProject;
@@ -28,6 +34,7 @@ use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Assignees;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketModels;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
@@ -35,7 +42,10 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * project are checked, the defaults the caller did not give are applied once (caller →
  * nearest category → config), the next reference of the ticket's sequence is allocated
  * under a row lock, the ticket is saved (lifecycle sets its initial state) and the
- * `created` activity is written. `TicketCreated` follows the commit.
+ * `created` activity is written; then the requester and assignee start watching
+ * (`tickets.watchers.auto`), the custom field values are written (their defaults filled, the
+ * required ones enforced), the tags, watchers and attachments added. `TicketCreated` follows
+ * the commit.
  */
 final readonly class CreateTicketAction
 {
@@ -46,6 +56,12 @@ final readonly class CreateTicketAction
         private AssignmentStrategy $strategy,
         private DueDateResolver $dueDates,
         private ApplyAutomationAction $automations,
+        private ResolveTagsAction $resolveTags,
+        private ChangeTicketTagsAction $tags,
+        private WriteFieldValuesAction $fields,
+        private AutoWatchAction $watch,
+        private AddWatcherAction $addWatcher,
+        private AddAttachmentAction $addAttachment,
         private Dispatcher $events,
     ) {}
 
@@ -90,6 +106,10 @@ final readonly class CreateTicketAction
 
             $assignee = $this->assignee($ticket, $data->assignee);
             $dueAt = $data->dueAt !== null ? CarbonImmutable::instance($data->dueAt) : $this->dueDates->dueAt($ticket);
+
+            // Tags first: names take the `lock:tags` advisory row, which comes before every
+            // other row this transaction locks.
+            $tags = $data->tags === [] ? [] : $this->resolveTags->execute($ticket, $data->tags);
             $allocated = $this->allocate->execute($project);
 
             if (TicketModels::ticket()::withTrashed()->where('reference', $allocated->reference)->exists()) {
@@ -120,10 +140,34 @@ final readonly class CreateTicketAction
                 'channel' => $channel,
             ], system: $data->system);
 
+            if (TicketsConfig::autoWatch('requester')) {
+                $this->watch->execute($ticket, $requester);
+            }
+
+            $this->fields->execute($ticket, $data->fields, $actor);
+            $this->fields->applyDefaults($ticket);
+            $this->fields->assertRequiredFilled($ticket);
+
+            if ($tags !== []) {
+                $this->tags->execute($ticket, $tags, [], $actor, $data->system);
+            }
+
+            foreach ($data->watchers as $watcher) {
+                $this->addWatcher->execute($ticket, $watcher, $actor, $data->system);
+            }
+
+            foreach ($data->attachments as $file) {
+                $this->addAttachment->execute($ticket, $file, $actor, $data->system);
+            }
+
             if ($assignee !== null) {
                 $this->record->execute($ticket, ActivityType::Assigned, $actor, [
                     'to' => ['type' => $assignee->getMorphClass(), 'id' => $assignee->getKey()],
                 ], system: $data->system);
+
+                if (TicketsConfig::autoWatch('assignee')) {
+                    $this->watch->execute($ticket, $assignee);
+                }
 
                 $this->events->dispatch(new TicketAssigned($ticket, $assignee, $actor));
 

@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Actions\Tickets;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
+use RoundlyConsulting\Tickets\Actions\Internal\WriteFieldValuesAction;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Events\TicketCategoryChanged;
 use RoundlyConsulting\Tickets\Models\Ticket;
@@ -19,12 +20,14 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 /**
  * Moves a ticket to another category (or, with null, out of every category). The category
  * must be active and global or of the ticket's project. Category defaults are applied at
- * creation only — never again on a move. The same category again is a no-op.
+ * creation only — never again on a move. A field the new category makes required must already
+ * hold a value, or the move is refused. The same category again is a no-op.
  */
 final readonly class ChangeCategoryAction
 {
     public function __construct(
         private RecordActivityAction $record,
+        private WriteFieldValuesAction $fields,
         private Dispatcher $events,
     ) {}
 
@@ -45,6 +48,9 @@ final readonly class ChangeCategoryAction
 
             $ticket->forceFill(['category_id' => $toKey])->save();
             $ticket->unsetRelation('category');
+
+            // The new category may bring required fields the ticket has no value for.
+            $this->fields->assertRequiredFilled($ticket);
 
             $this->record->execute($ticket, ActivityType::CategoryChanged, $actor, ['from' => $from, 'to' => $toKey], $system);
             $this->events->dispatch(new TicketCategoryChanged($ticket, $from, $toKey, $actor));

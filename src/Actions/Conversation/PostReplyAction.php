@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Tickets\Actions\Internal\ApplyAutomationAction;
+use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Actions\Internal\ResolveAuthorRoleAction;
 use RoundlyConsulting\Tickets\Actions\Internal\WriteTicketCommentAction;
@@ -52,6 +53,7 @@ final readonly class PostReplyAction
     public function __construct(
         private ResolveAuthorRoleAction $roles,
         private WriteTicketCommentAction $write,
+        private AutoWatchAction $watch,
         private TransitionTicketAction $transitions,
         private ApplyAutomationAction $automations,
         private RecordActivityAction $record,
@@ -73,6 +75,10 @@ final readonly class PostReplyAction
             }
 
             $comment = $this->write->execute($ticket, $author, $role, $data, $channel, internal: false);
+
+            if ($role === AuthorRole::Agent && $author !== null && TicketsConfig::autoWatch('agent_repliers')) {
+                $this->watch->execute($ticket, $author);
+            }
             $published = $comment->status === CommentStatus::Approved;
 
             $this->record->execute(

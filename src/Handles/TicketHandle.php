@@ -17,10 +17,14 @@ use RoundlyConsulting\Lifecycle\DataTransferObjects\AvailableTransition;
 use RoundlyConsulting\Lifecycle\DataTransferObjects\TransitionResult;
 use RoundlyConsulting\Lifecycle\LifecycleHandle;
 use RoundlyConsulting\Lifecycle\LifecycleManager;
+use RoundlyConsulting\Tickets\Actions\Assignment\AssignTicketAction;
+use RoundlyConsulting\Tickets\Actions\Assignment\ClaimTicketAction;
+use RoundlyConsulting\Tickets\Actions\Assignment\UnassignTicketAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\DeleteCommentAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\PostNoteAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\PostReplyAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\UpdateCommentAction;
+use RoundlyConsulting\Tickets\Actions\Merge\MergeTicketsAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeCategoryAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangePriorityAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeRequesterAction;
@@ -29,8 +33,10 @@ use RoundlyConsulting\Tickets\Actions\Tickets\RestoreTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\SetDueDateAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\TransitionTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\UpdateTicketAction;
+use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
+use RoundlyConsulting\Tickets\DataTransferObjects\MergeResult;
 use RoundlyConsulting\Tickets\DataTransferObjects\ReplyData;
 use RoundlyConsulting\Tickets\DataTransferObjects\TransitionData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
@@ -153,6 +159,90 @@ final readonly class TicketHandle
         );
 
         return $this;
+    }
+
+    /**
+     * Assign the ticket to an eligible {@see Assignee} (a user, a team). The same assignee again
+     * changes nothing; a new ticket opens.
+     */
+    public function assign(Model $assignee): static
+    {
+        $this->manager->perform(
+            TicketOperation::Assign,
+            AssignTicketAction::class,
+            fn (AssignTicketAction $action): Ticket => $action->execute($this->ticket, $assignee, $this->actor, $this->system),
+            $this->context(['assignee' => $assignee]),
+        );
+
+        return $this;
+    }
+
+    public function unassign(): static
+    {
+        $this->manager->perform(
+            TicketOperation::Unassign,
+            UnassignTicketAction::class,
+            fn (UnassignTicketAction $action): Ticket => $action->execute($this->ticket, $this->actor, $this->system),
+            $this->context(),
+        );
+
+        return $this;
+    }
+
+    /**
+     * The handle's actor takes the ticket — they must be an eligible assignee.
+     */
+    public function claim(): static
+    {
+        $this->manager->perform(
+            TicketOperation::Claim,
+            ClaimTicketAction::class,
+            fn (ClaimTicketAction $action): Ticket => $action->execute($this->ticket, $this->actor, $this->system),
+            $this->context(),
+        );
+
+        return $this;
+    }
+
+    /**
+     * Merge this ticket into `$target` (a model or a reference): its conversation, watchers,
+     * tags and attachments move over, and this ticket is dismissed as merged.
+     */
+    public function mergeInto(Ticket|string $target, ?string $reason = null): MergeResult
+    {
+        $target = is_string($target) ? $this->manager->findOrFail($target) : $target;
+
+        return $this->manager->perform(
+            TicketOperation::Merge,
+            MergeTicketsAction::class,
+            fn (MergeTicketsAction $action): MergeResult => $action->execute($this->ticket, $target, $reason, $this->actor, $this->system),
+            $this->context(['target' => $target, 'reason' => $reason]),
+        );
+    }
+
+    public function watchers(): TicketWatchers
+    {
+        return new TicketWatchers($this->manager, $this->ticket, $this->actor, $this->system);
+    }
+
+    public function tags(): TicketTags
+    {
+        return new TicketTags($this->manager, $this->ticket, $this->actor, $this->system);
+    }
+
+    public function links(): TicketLinks
+    {
+        return new TicketLinks($this->manager, $this->ticket, $this->actor, $this->system);
+    }
+
+    public function attachments(): TicketAttachments
+    {
+        return new TicketAttachments($this->manager, $this->ticket, $this->actor, $this->system);
+    }
+
+    public function fields(): TicketFields
+    {
+        return new TicketFields($this->manager, $this->ticket, $this->actor, $this->system);
     }
 
     public function delete(): static

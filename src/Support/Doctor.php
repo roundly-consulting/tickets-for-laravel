@@ -23,7 +23,22 @@ final class Doctor
      */
     public static function checks(): array
     {
-        return [...self::lifecycle(), ...self::conversation()];
+        return [...self::lifecycle(), ...self::conversation(), ...self::attachments()];
+    }
+
+    /**
+     * Ticket attachments are private: on the web-served `public` disk a private file is still
+     * reachable under /storage, without the signed URL.
+     *
+     * @return list<DoctorCheck>
+     */
+    private static function attachments(): array
+    {
+        $disk = TicketsConfig::attachmentsDisk();
+
+        return [$disk === 'public'
+            ? new DoctorCheck('attachments', 'disk', Messages::get('doctor.attachments_public', ['disk' => $disk]), 'warning')
+            : new DoctorCheck('attachments', 'disk', Messages::get('doctor.attachments_ok', ['disk' => $disk]), 'ok')];
     }
 
     /**

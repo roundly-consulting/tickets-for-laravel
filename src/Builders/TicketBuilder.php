@@ -7,11 +7,13 @@ namespace RoundlyConsulting\Tickets\Builders;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Support\Messages;
 use RoundlyConsulting\Tickets\TicketsManager;
 
@@ -42,6 +44,18 @@ final class TicketBuilder
     private ?Model $actor = null;
 
     private bool $system = false;
+
+    /** @var array<string, mixed> */
+    private array $fields = [];
+
+    /** @var list<string|TicketTag> */
+    private array $tags = [];
+
+    /** @var list<Model> */
+    private array $watchers = [];
+
+    /** @var list<UploadedFile|string> */
+    private array $attachments = [];
 
     public function __construct(
         private readonly TicketsManager $manager,
@@ -126,6 +140,50 @@ final class TicketBuilder
     }
 
     /**
+     * Custom field values, by key — merged over earlier calls.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    public function fields(array $values): self
+    {
+        $this->fields = [...$this->fields, ...$values];
+
+        return $this;
+    }
+
+    /**
+     * Tags, by name or model — an unknown name is created (`tickets.tags.free_form`).
+     *
+     * @param  list<string|TicketTag>|string|TicketTag  $tags
+     */
+    public function tags(array|string|TicketTag $tags): self
+    {
+        $this->tags = [...$this->tags, ...(is_array($tags) ? $tags : [$tags])];
+
+        return $this;
+    }
+
+    /**
+     * Who follows the ticket from the start (the requester and the assignee watch on their own).
+     */
+    public function watchers(Model ...$watchers): self
+    {
+        $this->watchers = [...$this->watchers, ...array_values($watchers)];
+
+        return $this;
+    }
+
+    /**
+     * Attach files — uploads or local paths — to the ticket.
+     */
+    public function attach(UploadedFile|string ...$files): self
+    {
+        $this->attachments = [...$this->attachments, ...array_values($files)];
+
+        return $this;
+    }
+
+    /**
      * Who files it (default: the authenticated user, with `tickets.actor.from_auth`).
      */
     public function by(?Model $actor): self
@@ -168,6 +226,10 @@ final class TicketBuilder
             channel: $this->channel,
             actor: $this->actor,
             system: $this->system,
+            fields: $this->fields,
+            tags: $this->tags,
+            watchers: $this->watchers,
+            attachments: $this->attachments,
         );
     }
 

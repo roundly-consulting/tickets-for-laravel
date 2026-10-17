@@ -36,4 +36,29 @@ final class TicketLocker
 
         return $ticket;
     }
+
+    /**
+     * Lock several tickets, always in primary-key order — two actions locking the same pair
+     * (a merge, a link) then queue on the first row instead of deadlocking on crossed locks.
+     */
+    public static function lockInOrder(Ticket ...$tickets): void
+    {
+        usort($tickets, static fn (Ticket $a, Ticket $b): int => self::compareKeys($a->getKey(), $b->getKey()));
+
+        foreach ($tickets as $ticket) {
+            self::lock($ticket);
+        }
+    }
+
+    /**
+     * Primary keys in their natural order: numbers numerically, uuid/ulid strings as text.
+     */
+    public static function compareKeys(mixed $a, mixed $b): int
+    {
+        if (is_int($a) && is_int($b)) {
+            return $a <=> $b;
+        }
+
+        return strcmp(is_scalar($a) ? (string) $a : '', is_scalar($b) ? (string) $b : '');
+    }
 }

@@ -224,6 +224,115 @@ final class TicketsConfig
         return self::read()->boolean('tickets.watchers.can_view', true);
     }
 
+    /**
+     * The Gate ability that lets an actor merge tickets (`tickets.authorization.abilities.merge`).
+     */
+    public static function mergeAbility(): string
+    {
+        return self::read()->string('tickets.authorization.abilities.merge', 'tickets.agent');
+    }
+
+    /**
+     * Whether `$who` starts watching on their own (`tickets.watchers.auto.*`): the requester on
+     * creation, the assignee on assignment, an agent who writes on the ticket, someone mentioned.
+     */
+    public static function autoWatch(string $who): bool
+    {
+        return match ($who) {
+            'requester' => self::read()->boolean('tickets.watchers.auto.requester', true),
+            'assignee' => self::read()->boolean('tickets.watchers.auto.assignee', true),
+            'agent_repliers' => self::read()->boolean('tickets.watchers.auto.agent_repliers', true),
+            'mentioned' => self::read()->boolean('tickets.watchers.auto.mentioned', false),
+            default => throw InvalidTicketsConfigurationException::invalid('tickets.watchers.auto.'.$who, 'one of requester, assignee, agent_repliers, mentioned'),
+        };
+    }
+
+    /**
+     * Whether an unknown tag name is created when it is attached (`tickets.tags.free_form`).
+     */
+    public static function freeFormTags(): bool
+    {
+        return self::read()->boolean('tickets.tags.free_form', true);
+    }
+
+    /**
+     * Whether tickets of different projects may be linked (`tickets.links.cross_project`).
+     */
+    public static function crossProjectLinks(): bool
+    {
+        return self::read()->boolean('tickets.links.cross_project', true);
+    }
+
+    /**
+     * How far the cycle check of `blocks` / `parent_of` links walks (`tickets.links.max_depth`).
+     */
+    public static function maxLinkDepth(): int
+    {
+        return self::read()->integer('tickets.links.max_depth', 50, min: 1, max: 1000);
+    }
+
+    /**
+     * Whether tickets of different projects may be merged (`tickets.merge.cross_project`).
+     */
+    public static function crossProjectMerge(): bool
+    {
+        return self::read()->boolean('tickets.merge.cross_project', false);
+    }
+
+    /**
+     * Whether a merge moves the source's attachments to the target
+     * (`tickets.merge.move_attachments`).
+     */
+    public static function mergeMovesAttachments(): bool
+    {
+        return self::read()->boolean('tickets.merge.move_attachments', true);
+    }
+
+    /**
+     * The media bucket of ticket attachments (`tickets.attachments.bucket`).
+     */
+    public static function attachmentsBucket(): string
+    {
+        $bucket = self::read()->string('tickets.attachments.bucket', 'attachments');
+
+        if (preg_match('/^[a-z][a-z0-9_-]{0,63}$/', $bucket) !== 1) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.attachments.bucket', 'a bucket name of lower-case letters, digits, dashes and underscores');
+        }
+
+        return $bucket;
+    }
+
+    /**
+     * The disk ticket attachments are stored on (`tickets.attachments.disk`) — private by
+     * default; media-library's own default is the web-served `public` disk.
+     */
+    public static function attachmentsDisk(): string
+    {
+        return self::read()->string('tickets.attachments.disk', 'local');
+    }
+
+    /**
+     * The mime types a ticket attachment may have (`tickets.attachments.mimes`, [] = any).
+     *
+     * @return list<string>
+     */
+    public static function attachmentMimes(): array
+    {
+        return self::read()->list(
+            'tickets.attachments.mimes',
+            [],
+            static fn (string $mime): bool => preg_match('#^[a-z0-9.+-]+/[a-z0-9.+*-]+$#i', $mime) === 1,
+        );
+    }
+
+    /**
+     * The largest ticket attachment, in kilobytes (`tickets.attachments.max_kb`).
+     */
+    public static function attachmentMaxKilobytes(): int
+    {
+        return self::read()->integer('tickets.attachments.max_kb', 10240, min: 1);
+    }
+
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
     public const string PREFIX_PATTERN = '/^[A-Z][A-Z0-9]{0,9}$/';
 

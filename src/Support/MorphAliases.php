@@ -12,8 +12,9 @@ use RoundlyConsulting\Tickets\Exceptions\UnknownMorphAliasException;
 
 /**
  * The alias allow-lists that turn untrusted `{type: alias, id}` input into a model —
- * `tickets.requesters`, `tickets.assignables`, `tickets.projects`. A class name is never
- * accepted as a type, and the guest model is always a valid requester (`guest`).
+ * `tickets.requesters`, `tickets.assignables`, `tickets.watchables` (null = requesters ∪
+ * assignables), `tickets.projects`. A class name is never accepted as a type, and the guest
+ * model is always a valid requester (`guest`).
  *
  * @internal
  */
@@ -25,6 +26,8 @@ final class MorphAliases
 
     public const string PROJECTS = 'projects';
 
+    public const string WATCHABLES = 'watchables';
+
     /**
      * @return array<string, class-string<Model>>
      */
@@ -34,8 +37,14 @@ final class MorphAliases
             self::REQUESTERS => config('tickets.requesters'),
             self::ASSIGNABLES => config('tickets.assignables'),
             self::PROJECTS => config('tickets.projects'),
+            self::WATCHABLES => config('tickets.watchables'),
             default => throw UnknownMorphAliasException::unknownKind($kind),
         };
+
+        // No watchables list: whoever may request or be assigned may watch.
+        if ($kind === self::WATCHABLES && $raw === null) {
+            return [...self::map(self::ASSIGNABLES), ...self::map(self::REQUESTERS)];
+        }
 
         $raw ??= [];
 

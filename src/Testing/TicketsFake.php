@@ -7,14 +7,17 @@ namespace RoundlyConsulting\Tickets\Testing;
 use BackedEnum;
 use Closure;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Assert as PHPUnit;
 use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
+use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\TicketsManager;
 
@@ -231,6 +234,179 @@ final class TicketsFake extends TicketsManager
         $this->assertNotRecorded(TicketOperation::DeleteComment);
     }
 
+    // Work management -----------------------------------------------------------------
+
+    public function assertAssigned(Ticket|string|null $ticket = null, ?Model $assignee = null): void
+    {
+        $this->assertRecorded(TicketOperation::Assign, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($assignee === null || ($recorded->model('assignee')?->is($assignee) ?? false)));
+    }
+
+    public function assertNothingAssigned(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Assign);
+    }
+
+    public function assertUnassigned(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Unassign, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingUnassigned(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Unassign);
+    }
+
+    public function assertClaimed(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::Claim, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingClaimed(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Claim);
+    }
+
+    public function assertWatched(Ticket|string|null $ticket = null, ?Model $watcher = null): void
+    {
+        $this->assertRecorded(TicketOperation::AddWatcher, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($watcher === null || ($recorded->model('watcher')?->is($watcher) ?? false)));
+    }
+
+    public function assertNothingWatched(): void
+    {
+        $this->assertNotRecorded(TicketOperation::AddWatcher);
+    }
+
+    public function assertUnwatched(Ticket|string|null $ticket = null, ?Model $watcher = null): void
+    {
+        $this->assertRecorded(TicketOperation::RemoveWatcher, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($watcher === null || ($recorded->model('watcher')?->is($watcher) ?? false)));
+    }
+
+    public function assertNothingUnwatched(): void
+    {
+        $this->assertNotRecorded(TicketOperation::RemoveWatcher);
+    }
+
+    /**
+     * Tags were attached — on `$ticket`, `$tag` (a name or slug) among them.
+     */
+    public function assertTagged(Ticket|string|null $ticket = null, ?string $tag = null): void
+    {
+        $this->assertTagOperation(TicketOperation::AttachTags, $ticket, $tag);
+    }
+
+    public function assertNothingTagged(): void
+    {
+        $this->assertNotRecorded(TicketOperation::AttachTags);
+    }
+
+    public function assertUntagged(Ticket|string|null $ticket = null, ?string $tag = null): void
+    {
+        $this->assertTagOperation(TicketOperation::DetachTags, $ticket, $tag);
+    }
+
+    public function assertNothingUntagged(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DetachTags);
+    }
+
+    public function assertTagsSynced(Ticket|string|null $ticket = null, ?string $tag = null): void
+    {
+        $this->assertTagOperation(TicketOperation::SyncTags, $ticket, $tag);
+    }
+
+    public function assertNothingTagsSynced(): void
+    {
+        $this->assertNotRecorded(TicketOperation::SyncTags);
+    }
+
+    public function assertLinked(Ticket|string|null $ticket = null, ?LinkType $type = null): void
+    {
+        $this->assertRecorded(TicketOperation::Link, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($type === null || $recorded->context['type'] === $type));
+    }
+
+    public function assertNothingLinked(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Link);
+    }
+
+    public function assertUnlinked(Ticket|string|null $ticket = null, ?LinkType $type = null): void
+    {
+        $this->assertRecorded(TicketOperation::Unlink, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($type === null || $recorded->context['type'] === $type));
+    }
+
+    public function assertNothingUnlinked(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Unlink);
+    }
+
+    /**
+     * `$source` was merged — into `$target`.
+     */
+    public function assertMerged(Ticket|string|null $source = null, Ticket|string|null $target = null): void
+    {
+        $this->assertRecorded(TicketOperation::Merge, static function (RecordedTicketOperation $recorded) use ($source, $target): bool {
+            $into = $recorded->model('target');
+
+            return $recorded->concerns($source)
+                && ($target === null || ($into instanceof Ticket && (is_string($target) ? $into->reference === $target : $into->is($target))));
+        });
+    }
+
+    public function assertNothingMerged(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Merge);
+    }
+
+    public function assertAttached(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::AddAttachment, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNothingAttached(): void
+    {
+        $this->assertNotRecorded(TicketOperation::AddAttachment);
+    }
+
+    public function assertAttachmentRemoved(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::RemoveAttachment, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNoAttachmentRemoved(): void
+    {
+        $this->assertNotRecorded(TicketOperation::RemoveAttachment);
+    }
+
+    /**
+     * Custom field values were set — on `$ticket`, `$key` among them.
+     */
+    public function assertFieldsSet(Ticket|string|null $ticket = null, ?string $key = null): void
+    {
+        $this->assertRecorded(TicketOperation::SetFields, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($key === null || in_array($key, (array) $recorded->context['keys'], true)));
+    }
+
+    public function assertNoFieldsSet(): void
+    {
+        $this->assertNotRecorded(TicketOperation::SetFields);
+    }
+
+    public function assertFieldsForgotten(Ticket|string|null $ticket = null, ?string $key = null): void
+    {
+        $this->assertRecorded(TicketOperation::ForgetFields, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($key === null || in_array($key, (array) $recorded->context['keys'], true)));
+    }
+
+    public function assertNoFieldsForgotten(): void
+    {
+        $this->assertNotRecorded(TicketOperation::ForgetFields);
+    }
+
     // Categories ----------------------------------------------------------------------
 
     /**
@@ -300,6 +476,88 @@ final class TicketsFake extends TicketsManager
         $this->assertNotRecorded(TicketOperation::DefineField);
     }
 
+    public function assertFieldUpdated(?string $key = null): void
+    {
+        $this->assertFieldOperation(TicketOperation::UpdateField, $key);
+    }
+
+    public function assertNoFieldUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::UpdateField);
+    }
+
+    public function assertFieldDeleted(?string $key = null): void
+    {
+        $this->assertFieldOperation(TicketOperation::DeleteField, $key);
+    }
+
+    public function assertNoFieldDeleted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DeleteField);
+    }
+
+    public function assertFieldRestored(?string $key = null): void
+    {
+        $this->assertFieldOperation(TicketOperation::RestoreField, $key);
+    }
+
+    public function assertNoFieldRestored(): void
+    {
+        $this->assertNotRecorded(TicketOperation::RestoreField);
+    }
+
+    /**
+     * Orphaned field values were pruned — for real, or with `$dryRun`, counted.
+     */
+    public function assertFieldsPruned(?bool $dryRun = null): void
+    {
+        $this->assertRecorded(TicketOperation::PruneFields, static fn (RecordedTicketOperation $recorded): bool => $dryRun === null
+            || $recorded->context['dry_run'] === $dryRun);
+    }
+
+    public function assertNoFieldsPruned(): void
+    {
+        $this->assertNotRecorded(TicketOperation::PruneFields);
+    }
+
+    // Tags ----------------------------------------------------------------------------
+
+    /**
+     * A tag was created (or found, with `findOrCreate()`) — named `$name`.
+     */
+    public function assertTagCreated(?string $name = null): void
+    {
+        $this->assertRecorded(TicketOperation::CreateTag, static fn (RecordedTicketOperation $recorded): bool => $name === null
+            || ($recorded->result instanceof TicketTag && $recorded->result->name === $name));
+    }
+
+    public function assertNoTagCreated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::CreateTag);
+    }
+
+    public function assertTagUpdated(?TicketTag $tag = null): void
+    {
+        $this->assertRecorded(TicketOperation::UpdateTag, static fn (RecordedTicketOperation $recorded): bool => $tag === null
+            || ($recorded->model('tag')?->is($tag) ?? false));
+    }
+
+    public function assertNoTagUpdated(): void
+    {
+        $this->assertNotRecorded(TicketOperation::UpdateTag);
+    }
+
+    public function assertTagDeleted(?TicketTag $tag = null): void
+    {
+        $this->assertRecorded(TicketOperation::DeleteTag, static fn (RecordedTicketOperation $recorded): bool => $tag === null
+            || ($recorded->model('tag')?->is($tag) ?? false));
+    }
+
+    public function assertNoTagDeleted(): void
+    {
+        $this->assertNotRecorded(TicketOperation::DeleteTag);
+    }
+
     // Guests --------------------------------------------------------------------------
 
     /**
@@ -339,6 +597,21 @@ final class TicketsFake extends TicketsManager
     }
 
     // Plumbing ------------------------------------------------------------------------
+
+    private function assertTagOperation(TicketOperation $operation, Ticket|string|null $ticket, ?string $tag): void
+    {
+        $this->assertRecorded($operation, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($tag === null || in_array($tag, (array) $recorded->context['tags'], true)));
+    }
+
+    private function assertFieldOperation(TicketOperation $operation, ?string $key): void
+    {
+        $this->assertRecorded($operation, static function (RecordedTicketOperation $recorded) use ($key): bool {
+            $field = $recorded->model('field');
+
+            return $key === null || ($field instanceof TicketField && $field->key === $key);
+        });
+    }
 
     private function assertCategoryOperation(TicketOperation $operation, ?TicketCategory $category): void
     {

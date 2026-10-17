@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Actions\Categories;
 
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
+use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Support\AdvisoryLock;
 use RoundlyConsulting\Tickets\Support\CategoryTree;
@@ -20,6 +21,10 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  */
 final readonly class MoveCategoryAction
 {
+    public function __construct(
+        private FieldSetResolver $fields,
+    ) {}
+
     public function execute(TicketCategory $category, TicketCategory|int|null $parent, ?int $position = null): TicketCategory
     {
         return TicketTransaction::run($category, function () use ($category, $parent, $position): TicketCategory {
@@ -53,6 +58,9 @@ final readonly class MoveCategoryAction
             ])->save();
 
             $category->unsetRelation('parent');
+
+            // A move changes which ancestors' fields the subtree's tickets take.
+            $this->fields->flush();
 
             return $category;
         });

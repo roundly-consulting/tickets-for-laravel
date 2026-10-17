@@ -59,6 +59,7 @@ return [
     ],
 
     'assignee' => [
+        'no_actor' => 'Claiming a ticket needs an actor — call by() with the user who takes it.',
         'not_an_assignee' => 'The model [:class] cannot be assigned tickets: it must implement the Assignee contract.',
         'ineligible' => 'The model [:class] is not eligible to be assigned this ticket.',
     ],
@@ -76,6 +77,13 @@ return [
         'unexpected_options' => 'The field [:key] is not a choice field and cannot have options.',
         'rule_not_allowed' => 'The rule [:rule] of the field [:key] is not allowed.',
         'empty_label' => 'The field [:key] needs a label.',
+        'unknown' => 'The field [:key] is not a field of this ticket.',
+        'not_editable' => 'The field [:key] can only be changed by an agent.',
+        'type_locked' => 'The field [:key] already holds values, so its type cannot change.',
+        'encryption_locked' => 'The field [:key] already holds values, so its encryption cannot change.',
+        'options_in_use' => 'The options [:options] of the field [:key] are still in use.',
+        'not_filterable' => 'Tickets cannot be filtered by the field [:key].',
+        'not_filterable_encrypted' => 'The field [:key] is encrypted and cannot be filtered.',
     ],
 
     'guest' => [
@@ -84,11 +92,50 @@ return [
         'taken' => 'Another guest already uses this :field.',
     ],
 
+    'watcher' => [
+        'no_actor' => 'Watching a ticket needs an actor — call by() with the user who watches it.',
+    ],
+
+    'tag' => [
+        'invalid_name' => 'A tag needs a name of at most 64 characters.',
+        'invalid_color' => 'The tag colour [:color] must be a hex colour such as #f24e29.',
+        'duplicate' => 'A tag named [:name] already exists here.',
+        'unknown' => 'There is no tag named [:name], and new tags cannot be created on the fly.',
+        'project_mismatch' => 'The tag [:name] belongs to another project.',
+    ],
+
+    'link' => [
+        'self' => 'A ticket cannot be linked to itself.',
+        'cycle' => 'That :type link would close a cycle.',
+        'second_parent' => 'Ticket [:reference] already has a parent.',
+        'cross_project' => 'Tickets of different projects cannot be linked.',
+        'too_deep' => 'The link chain is deeper than :max levels and cannot be checked for cycles.',
+        'not_linked' => 'There is no :type link with ticket [:reference] here.',
+    ],
+
+    'merge' => [
+        'same' => 'A ticket cannot be merged into itself.',
+        'source_closed' => 'Ticket [:reference] is closed and cannot be merged.',
+        'source_merged' => 'Ticket [:reference] was already merged.',
+        'target_closed' => 'Ticket [:reference] is closed and cannot take a merge.',
+        'target_merged' => 'Ticket [:reference] was merged into [:final]. Merge into that ticket instead.',
+        'cross_project' => 'Tickets of different projects cannot be merged.',
+        'unauthorized' => 'You may not merge tickets.',
+        'note_on_target' => 'Ticket :source was merged into this ticket.',
+        'reply_on_source' => 'This ticket was merged into :target.',
+    ],
+
+    'attachment' => [
+        'not_found' => 'Attachment [:media] is not part of ticket [:reference].',
+    ],
+
     'doctor' => [
         'lifecycle_ok' => 'The lifecycle [:class] satisfies the ticket contract and every automation.',
         'conveniences' => 'Named transition conveniences supported: :list.',
         'meta_missing' => 'The comments table has no `meta` column. Publish and run the comments-for-laravel 1.1 migrations.',
         'meta_ok' => 'The comments table carries the `meta` column replies and notes are written with.',
         'comments_authorization' => 'comments.authorization is on: comments checks the authenticated user on every ticket reply, note, approval and lock. Let your CommentPolicy allow ticket commentables, or guest replies, system notes and the auto-close lock will be refused.',
+        'attachments_public' => 'Ticket attachments go to the [:disk] disk, which is served on the web: a private file is reachable under /storage without a signature. Set tickets.attachments.disk to a private disk such as local.',
+        'attachments_ok' => 'Ticket attachments go to the private [:disk] disk.',
     ],
 ];

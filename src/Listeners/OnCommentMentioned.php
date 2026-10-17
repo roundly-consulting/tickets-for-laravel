@@ -6,11 +6,13 @@ namespace RoundlyConsulting\Tickets\Listeners;
 
 use Illuminate\Contracts\Events\Dispatcher;
 use RoundlyConsulting\Comments\Events\CommentMentioned;
+use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
 use RoundlyConsulting\Tickets\Events\TicketMentioned;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketModels;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
@@ -25,6 +27,7 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
 final readonly class OnCommentMentioned
 {
     public function __construct(
+        private AutoWatchAction $watch,
         private Dispatcher $events,
     ) {}
 
@@ -48,8 +51,14 @@ final readonly class OnCommentMentioned
             ? Agents::is($mentioned)
             : TicketVisibility::canView($mentioned, $ticket);
 
-        if ($mayRead) {
-            $this->events->dispatch(new TicketMentioned($ticket, $comment, $mentioned));
+        if (! $mayRead) {
+            return;
         }
+
+        if (TicketsConfig::autoWatch('mentioned')) {
+            $this->watch->execute($ticket, $mentioned);
+        }
+
+        $this->events->dispatch(new TicketMentioned($ticket, $comment, $mentioned));
     }
 }

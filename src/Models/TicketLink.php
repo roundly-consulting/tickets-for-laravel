@@ -24,8 +24,8 @@ use RoundlyConsulting\Tickets\Support\TicketModels;
  * @property string|null $created_by_type
  * @property int|string|null $created_by_id
  * @property Carbon|null $created_at
- * @property-read Ticket $ticket
- * @property-read Ticket $related
+ * @property-read Ticket|null $ticket null once that ticket is soft-deleted
+ * @property-read Ticket|null $related null once that ticket is soft-deleted
  * @property-read Model|null $createdBy
  */
 final class TicketLink extends Model

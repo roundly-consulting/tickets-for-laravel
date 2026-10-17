@@ -9,6 +9,7 @@ use Illuminate\Contracts\Container\Container;
 use RoundlyConsulting\Tickets\Accessors\Categories;
 use RoundlyConsulting\Tickets\Accessors\Fields;
 use RoundlyConsulting\Tickets\Accessors\Guests;
+use RoundlyConsulting\Tickets\Accessors\Tags;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\Builders\TicketBuilder;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
@@ -88,11 +89,19 @@ class TicketsManager
     }
 
     /**
-     * Custom field definitions: `make`, `define`.
+     * Custom field definitions: `make`, `define`, `update`, `delete`, `restore`, `prune`, `for`.
      */
     public function fields(): Fields
     {
         return new Fields($this);
+    }
+
+    /**
+     * Tags: `create`, `findOrCreate`, `rename`, `recolor`, `update`, `delete`, `all`.
+     */
+    public function tags(): Tags
+    {
+        return new Tags($this);
     }
 
     /**

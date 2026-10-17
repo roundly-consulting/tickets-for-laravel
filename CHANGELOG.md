@@ -81,3 +81,35 @@ Initial public release.
   passed on only to someone who may read the comment) events; reply and note attachments on the
   comment's private bucket; `tickets:doctor` checks the comments `meta` column and warns about
   `comments.authorization`.
+- Assignment: `Tickets::for($ticket)->assign()`, `unassign()` and `claim()` (also `$ticket->assignTo()`),
+  eligibility through `Contracts\Assignee` and the `Concerns\IsTicketAssignee` defaults, the same
+  assignee again a no-op, a new ticket opened by the `Assigned` automation; `TicketUnassigned`.
+- Watchers: `->watchers()` (`add`, `remove`, `watch`, `unwatch`, `has`, `all`), auto-watch of the
+  requester, the assignee, agents who write and (opt-in) mentioned readers through
+  `tickets.watchers.auto`, and the `tickets.watchables` alias allow-list;
+  `TicketWatcherAdded` / `TicketWatcherRemoved`.
+- Tags: `Tickets::tags()` (`create`, `findOrCreate`, `rename`, `recolor`, `update`, `delete`, `all`)
+  and `->tags()` (`attach`, `detach`, `sync`, `all`) by name or model, free-form creation
+  (`tickets.tags.free_form`), global or per project, serialised on an advisory lock;
+  `TicketTagged` / `TicketUntagged`.
+- Links: `->links()` (`add`, `remove`, `all` as direction-aware `TicketLinkView`s) with
+  `relates_to`, `duplicates`, `blocks` and `parent_of`; self links, `blocks` / `parent_of` cycles,
+  second parents and (with `tickets.links.cross_project` off) cross-project links are refused;
+  `TicketLinked` / `TicketUnlinked`.
+- Merge: `->mergeInto($target)` moves the conversation (comments' `transfer()`), watchers, tags and
+  attachments, links the source as a duplicate, revokes its guest links and dismisses it; the
+  source's requester then watches the target and sees its public thread only. Refusals through
+  `InvalidMergeException`, the `tickets.authorization.abilities.merge` ability and
+  `tickets.merge.*`; `TicketMerged` with a `MergeResult`.
+- Ticket attachments: `->attachments()` (`add`, `remove`, `all`) on a private bucket on
+  `tickets.attachments.disk` (`local` by default, never media-library's public default), with
+  `tickets.attachments.mimes` and `max_kb`; `tickets:doctor` warns about a web-served disk.
+- Custom field values: `->fields()` (`set`, `setMany`, `get`, `all`, `forget`, `definitions`) over
+  the fields that apply to the ticket (global, project, category and its ancestors); unknown keys,
+  non-editable fields for non-agents, invalid values and missing required fields are refused;
+  defaults filled at creation; type, encryption and options in use locked; the activity entry and
+  `TicketFieldsChanged` carry keys only. `Tickets::fields()` gains `update`, `delete`, `restore`,
+  `prune` and `for`, and field rules refuse database probes and unsafe regex patterns.
+- The `whereField()` and `whereFieldBetween()` query scopes (typed, one-sided ranges), and the ticket
+  builder's `fields()`, `tags()`, `watchers()` and `attach()`.
+

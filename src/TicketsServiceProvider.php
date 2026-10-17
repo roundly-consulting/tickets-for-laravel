@@ -22,6 +22,7 @@ use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
 use RoundlyConsulting\Tickets\Conversation\CommentsConversationLock;
 use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
+use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Listeners\OnCommentMentioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
@@ -55,6 +56,9 @@ final class TicketsServiceProvider extends PackageServiceProvider
         parent::register();
 
         $this->app->singleton(TicketsManager::class);
+
+        // Per request or job (Octane-safe): the field sets it memoises go stale between them.
+        $this->app->scoped(FieldSetResolver::class);
 
         $this->bindFromConfig(AssignmentStrategy::class, 'tickets.assignment.strategy', CategoryDefaultStrategy::class);
         $this->bindFromConfig(DueDateResolver::class, 'tickets.due.resolver', CategoryDueDateResolver::class);

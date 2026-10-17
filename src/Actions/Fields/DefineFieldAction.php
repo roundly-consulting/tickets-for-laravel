@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Actions\Fields;
 
-use Illuminate\Database\Eloquent\Builder;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
-use RoundlyConsulting\Tickets\Exceptions\InvalidFieldException;
+use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Support\AdvisoryLock;
 use RoundlyConsulting\Tickets\Support\CategoryTree;
@@ -27,6 +26,10 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  */
 final readonly class DefineFieldAction
 {
+    public function __construct(
+        private FieldSetResolver $fields,
+    ) {}
+
     public function execute(FieldData $data): TicketField
     {
         $key = FieldInput::key($data->key);
@@ -51,19 +54,7 @@ final readonly class DefineFieldAction
                 [$projectType, $projectId] = [$category->project_type, $category->project_id];
             }
 
-            $taken = TicketModels::field()::query()->where('key', $key);
-
-            // A project field collides with a global one and with its own project's fields; a
-            // global field collides with every field of the key, in any project.
-            if ($projectType !== null) {
-                $taken->where(static fn (Builder $scope): Builder => $scope
-                    ->whereNull('project_type')
-                    ->orWhere(static fn (Builder $same): Builder => $same->where('project_type', $projectType)->where('project_id', $projectId)));
-            }
-
-            if ($taken->exists()) {
-                throw InvalidFieldException::duplicateKey($key);
-            }
+            FieldInput::assertKeyFree($key, $projectType, $projectId);
 
             $field->forceFill([
                 'project_type' => $projectType,
@@ -83,6 +74,8 @@ final readonly class DefineFieldAction
                 'position' => $data->position,
                 'is_active' => $data->active,
             ])->save();
+
+            $this->fields->flush();
 
             return $field;
         });

@@ -19,6 +19,7 @@ use RoundlyConsulting\Tickets\TicketsManager;
  * @method static \RoundlyConsulting\Tickets\Handles\TicketHandle for(\RoundlyConsulting\Tickets\Models\Ticket|string $ticket)
  * @method static \RoundlyConsulting\Tickets\Accessors\Categories categories()
  * @method static \RoundlyConsulting\Tickets\Accessors\Fields fields()
+ * @method static \RoundlyConsulting\Tickets\Accessors\Tags tags()
  * @method static \RoundlyConsulting\Tickets\Accessors\Guests guests()
  * @method static void assertCreated(\Closure|null $callback = null)
  * @method static void assertNothingCreated()
