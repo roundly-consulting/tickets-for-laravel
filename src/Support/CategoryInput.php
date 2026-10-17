@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Support;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Exceptions\InvalidAssigneeException;
@@ -36,17 +37,23 @@ final class CategoryInput
         return $name;
     }
 
-    public static function dueIn(?string $value): ?string
+    /**
+     * The due offset as the ISO-8601 duration it is stored as — given as one (`PT4H`) or as a
+     * positive {@see CarbonInterval} (`CarbonInterval::hours(4)`).
+     */
+    public static function dueIn(CarbonInterval|string|null $value): ?string
     {
         if ($value === null) {
             return null;
         }
 
-        if (Durations::parse($value) === null) {
-            throw InvalidCategoryException::invalidDueIn($value);
+        $spec = $value instanceof CarbonInterval ? ($value->totalSeconds > 0 ? $value->spec() : '') : $value;
+
+        if (Durations::parse($spec) === null) {
+            throw InvalidCategoryException::invalidDueIn($value instanceof CarbonInterval ? $value->forHumans() : $value);
         }
 
-        return $value;
+        return $spec;
     }
 
     public static function priority(BackedEnum|string|null $value): ?string

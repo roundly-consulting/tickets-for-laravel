@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Builders;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\DataTransferObjects\CategoryData;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -95,9 +96,10 @@ final class CategoryBuilder
     /**
      * What a new ticket in this category (or a descendant without its own) inherits.
      *
-     * @param  string|null  $dueIn  an ISO-8601 duration (`P1D`, `PT4H`)
+     * @param  CarbonInterval|string|null  $dueIn  an ISO-8601 duration (`P1D`, `PT4H`) or a positive
+     *                                             interval (`CarbonInterval::hours(4)`), stored as the duration
      */
-    public function defaults(BackedEnum|string|null $priority = null, ?Model $assignee = null, ?string $dueIn = null): self
+    public function defaults(BackedEnum|string|null $priority = null, ?Model $assignee = null, CarbonInterval|string|null $dueIn = null): self
     {
         $this->defaultPriority = CategoryInput::priority($priority);
         CategoryInput::assignee($assignee);

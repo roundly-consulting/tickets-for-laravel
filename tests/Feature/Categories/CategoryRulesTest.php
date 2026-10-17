@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonInterval;
 use RoundlyConsulting\Testing\Fixtures\LockRecorder;
 use RoundlyConsulting\Tickets\DataTransferObjects\CategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
@@ -43,6 +44,27 @@ it('creates a category with translated names, a slug and defaults', function ():
         ->and(Tickets::categories()->find($category->id)?->is($category))->toBeTrue()
         ->and(Tickets::categories()->find(999))->toBeNull();
 });
+
+it('takes a due offset as an interval and stores the ISO-8601 duration', function (): void {
+    $built = Tickets::categories()->make('Network')->defaults(dueIn: CarbonInterval::hours(4))->create();
+    $dto = Tickets::categories()->create(new CategoryData('Printers', defaultDueIn: CarbonInterval::days(2)->addHours(12)));
+    $created = $dto->default_due_in;
+
+    Tickets::categories()->update($dto, new UpdateCategoryData(defaultDueIn: CarbonInterval::minutes(90)));
+
+    expect($built->default_due_in)->toBe('PT4H')
+        ->and($created)->toBe('P2DT12H')
+        ->and($dto->fresh()?->default_due_in)->toBe('PT90M');
+});
+
+it('refuses a due offset that is no positive duration', function (CarbonInterval|string $dueIn): void {
+    Tickets::categories()->make('Network')->defaults(dueIn: $dueIn)->create();
+})->throws(InvalidCategoryException::class)->with([
+    'a malformed string' => ['4 hours'],
+    'a zero interval' => [CarbonInterval::seconds(0)],
+    'a negative interval' => [CarbonInterval::hours(-4)],
+    'under a second' => [CarbonInterval::milliseconds(500)],
+]);
 
 it('lets a child inherit its parent project', function (): void {
     $project = Project::query()->create(['name' => 'Support', 'key' => 'SUP']);

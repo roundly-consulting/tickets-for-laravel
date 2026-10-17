@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\DataTransferObjects;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Support\Optional;
 
@@ -17,6 +18,7 @@ final readonly class UpdateCategoryData
     /**
      * @param  array<string, string>|string|Optional  $name
      * @param  array<string, string>|string|null|Optional  $description
+     * @param  CarbonInterval|string|null|Optional  $defaultDueIn  an ISO-8601 duration or a positive interval
      */
     public function __construct(
         public array|string|Optional $name = new Optional,
@@ -25,6 +27,6 @@ final readonly class UpdateCategoryData
         public bool|Optional $active = new Optional,
         public BackedEnum|string|null|Optional $defaultPriority = new Optional,
         public Model|null|Optional $defaultAssignee = new Optional,
-        public string|null|Optional $defaultDueIn = new Optional,
+        public CarbonInterval|string|null|Optional $defaultDueIn = new Optional,
     ) {}
 }

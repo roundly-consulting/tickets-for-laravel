@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\DataTransferObjects;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 
@@ -17,7 +18,8 @@ final readonly class CategoryData
     /**
      * @param  array<string, string>|string  $name
      * @param  array<string, string>|string|null  $description
-     * @param  string|null  $defaultDueIn  an ISO-8601 duration (`P2D`, `PT4H`)
+     * @param  CarbonInterval|string|null  $defaultDueIn  an ISO-8601 duration (`P2D`, `PT4H`) or a
+     *                                                    positive interval
      */
     public function __construct(
         public array|string $name,
@@ -28,6 +30,6 @@ final readonly class CategoryData
         public bool $active = true,
         public BackedEnum|string|null $defaultPriority = null,
         public ?Model $defaultAssignee = null,
-        public ?string $defaultDueIn = null,
+        public CarbonInterval|string|null $defaultDueIn = null,
     ) {}
 }

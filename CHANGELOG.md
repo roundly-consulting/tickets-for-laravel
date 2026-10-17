@@ -51,7 +51,7 @@ Initial public release.
 - Priorities through the swappable `TicketPriority` enum (`Contracts\Priority`), tolerant of stored
   values the enum no longer has; manual due dates with a swappable `Contracts\DueDateResolver`.
 - Nested, translatable categories (`Tickets::categories()`, `CategoryBuilder`) with default priority,
-  assignee and due offset applied once at creation, cycle, depth and project rules, and deletion with
+  assignee and due offset (an ISO-8601 duration or a `CarbonInterval`) applied once at creation, cycle, depth and project rules, and deletion with
   reassignment.
 - Assignment to any `Contracts\Assignee` (a user, a team): `assign()`, `unassign()`, `claim()`,
   eligibility checks and a swappable `Contracts\AssignmentStrategy`.
