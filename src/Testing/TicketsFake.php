@@ -167,6 +167,17 @@ final class TicketsFake extends TicketsManager
         $this->assertNotRecorded(TicketOperation::Restore);
     }
 
+    public function assertTransitioned(Ticket|string|null $ticket = null, ?string $transition = null): void
+    {
+        $this->assertRecorded(TicketOperation::Transition, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($transition === null || $recorded->context['transition'] === $transition));
+    }
+
+    public function assertNothingTransitioned(): void
+    {
+        $this->assertNotRecorded(TicketOperation::Transition);
+    }
+
     // Categories ----------------------------------------------------------------------
 
     /**

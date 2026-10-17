@@ -6,22 +6,36 @@ namespace RoundlyConsulting\Tickets\Handles;
 
 use BackedEnum;
 use Carbon\CarbonInterface;
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Lifecycle\DataTransferObjects\AvailableTransition;
+use RoundlyConsulting\Lifecycle\DataTransferObjects\TransitionResult;
+use RoundlyConsulting\Lifecycle\LifecycleHandle;
+use RoundlyConsulting\Lifecycle\LifecycleManager;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeCategoryAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangePriorityAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeRequesterAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\DeleteTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\RestoreTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\SetDueDateAction;
+use RoundlyConsulting\Tickets\Actions\Tickets\TransitionTicketAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\UpdateTicketAction;
+use RoundlyConsulting\Tickets\Contracts\TicketState;
 use RoundlyConsulting\Tickets\DataTransferObjects\GuestData;
+use RoundlyConsulting\Tickets\DataTransferObjects\TransitionData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateTicketData;
 use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
+use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLifecycleException;
+use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Support\ActorResolver;
+use RoundlyConsulting\Tickets\Support\Messages;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
+use RoundlyConsulting\Tickets\Support\TicketStates;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
@@ -156,6 +170,113 @@ final readonly class TicketHandle
     }
 
     /**
+     * Apply a transition of the configured lifecycle — the generic path every named
+     * convenience below takes.
+     *
+     * @param  array<string, mixed>  $payload  validated by the transition's rules (`resolution` on `resolve`)
+     */
+    public function transition(string $transition, ?string $reason = null, array $payload = []): TransitionResult
+    {
+        $data = new TransitionData($transition, $reason, $payload);
+
+        return $this->manager->perform(
+            TicketOperation::Transition,
+            TransitionTicketAction::class,
+            fn (TransitionTicketAction $action): TransitionResult => $action->execute($this->ticket, $data, $this->actor, $this->system),
+            $this->context(['transition' => $transition, 'reason' => $reason]),
+        );
+    }
+
+    /**
+     * Whether the transition is allowed from the current state for this handle's actor.
+     */
+    public function can(string $transition): bool
+    {
+        return $this->lifecycle()->can($transition);
+    }
+
+    /**
+     * The names of the transitions this handle's actor may apply now.
+     *
+     * @return list<string>
+     */
+    public function allowedTransitions(): array
+    {
+        return array_map(static fn (AvailableTransition $transition): string => $transition->name, $this->lifecycle()->allowedTransitions());
+    }
+
+    /**
+     * The current state of the configured lifecycle.
+     */
+    public function status(): TicketState
+    {
+        $state = $this->lifecycle()->state();
+
+        return $state instanceof TicketState
+            ? $state
+            : throw InvalidTicketLifecycleException::broken(TicketsConfig::lifecycle(), Messages::get('lifecycle.state_not_ticket_state', ['state' => TicketStates::stored($state)]));
+    }
+
+    // Named conveniences over the default lifecycle's transitions. A host lifecycle without
+    // one of these names throws UnknownTicketTransitionException — use transition() there.
+
+    public function start(): static
+    {
+        $this->transition(TicketLifecycle::START);
+
+        return $this;
+    }
+
+    public function wait(): static
+    {
+        $this->transition(TicketLifecycle::WAIT);
+
+        return $this;
+    }
+
+    public function hold(string $reason): static
+    {
+        $this->transition(TicketLifecycle::HOLD, $reason);
+
+        return $this;
+    }
+
+    public function resume(): static
+    {
+        $this->transition(TicketLifecycle::RESUME);
+
+        return $this;
+    }
+
+    public function resolve(?string $resolution = null): static
+    {
+        $this->transition(TicketLifecycle::RESOLVE, payload: $resolution === null ? [] : ['resolution' => $resolution]);
+
+        return $this;
+    }
+
+    public function reopen(?string $reason = null): static
+    {
+        $this->transition(TicketLifecycle::REOPEN, $reason);
+
+        return $this;
+    }
+
+    public function close(?string $reason = null): static
+    {
+        $this->transition(TicketLifecycle::CLOSE, $reason);
+
+        return $this;
+    }
+
+    public function dismiss(string $reason): static
+    {
+        $this->transition(TicketLifecycle::DISMISS, $reason);
+
+        return $this;
+    }
+
+    /**
      * The activity timeline, oldest first — public entries only unless `$internal`.
      *
      * @return Collection<int, TicketActivity>
@@ -169,6 +290,13 @@ final readonly class TicketHandle
         }
 
         return $query->get();
+    }
+
+    private function lifecycle(): LifecycleHandle
+    {
+        $handle = Container::getInstance()->make(LifecycleManager::class)->for($this->ticket, 'status');
+
+        return $this->system ? $handle->asSystem() : $handle->by(ActorResolver::resolve($this->actor));
     }
 
     /**
