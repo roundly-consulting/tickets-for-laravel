@@ -69,3 +69,5 @@ ArchPresets::runtimeRequireIsWhitelisted(__DIR__.'/../../composer.json');
 ArchPresets::noDebuggingLeftovers(srcDir: $src);
 
 ArchPresets::modelsGoThroughTheFacade('RoundlyConsulting\Tickets');
+
+ArchPresets::factoriesResolveThroughSeam(__DIR__.'/../../database/factories', $src);

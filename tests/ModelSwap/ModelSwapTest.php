@@ -5,6 +5,11 @@ declare(strict_types=1);
 use RoundlyConsulting\Tickets\DataTransferObjects\CategoryData;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Facades\Tickets;
+use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Models\TicketCategory;
+use RoundlyConsulting\Tickets\Models\TicketField;
+use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Models\TicketTag;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomCategory;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomField;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\CustomGuest;
@@ -55,4 +60,24 @@ it('creates and attaches tags as the configured tag model', function (): void {
 
         return [$created, $found, ...Tickets::tags()->all(), ...Tickets::for($ticket)->tags()->all(), ...$ticket->tags()->get()];
     });
+});
+
+/**
+ * The factory half of the seam: a host that swapped a model gets its own class out of the
+ * packaged factory — through the packaged class and through its own.
+ */
+it('builds the configured model from every factory of a swappable model', function (): void {
+    expect(Ticket::factory()->create()::class)->toBe(CustomTicket::class)
+        ->and(CustomTicket::factory()->create()::class)->toBe(CustomTicket::class)
+        ->and(TicketCategory::factory()->create()::class)->toBe(CustomCategory::class)
+        ->and(TicketField::factory()->create()::class)->toBe(CustomField::class)
+        ->and(TicketGuest::factory()->create()::class)->toBe(CustomGuest::class)
+        ->and(TicketTag::factory()->create()::class)->toBe(CustomTag::class);
+});
+
+it('gives a factory ticket a requester of the configured guest model', function (): void {
+    $ticket = Ticket::factory()->create();
+
+    expect($ticket->requester)->toBeInstanceOf(CustomGuest::class)
+        ->and($ticket->requester_type)->toBe((new CustomGuest)->getMorphClass());
 });
