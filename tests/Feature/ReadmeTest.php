@@ -63,6 +63,10 @@ it('runs the README usage example verbatim', function (): void {
     $customer = ReadmeUser::query()->create(['name' => 'Ada', 'email' => 'ada@example.test']);
     $agent = ReadmeUser::query()->create(['name' => 'Grace', 'email' => 'grace@example.test', 'is_support' => true]);
 
+    // The due date is resolved a moment after the ticket is stamped: on a slow engine the two
+    // straddle a second, and "due in a day" would read a second off.
+    $this->freezeSecond();
+
     eval(readmePhpBlocks()[1]);
 
     $ticket = Ticket::query()->where('reference', 'TCK-1')->firstOrFail();
