@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use RoundlyConsulting\Tickets\Enums\FieldType;
+use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
+use RoundlyConsulting\Tickets\Events\TicketUnlinked;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -365,6 +368,21 @@ describe('watchers, tags, links, merge, attachments, activity', function (): voi
 
         expect(TicketLink::query()->count())->toBe(0);
         $this->actingAs($agent)->deleteJson("/api/tickets/{$a->reference}/links/1")->assertNotFound()->assertJson(['code' => 'link_not_found']);
+    });
+
+    it('deletes exactly the requested row of two mutual duplicates links', function (): void {
+        Event::fake([TicketUnlinked::class]);
+        $agent = apiAgent();
+        $a = apiTicket();
+        $b = apiTicket();
+        Tickets::for($a)->asSystem()->links()->add($b, LinkType::Duplicates);
+        Tickets::for($b)->asSystem()->links()->add($a, LinkType::Duplicates);
+        [$aToB, $bToA] = TicketLink::query()->orderBy('id')->pluck('id')->all();
+
+        $this->actingAs($agent)->deleteJson("/api/tickets/{$a->reference}/links/{$bToA}")->assertNoContent();
+
+        expect(TicketLink::query()->pluck('id')->all())->toBe([$aToB]);
+        Event::assertDispatched(TicketUnlinked::class, static fn (TicketUnlinked $event): bool => $event->ticket->is($b) && $event->related->is($a));
     });
 
     it('merges a ticket into another', function (): void {

@@ -68,7 +68,12 @@ final class LinkController extends Controller
 
         $this->authorize($viewer, 'link', [$other]);
 
-        $this->handle($model, $viewer)->links()->remove($other, $row->type);
+        // Unlink from the row's own outgoing end: `remove()` tries this ticket's outgoing link
+        // first, so A → B would go instead of the requested B → A when both exist (`duplicates`).
+        $outgoing = (string) $row->ticket_id === (string) $model->getKey();
+        [$from, $to] = $outgoing ? [$model, $other] : [$other, $model];
+
+        $this->handle($from, $viewer)->links()->remove($to, $row->type);
 
         return new JsonResponse(null, 204);
     }

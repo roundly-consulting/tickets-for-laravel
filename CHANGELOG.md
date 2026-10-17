@@ -12,6 +12,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
   take a ticket: the user model implements `Contracts\Assignee` with `Concerns\IsTicketAssignee`
   (without it, `claim()` and `assign()` throw `InvalidAssigneeException`). Both also say that the
   `is_support` in the printed Gate line stands for your own agent flag.
+- `DELETE /tickets/{ticket}/links/{link}` removes exactly the link it names. With two mutual
+  `duplicates` links (A duplicates B and B duplicates A), deleting B → A from A's end removed
+  A → B instead, and `TicketUnlinked` and the activity entries named the wrong direction.
 
 ## 1.0.0 - 2026-10-17
 
