@@ -84,6 +84,30 @@ describe('internal_notes_never_reach_non_agents', function (): void {
             ->and(collect($this->actingAs($requester)->getJson('/api/tickets')->json('data'))->firstWhere('reference', $reference)['messages_count'])->toBe(1);
     });
 
+    it('keeps the note count and the merge reason out of the public merge entries', function (): void {
+        $requester = apiUser();
+        $agent = apiAgent();
+        $target = apiTicket($requester, 'Printer jammed');
+        $source = apiTicket($requester, 'Printer jammed again');
+        Tickets::for($source)->by($agent)->reply('PUBLIC');
+        Tickets::for($source)->by($agent)->note('SECRET-1');
+        Tickets::for($source)->by($agent)->note('SECRET-2');
+
+        Tickets::for($source)->by($agent)->mergeInto($target, 'customer is a serial complainer, ignore');
+
+        $public = fn (Ticket $ticket, string $type): array => collect($this->actingAs($requester)->getJson("/api/tickets/{$ticket->reference}/activity")->assertOk()->json('data'))
+            ->where('type', $type)->pluck('properties')->all();
+        $internal = fn (Ticket $ticket, string $type): array => collect($this->actingAs($agent)->getJson("/api/tickets/{$ticket->reference}/activity")->assertOk()->json('data'))
+            ->where('type', $type)->where('visibility', 'internal')->pluck('properties')->all();
+
+        // The requester reads one public message of the source — and is told one.
+        expect($public($source, 'merged'))->toBe([['into' => $target->reference, 'comments' => 1, 'attachments' => 0]])
+            ->and($public($target, 'merged_from'))->toBe([['from' => $source->reference, 'comments' => 1]])
+            // Agents keep the whole story in an internal entry.
+            ->and(array_map(keySorted(...), $internal($source, 'merged')))->toBe([['attachments' => 0, 'comments' => 3, 'into' => $target->reference, 'reason' => 'customer is a serial complainer, ignore']])
+            ->and(array_map(keySorted(...), $internal($target, 'merged_from')))->toBe([['comments' => 3, 'from' => $source->reference, 'reason' => 'customer is a serial complainer, ignore']]);
+    });
+
     it('refuses the internal thread to the requester side, and finds no note for them', function (): void {
         [$requester, $watcher, $reference] = secConversation();
         $note = Ticket::query()->where('reference', $reference)->firstOrFail()->comments()->where('visible', false)->firstOrFail();

@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\TicketComments;
@@ -56,12 +55,7 @@ final class TicketEagerLoads
     {
         $counts = [
             'comments as public_messages_count' => static function (Builder $comments): void {
-                $comments->where('visible', true)
-                    ->where('status', CommentStatus::Approved)
-                    ->where(static fn (Builder $public): Builder => $public
-                        ->whereNull('meta')
-                        ->orWhereJsonDoesntContainKey('meta->'.TicketComments::META.'->internal')
-                        ->orWhere('meta->'.TicketComments::META.'->internal', false));
+                TicketComments::wherePublished($comments);
             },
         ];
 

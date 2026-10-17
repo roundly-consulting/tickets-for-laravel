@@ -20,6 +20,7 @@ use RoundlyConsulting\Tickets\Actions\Internal\WriteTicketCommentAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\MergeResult;
 use RoundlyConsulting\Tickets\DataTransferObjects\ReplyData;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
 use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\Automation;
 use RoundlyConsulting\Tickets\Enums\LinkType;
@@ -33,6 +34,7 @@ use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\AttachmentBucket;
 use RoundlyConsulting\Tickets\Support\Messages;
 use RoundlyConsulting\Tickets\Support\TagInput;
+use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketModels;
@@ -55,7 +57,9 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  *     (`RevokeGuestAccessAction`, so `GuestAccessRevoked` fires);
  *  8. the `Merged` automation dismisses the source (`merged:<target>`), which locks its
  *     conversation;
- *  9. `merged` / `merged_from` activities, and `TicketMerged` after commit.
+ *  9. public `merged` / `merged_from` activities that count only the messages the requester
+ *     side may read and carry no reason — the full count and the reason go into internal
+ *     entries of the same types — and `TicketMerged` after commit.
  *
  * Refused (`InvalidMergeException`): the same ticket, a Closed or already-merged source or
  * target, a cross-project merge with `tickets.merge.cross_project` off, and an actor the merge
@@ -93,6 +97,7 @@ final readonly class MergeTicketsAction
 
             $this->assertMergeable($source, $target);
 
+            $published = $source->comments()->tap(TicketComments::wherePublished(...))->count();
             $comments = $this->comments->transfer($source, $target);
             $this->postSystemMessages($source, $target);
             $this->mergeWatchers($source, $target);
@@ -118,13 +123,7 @@ final readonly class MergeTicketsAction
 
             $this->automations->execute($source, Automation::Merged, $actor, 'merged:'.$target->reference);
 
-            $this->record->execute($source, ActivityType::Merged, $actor, array_filter([
-                'into' => $target->reference,
-                'comments' => $comments,
-                'attachments' => $attachments,
-                'reason' => $reason,
-            ], static fn (mixed $value): bool => $value !== null), $system);
-            $this->record->execute($target, ActivityType::MergedFrom, $actor, ['from' => $source->reference, 'comments' => $comments], $system);
+            $this->recordMerge($source, $target, $published, $comments, $attachments, $reason, $actor, $system);
 
             $result = new MergeResult($source, $target, $comments, $attachments);
 
@@ -132,6 +131,26 @@ final readonly class MergeTicketsAction
 
             return $result;
         });
+    }
+
+    /**
+     * The public entries count only what the requester side may read (S-1: a count never
+     * reveals a note) and leave the agent's reason out; when the whole story differs, agents
+     * get it in an internal entry of the same type.
+     */
+    private function recordMerge(Ticket $source, Ticket $target, int $published, int $comments, int $attachments, ?string $reason, ?Model $actor, bool $system): void
+    {
+        $this->record->execute($source, ActivityType::Merged, $actor, ['into' => $target->reference, 'comments' => $published, 'attachments' => $attachments], $system);
+        $this->record->execute($target, ActivityType::MergedFrom, $actor, ['from' => $source->reference, 'comments' => $published], $system);
+
+        if ($published === $comments && $reason === null) {
+            return;
+        }
+
+        $extra = array_filter(['comments' => $comments, 'reason' => $reason], static fn (mixed $value): bool => $value !== null);
+
+        $this->record->execute($source, ActivityType::Merged, $actor, ['into' => $target->reference, ...$extra, 'attachments' => $attachments], $system, ActivityVisibility::Internal);
+        $this->record->execute($target, ActivityType::MergedFrom, $actor, ['from' => $source->reference, ...$extra], $system, ActivityVisibility::Internal);
     }
 
     private function assertMergeable(Ticket $source, Ticket $target): void

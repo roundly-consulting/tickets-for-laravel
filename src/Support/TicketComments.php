@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Support;
 
+use Illuminate\Database\Eloquent\Builder;
 use RoundlyConsulting\Comments\Enums\CommentStatus;
 use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\Tickets\Enums\ActivityVisibility;
@@ -67,6 +68,22 @@ final class TicketComments
         return ! self::isInternal($comment) && $comment->status === CommentStatus::Approved
             ? ActivityVisibility::Public
             : ActivityVisibility::Internal;
+    }
+
+    /**
+     * Narrow a comment query to what the requester side may read: visible, approved and not
+     * internal — a host making an internal note visible still does not reveal it.
+     *
+     * @param  Builder<Comment>  $comments
+     */
+    public static function wherePublished(Builder $comments): void
+    {
+        $comments->where('visible', true)
+            ->where('status', CommentStatus::Approved)
+            ->where(static fn (Builder $public): Builder => $public
+                ->whereNull('meta')
+                ->orWhereJsonDoesntContainKey('meta->'.self::META.'->internal')
+                ->orWhere('meta->'.self::META.'->internal', false));
     }
 
     /**

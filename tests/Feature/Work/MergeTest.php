@@ -81,9 +81,14 @@ describe('merge', function (): void {
             ->and($source->status)->toBe(TicketStatus::Closed)
             ->and(Comments::isLocked($source))->toBeTrue()
             ->and($source->lifecycleHistory()->latest('id')->first()?->reason)->toBe('merged:TCK-2')
-            ->and(keySorted($source->activities()->where('type', ActivityType::Merged->value)->sole()->properties))
+            // Public entries count the one published message and carry no reason; the internal
+            // ones keep the whole story.
+            ->and(keySorted($source->activities()->where('type', ActivityType::Merged->value)->where('visibility', 'public')->sole()->properties))
+            ->toBe(['attachments' => 1, 'comments' => 1, 'into' => 'TCK-2'])
+            ->and(keySorted($source->activities()->where('type', ActivityType::Merged->value)->where('visibility', 'internal')->sole()->properties))
             ->toBe(['attachments' => 1, 'comments' => 2, 'into' => 'TCK-2', 'reason' => 'Same incident'])
-            ->and(keySorted($target->activities()->where('type', ActivityType::MergedFrom->value)->sole()->properties))->toBe(['comments' => 2, 'from' => 'TCK-1'])
+            ->and(keySorted($target->activities()->where('type', ActivityType::MergedFrom->value)->where('visibility', 'public')->sole()->properties))->toBe(['comments' => 1, 'from' => 'TCK-1'])
+            ->and(keySorted($target->activities()->where('type', ActivityType::MergedFrom->value)->where('visibility', 'internal')->sole()->properties))->toBe(['comments' => 2, 'from' => 'TCK-1', 'reason' => 'Same incident'])
             ->and(Ticket::query()->merged()->pluck('id')->all())->toBe([$source->id]);
 
         Event::assertDispatched(TicketMerged::class, static fn (TicketMerged $event): bool => $event->source->is($source)
