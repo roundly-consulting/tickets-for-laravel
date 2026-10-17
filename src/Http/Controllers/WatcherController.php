@@ -18,7 +18,8 @@ use RoundlyConsulting\Tickets\Support\MorphAliases;
 /**
  * `/tickets/{ticket}/watchers` and `/watch` — the watcher list is an agent's; an agent adds and
  * removes anyone (a `tickets.watchables` alias, `{type, id}` or `alias:key`), and whoever may
- * view the ticket watches and unwatches it themselves.
+ * view the ticket watches and unwatches it themselves. A non-agent who adds themselves gets back
+ * their own entry only: the list (other watchers, guests' personal data) stays agent-only.
  *
  * @internal
  */
@@ -44,6 +45,10 @@ final class WatcherController extends Controller
         $this->authorize($viewer, 'manageWatchers', [$model, $watcher]);
 
         $this->handle($model, $viewer)->watchers()->add($watcher);
+
+        if (! $viewer->isAgentOn($model)) {
+            return new JsonResponse(['data' => [Party::person($watcher, $viewer, false)]], 201);
+        }
 
         return $this->list($model, $viewer)->setStatusCode(201);
     }
@@ -87,9 +92,10 @@ final class WatcherController extends Controller
     private function list(Ticket $ticket, Viewer $viewer): JsonResponse
     {
         $watchers = $this->manager()->for($ticket)->watchers()->all();
+        $agent = $viewer->isAgentOn($ticket);
 
         return new JsonResponse(['data' => $watchers
-            ->map(static fn (TicketWatcher $watch): ?array => Party::person($watch->watcher, $viewer, true))
+            ->map(static fn (TicketWatcher $watch): ?array => Party::person($watch->watcher, $viewer, $agent))
             ->filter()
             ->values()
             ->all()]);

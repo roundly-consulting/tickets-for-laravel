@@ -345,6 +345,25 @@ describe('guest_pii_is_agent_only', function (): void {
         expect(Artisan::output())->toContain('Routes')->not->toContain('jo@acme.test')->not->toContain('Jo');
     });
 
+    it('answers a self-watch with the watcher’s own entry, never the agent-only list', function (): void {
+        $requester = apiUser();
+        $agent = apiAgent();
+        $ticket = apiTicket($requester);
+        $cc = Tickets::guests()->resolve(['name' => 'Jo Guest', 'email' => 'jo@acme.test', 'phone' => '+421900000000']);
+        secWatch($ticket, $cc);
+        secWatch($ticket, $agent);
+
+        $self = $this->actingAs($requester)->postJson("/api/tickets/{$ticket->reference}/watchers", ['watcher' => ['type' => 'user', 'id' => $requester->id]]);
+
+        $self->assertCreated();
+        expect($self->json('data'))->toBe([['type' => 'user', 'name' => 'Ada']])
+            ->and((string) $self->getContent())->not->toContain('jo@acme.test')->not->toContain('900000000')->not->toContain('Grace');
+
+        // An agent on the ticket keeps the whole list.
+        $this->actingAs($agent)->postJson("/api/tickets/{$ticket->reference}/watchers", ['watcher' => ['type' => 'user', 'id' => $agent->id]])
+            ->assertCreated()->assertJsonCount(3, 'data')->assertJsonPath('data.1.guest.email', 'jo@acme.test');
+    });
+
     it('renders TicketGuestResource by viewer', function (): void {
         $guest = TicketGuest::factory()->create();
         Tickets::guests()->update($guest, ['name' => 'Jo', 'email' => 'jo@acme.test']);
