@@ -16,6 +16,9 @@ use RoundlyConsulting\QueryBuilder\QueryBuilderServiceProvider;
 use RoundlyConsulting\Reports\ReportsServiceProvider;
 use RoundlyConsulting\Sluggable\SluggableServiceProvider;
 use RoundlyConsulting\Testing\PackageTestCase;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\TicketsServiceProvider;
 use RoundlyConsulting\Translatable\TranslatableServiceProvider;
 
@@ -75,6 +78,9 @@ abstract class TestCase extends PackageTestCase
         return [
             'media.disk' => 'local',
             'media.image_driver' => 'gd',
+            'tickets.requesters' => ['user' => User::class],
+            'tickets.assignables' => ['user' => User::class, 'team' => Team::class],
+            'tickets.projects' => ['project' => Project::class],
         ];
     }
 }

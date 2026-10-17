@@ -13,12 +13,14 @@ use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\LinkType;
 use RoundlyConsulting\Tickets\Enums\StatusCategory;
 use RoundlyConsulting\Tickets\Enums\TicketChannel;
+use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
 
 $enums = [
     TicketStatus::class, StatusCategory::class, Automation::class, TicketPriority::class, FieldType::class,
     LinkType::class, ActivityType::class, ActivityVisibility::class, AuthorRole::class, TicketChannel::class,
+    TicketOperation::class,
 ];
 
 it('gives every case a colour and a translated label in both languages', function (string $enum): void {
