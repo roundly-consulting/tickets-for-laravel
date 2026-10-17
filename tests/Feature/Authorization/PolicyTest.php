@@ -274,6 +274,19 @@ describe('policy registration', function (): void {
         expect(Gate::policies())->toBe([Ticket::class => StrictTicketPolicy::class]);
     });
 
+    /**
+     * Documented: "off" is not deny-all. Laravel's own policy discovery maps Models\Ticket to
+     * Policies\TicketPolicy, so a host that wants another policy registers it itself.
+     */
+    it('still finds the packaged policy through Laravel discovery with register_policy off', function (): void {
+        config()->set('tickets.authorization.register_policy', 'off');
+        policyRegisterAgain();
+
+        expect(Gate::policies())->toBe([])
+            ->and(Gate::getPolicyFor(Ticket::class))->toBeInstanceOf(TicketPolicy::class)
+            ->and(Gate::getPolicyFor(Ticket::class))->not->toBeInstanceOf(StrictTicketPolicy::class);
+    });
+
     it('registers nothing for a policy that does not extend the package policy', function (): void {
         config()->set('tickets.authorization.policy', stdClass::class);
         policyRegisterAgain();

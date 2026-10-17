@@ -295,11 +295,13 @@ return [
     | actor merge tickets; `manage` deletes tickets and runs the categories,
     | fields and tags.
     |
-    | `policy` (registered for the ticket model with `register_policy`; off =
-    | register your own with Gate::policy()) must extend Policies\TicketPolicy. `agent_scope` (a Contracts\AgentScope; null
-    | = agents see every ticket) narrows what an agent may work on. A requester
-    | may run the `requester_transitions` on their own ticket (a watcher too,
-    | with `participants_can_transition`). `self_service`: anyone signed in may
+    | `policy` must extend Policies\TicketPolicy; `register_policy` registers
+    | it for the ticket model. Off is not deny-all: Laravel's policy discovery
+    | still finds the packaged Policies\TicketPolicy, so register your own
+    | with Gate::policy(). `agent_scope` (a Contracts\AgentScope; null = agents
+    | see every ticket) narrows what an agent may work on. A requester may run
+    | the `requester_transitions` on their own ticket (a watcher too, with
+    | `participants_can_transition`). `self_service`: anyone signed in may
     | file a ticket; `requester_can_edit`: the requester may edit the subject
     | and description of an unresolved ticket.
     |
