@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'http' => [
+        'invalid_date' => 'Filter :filter musí byť dátum.',
+        'invalid_value' => 'Pole :attribute musí byť jedna hodnota.',
+        'invalid_key' => 'Pole :attribute musí byť kľúč záznamu.',
+        'invalid_translations' => 'Pole :attribute musí byť text alebo mapa jazykov na texty.',
+        'forbidden' => 'Na túto akciu nemáte oprávnenie.',
+    ],
+
     'config' => [
         'invalid' => 'Nastavenie tiketov [:key] musí byť :expected.',
     ],
@@ -71,6 +79,7 @@ return [
     ],
 
     'field' => [
+        'not_found' => 'Pole [:id] sa nenašlo.',
         'invalid_key' => 'Kľúč poľa [:key] musí začínať písmenom a obsahovať iba malé písmená, číslice a podčiarkovníky (najviac 64).',
         'duplicate_key' => 'Pole s kľúčom [:key] už v tomto rozsahu existuje.',
         'missing_options' => 'Pole [:key] je výberové a potrebuje aspoň jednu možnosť.',
@@ -87,6 +96,8 @@ return [
     ],
 
     'guest' => [
+        'link_invalid' => 'Tento odkaz je neplatný alebo mu vypršala platnosť.',
+        'not_a_recipient' => 'Odkazy pre hostí k tiketu [:reference] dostáva len jeho žiadateľ, ktorý je hosťom, alebo hosť, ktorý ho sleduje.',
         'unknown_field' => 'Pole hosťa [:field] nie je nastavené.',
         'identifying_required' => 'Uveďte aspoň jeden kontakt, napríklad e-mailovú adresu alebo telefónne číslo.',
         'taken' => 'Toto pole :field už používa iný hosť.',
@@ -97,6 +108,7 @@ return [
     ],
 
     'tag' => [
+        'not_found' => 'Štítok [:id] sa nenašiel.',
         'invalid_name' => 'Štítok potrebuje názov s najviac 64 znakmi.',
         'invalid_color' => 'Farba štítka [:color] musí byť hexadecimálna farba, napríklad #f24e29.',
         'duplicate' => 'Štítok s názvom [:name] tu už existuje.',
@@ -111,6 +123,7 @@ return [
         'cross_project' => 'Tikety rôznych projektov nemožno prepojiť.',
         'too_deep' => 'Reťazec prepojení je hlbší ako :max úrovní a nemožno ho skontrolovať na cykly.',
         'not_linked' => 'Prepojenie :type s tiketom [:reference] tu neexistuje.',
+        'not_found' => 'Prepojenie [:link] nepatrí k tiketu [:reference].',
     ],
 
     'merge' => [
@@ -130,6 +143,11 @@ return [
     ],
 
     'doctor' => [
+        'policy_ok' => 'Politika tiketov je [:class].',
+        'routes_off' => 'HTTP API je vypnuté (tickets.routes.enabled).',
+        'routes_on' => 'HTTP API je zapnuté a chránené prihlásením.',
+        'routes_unguarded' => 'HTTP API je zapnuté, ale tickets.routes.middleware neobsahuje middleware auth: každý endpoint by odpovedal anonymnému volajúcemu. Pridajte auth (alebo auth:sanctum).',
+        'guest_links_unavailable' => 'Predvolený generátor odkazov pre hostí potrebuje trasy pre hostí (tickets.routes.enabled a tickets.guests.enabled): nemožno vydať žiadny odkaz pre hosťa. Zapnite ich alebo zaregistrujte vlastný Contracts\\GuestLinkGenerator.',
         'lifecycle_ok' => 'Životný cyklus [:class] spĺňa kontrakt tiketov aj všetky automatizácie.',
         'conveniences' => 'Podporované pomenované prechody: :list.',
         'meta_missing' => 'Tabuľka komentárov nemá stĺpec `meta`. Zverejnite a spustite migrácie comments-for-laravel 1.1.',

@@ -15,8 +15,13 @@ final class TicketCommentNotFoundException extends TicketsException
 {
     public static function on(Ticket $ticket, Comment $comment): self
     {
+        return self::missing($ticket, $comment->getKey());
+    }
+
+    public static function missing(Ticket $ticket, mixed $comment): self
+    {
         return new self(self::translate('conversation.comment_not_found', [
-            'comment' => (string) $comment->getKey(),
+            'comment' => is_scalar($comment) ? (string) $comment : '',
             'reference' => $ticket->reference,
         ]));
     }

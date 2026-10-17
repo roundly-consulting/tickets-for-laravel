@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Support;
 
+use Illuminate\Container\Container;
 use RoundlyConsulting\Comments\Support\CommentModel;
 use RoundlyConsulting\PackageToolkit\Support\Config;
+use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\DataTransferObjects\DoctorCheck;
 use RoundlyConsulting\Tickets\DataTransferObjects\LifecycleIssue;
+use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
+use RoundlyConsulting\Tickets\Guests\SignedRouteLinkGenerator;
 
 /**
  * The installation checks behind `tickets:doctor`, read-only. The lifecycle section checks
@@ -23,7 +27,48 @@ final class Doctor
      */
     public static function checks(): array
     {
-        return [...self::lifecycle(), ...self::conversation(), ...self::attachments()];
+        return [...self::lifecycle(), ...self::conversation(), ...self::attachments(), ...self::api()];
+    }
+
+    /**
+     * The HTTP API: whether it is served, behind authentication; whether the policy setting
+     * names a usable policy (a broken one registers nothing); and whether the default guest-link
+     * generator can mint a link at all.
+     *
+     * @return list<DoctorCheck>
+     */
+    private static function api(): array
+    {
+        $checks = [];
+
+        try {
+            $checks[] = new DoctorCheck('api', 'policy', Messages::get('doctor.policy_ok', ['class' => TicketsConfig::policy()]), 'ok');
+        } catch (InvalidTicketsConfigurationException $exception) {
+            $checks[] = new DoctorCheck('api', 'policy', $exception->getMessage(), 'error');
+        }
+
+        $routes = TicketsConfig::routesEnabled();
+        $guarded = array_filter(TicketsConfig::routeMiddleware(), static fn (string $middleware): bool => str_starts_with($middleware, 'auth')) !== [];
+
+        $checks[] = match (true) {
+            ! $routes => new DoctorCheck('api', 'routes', Messages::get('doctor.routes_off'), 'ok'),
+            $guarded => new DoctorCheck('api', 'routes', Messages::get('doctor.routes_on'), 'ok'),
+            default => new DoctorCheck('api', 'routes', Messages::get('doctor.routes_unguarded'), 'warning'),
+        };
+
+        if (self::guestLinks() instanceof SignedRouteLinkGenerator && (! $routes || ! TicketsConfig::guestsEnabled())) {
+            $checks[] = new DoctorCheck('api', 'guest_links', Messages::get('doctor.guest_links_unavailable'), 'warning');
+        }
+
+        return $checks;
+    }
+
+    /**
+     * The bound guest-link generator — whatever the host bound, by config or in the container.
+     */
+    private static function guestLinks(): GuestLinkGenerator
+    {
+        return Container::getInstance()->make(GuestLinkGenerator::class);
     }
 
     /**

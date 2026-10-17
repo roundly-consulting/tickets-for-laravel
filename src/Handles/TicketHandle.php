@@ -24,6 +24,8 @@ use RoundlyConsulting\Tickets\Actions\Conversation\DeleteCommentAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\PostNoteAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\PostReplyAction;
 use RoundlyConsulting\Tickets\Actions\Conversation\UpdateCommentAction;
+use RoundlyConsulting\Tickets\Actions\Guests\IssueGuestLinkAction;
+use RoundlyConsulting\Tickets\Actions\Guests\RevokeGuestAccessAction;
 use RoundlyConsulting\Tickets\Actions\Merge\MergeTicketsAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangeCategoryAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\ChangePriorityAction;
@@ -488,6 +490,35 @@ final readonly class TicketHandle
         }
 
         return $query->get();
+    }
+
+    /**
+     * A temporary link the guest opens this ticket with — for its guest requester by default,
+     * or for one of its guest watchers. Anyone else is refused.
+     */
+    public function guestLink(?Model $guest = null): string
+    {
+        return $this->manager->perform(
+            TicketOperation::IssueGuestLink,
+            IssueGuestLinkAction::class,
+            fn (IssueGuestLinkAction $action): string => $action->execute($this->ticket, $guest),
+            $this->context(['guest' => $guest]),
+        );
+    }
+
+    /**
+     * Void every guest link issued for this ticket so far.
+     */
+    public function revokeGuestAccess(): static
+    {
+        $this->manager->perform(
+            TicketOperation::RevokeGuestAccess,
+            RevokeGuestAccessAction::class,
+            fn (RevokeGuestAccessAction $action): Ticket => $action->execute($this->ticket, $this->actor, $this->system),
+            $this->context(),
+        );
+
+        return $this;
     }
 
     private function lifecycle(): LifecycleHandle

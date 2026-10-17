@@ -5,6 +5,7 @@ declare(strict_types=1);
 use RoundlyConsulting\Tickets\Assignment\CategoryDefaultStrategy;
 use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
+use RoundlyConsulting\Tickets\Guests\SignedRouteLinkGenerator;
 use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -185,9 +186,16 @@ return [
     | names the notification channel a field addresses; `normalize` (email,
     | phone) cleans a value before it is matched.
     |
+    | `enabled` serves the guest endpoints (with the routes on): a guest opens
+    | a ticket through a temporary signed link, valid for `link_ttl` (an
+    | ISO-8601 duration) until it is revoked — `revoke_on_close` revokes every
+    | link when the ticket closes. `link_generator` builds the links; bind
+    | your own Contracts\GuestLinkGenerator for a separate frontend.
+    |
     */
 
     'guests' => [
+        'enabled' => env('TICKETS_GUESTS', 'on'),
         'fields' => [
             'name' => ['type' => 'string', 'rules' => ['required', 'string', 'max:120'], 'display' => true],
             'email' => ['type' => 'string', 'rules' => ['nullable', 'email:rfc', 'max:191'], 'identifying' => true, 'route' => 'mail', 'normalize' => 'email'],
@@ -195,6 +203,9 @@ return [
         ],
         'require_one_identifying' => true,
         'update_on_resolve' => false,
+        'link_ttl' => env('TICKETS_GUEST_LINK_TTL', 'P30D'),
+        'revoke_on_close' => env('TICKETS_GUESTS_REVOKE_ON_CLOSE', 'off'),
+        'link_generator' => SignedRouteLinkGenerator::class,
     ],
 
     /*
@@ -365,6 +376,36 @@ return [
     'actor' => [
         'from_auth' => env('TICKETS_ACTOR_FROM_AUTH', 'on'),
         'guard' => env('TICKETS_ACTOR_GUARD'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP API
+    |--------------------------------------------------------------------------
+    |
+    | The JSON API is off until you switch it on. `middleware` guards the
+    | agent and requester endpoints (swap `auth` for `auth:sanctum` with
+    | Sanctum); the `tickets-api` limiter allows `rate_limit` requests a
+    | minute per user. The guest endpoints check the signed link themselves
+    | and are limited per IP and ticket (`guest.rate_limit`). A list returns at
+    | most `max_per_page` tickets; a bulk call takes at most `bulk.max`.
+    |
+    */
+
+    'routes' => [
+        // Blank means off: the route switch reads a blank value as on.
+        'enabled' => env('TICKETS_ROUTES') ?: 'off',
+        'prefix' => env('TICKETS_ROUTES_PREFIX', 'api'),
+        'middleware' => ['api', 'auth', 'throttle:tickets-api'],
+        'max_per_page' => 100,
+        'rate_limit' => 120,
+        'guest' => [
+            'middleware' => ['api', 'throttle:tickets-guest'],
+            'rate_limit' => 30,
+        ],
+        'bulk' => [
+            'max' => 100,
+        ],
     ],
 
 ];

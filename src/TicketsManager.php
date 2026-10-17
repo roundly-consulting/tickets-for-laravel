@@ -129,7 +129,7 @@ class TicketsManager
     }
 
     /**
-     * Guest requesters: `resolve`, `update`, `convert`.
+     * Guest requesters: `resolve`, `update`, `convert`, `linkFor`.
      */
     public function guests(): Guests
     {

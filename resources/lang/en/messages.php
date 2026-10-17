@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'http' => [
+        'invalid_date' => 'The :filter filter must be a date.',
+        'invalid_value' => 'The :attribute must be a single value.',
+        'invalid_key' => 'The :attribute must be a record key.',
+        'invalid_translations' => 'The :attribute must be a text or a map of locale to text.',
+        'forbidden' => 'You may not do that.',
+    ],
+
     'config' => [
         'invalid' => 'The tickets setting [:key] must be :expected.',
     ],
@@ -71,6 +79,7 @@ return [
     ],
 
     'field' => [
+        'not_found' => 'Field [:id] was not found.',
         'invalid_key' => 'The field key [:key] must start with a letter and hold only lower-case letters, digits and underscores (at most 64).',
         'duplicate_key' => 'A field with the key [:key] already exists in this scope.',
         'missing_options' => 'The field [:key] is a choice field and needs at least one option.',
@@ -87,6 +96,8 @@ return [
     ],
 
     'guest' => [
+        'link_invalid' => 'This link is invalid or has expired.',
+        'not_a_recipient' => 'Guest links to ticket [:reference] go only to its guest requester or a guest watcher.',
         'unknown_field' => 'The guest field [:field] is not configured.',
         'identifying_required' => 'Give at least one way to reach you, such as an e-mail address or a phone number.',
         'taken' => 'Another guest already uses this :field.',
@@ -97,6 +108,7 @@ return [
     ],
 
     'tag' => [
+        'not_found' => 'Tag [:id] was not found.',
         'invalid_name' => 'A tag needs a name of at most 64 characters.',
         'invalid_color' => 'The tag colour [:color] must be a hex colour such as #f24e29.',
         'duplicate' => 'A tag named [:name] already exists here.',
@@ -111,6 +123,7 @@ return [
         'cross_project' => 'Tickets of different projects cannot be linked.',
         'too_deep' => 'The link chain is deeper than :max levels and cannot be checked for cycles.',
         'not_linked' => 'There is no :type link with ticket [:reference] here.',
+        'not_found' => 'Link [:link] is not a link of ticket [:reference].',
     ],
 
     'merge' => [
@@ -130,6 +143,11 @@ return [
     ],
 
     'doctor' => [
+        'policy_ok' => 'The ticket policy is [:class].',
+        'routes_off' => 'The HTTP API is off (tickets.routes.enabled).',
+        'routes_on' => 'The HTTP API is on, behind authentication.',
+        'routes_unguarded' => 'The HTTP API is on, but tickets.routes.middleware holds no auth middleware: every endpoint would answer an anonymous caller. Add auth (or auth:sanctum).',
+        'guest_links_unavailable' => 'The default guest-link generator needs the guest routes (tickets.routes.enabled and tickets.guests.enabled): no guest link can be issued. Switch them on, or bind your own Contracts\\GuestLinkGenerator.',
         'lifecycle_ok' => 'The lifecycle [:class] satisfies the ticket contract and every automation.',
         'conveniences' => 'Named transition conveniences supported: :list.',
         'meta_missing' => 'The comments table has no `meta` column. Publish and run the comments-for-laravel 1.1 migrations.',

@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets;
 
 use Closure;
+use Illuminate\Cache\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use RoundlyConsulting\Comments\Events\CommentMentioned;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioned;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
@@ -22,10 +26,12 @@ use RoundlyConsulting\Tickets\Contracts\AgentScope;
 use RoundlyConsulting\Tickets\Contracts\AssignmentStrategy;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Contracts\DueDateResolver;
+use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\Conversation\CommentsConversationLock;
 use RoundlyConsulting\Tickets\Due\CategoryDueDateResolver;
 use RoundlyConsulting\Tickets\Exceptions\TicketsException;
 use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
+use RoundlyConsulting\Tickets\Guests\SignedRouteLinkGenerator;
 use RoundlyConsulting\Tickets\Listeners\OnCommentMentioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
@@ -43,6 +49,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasMigrations()
             ->hasTranslations()
+            ->hasRoutes('tickets.php', 'tickets.routes.enabled')
             ->hasCommands([DoctorCommand::class])
             ->contributesToAbout(static fn (): array => [
                 'Primary key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.primary_key_type')->value),
@@ -51,6 +58,8 @@ final class TicketsServiceProvider extends PackageServiceProvider
                 'Priority enum' => self::orInvalid(static fn (): string => class_basename(TicketsConfig::priorityEnum())),
                 'Reference prefix' => self::orInvalid(static fn (): string => TicketsConfig::referencePrefix()),
                 'Activity' => self::orInvalid(static fn (): string => TicketsConfig::activityEnabled() ? 'ON' : 'OFF'),
+                'Routes' => self::orInvalid(static fn (): string => TicketsConfig::routesEnabled() ? 'ON' : 'OFF'),
+                'Guest access' => self::orInvalid(static fn (): string => TicketsConfig::guestsEnabled() && TicketsConfig::routesEnabled() ? 'ON' : 'OFF'),
                 'Auto-close' => self::orInvalid(static fn (): string => TicketsConfig::autoCloseAfter()?->spec() ?? 'OFF'),
             ]);
     }
@@ -68,6 +77,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
         $this->bindFromConfig(DueDateResolver::class, 'tickets.due.resolver', CategoryDueDateResolver::class);
         // A class default, never null: bindFromConfig binds the default for a blank value.
         $this->bindFromConfig(AgentScope::class, 'tickets.authorization.agent_scope', UnrestrictedAgentScope::class);
+        $this->bindFromConfig(GuestLinkGenerator::class, 'tickets.guests.link_generator', SignedRouteLinkGenerator::class);
         $this->app->bind(ConversationLock::class, CommentsConversationLock::class);
     }
 
@@ -91,6 +101,7 @@ final class TicketsServiceProvider extends PackageServiceProvider
         $events->listen(CommentMentioned::class, [OnCommentMentioned::class, 'handle']);
 
         $this->registerPolicy();
+        $this->defineRateLimiters();
     }
 
     /**
@@ -107,6 +118,32 @@ final class TicketsServiceProvider extends PackageServiceProvider
         } catch (InvalidConfigurationException|TicketsException) {
             return;
         }
+    }
+
+    /**
+     * `tickets-api`: per minute per signed-in user (else per IP). `tickets-guest`: per minute per
+     * IP and ticket. Defined only with the routes on — the route middleware names them.
+     */
+    private function defineRateLimiters(): void
+    {
+        if (! TicketsConfig::routesEnabled()) {
+            return;
+        }
+
+        $limiter = $this->app->make(RateLimiter::class);
+
+        $limiter->for('tickets-api', static function (Request $request): Limit {
+            $user = $request->user();
+            $key = $user instanceof Model ? $user->getMorphClass().':'.(string) $user->getKey() : (string) $request->ip();
+
+            return Limit::perMinute(TicketsConfig::apiRateLimit())->by('tickets-api|'.$key);
+        });
+
+        $limiter->for('tickets-guest', static function (Request $request): Limit {
+            $ticket = $request->route('ticket');
+
+            return Limit::perMinute(TicketsConfig::guestRateLimit())->by('tickets-guest|'.$request->ip().'|'.(is_string($ticket) ? $ticket : ''));
+        });
     }
 
     /**

@@ -596,6 +596,30 @@ final class TicketsFake extends TicketsManager
         $this->assertNotRecorded(TicketOperation::ConvertGuest);
     }
 
+    /**
+     * A guest link was issued — for `$ticket`, to `$guest` (null in the call = the requester).
+     */
+    public function assertGuestLinkIssued(Ticket|string|null $ticket = null, ?TicketGuest $guest = null): void
+    {
+        $this->assertRecorded(TicketOperation::IssueGuestLink, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket)
+            && ($guest === null || ($recorded->model('guest')?->is($guest) ?? false)));
+    }
+
+    public function assertNoGuestLinkIssued(): void
+    {
+        $this->assertNotRecorded(TicketOperation::IssueGuestLink);
+    }
+
+    public function assertGuestAccessRevoked(Ticket|string|null $ticket = null): void
+    {
+        $this->assertRecorded(TicketOperation::RevokeGuestAccess, static fn (RecordedTicketOperation $recorded): bool => $recorded->concerns($ticket));
+    }
+
+    public function assertNoGuestAccessRevoked(): void
+    {
+        $this->assertNotRecorded(TicketOperation::RevokeGuestAccess);
+    }
+
     // Plumbing ------------------------------------------------------------------------
 
     private function assertTagOperation(TicketOperation $operation, Ticket|string|null $ticket, ?string $tag): void

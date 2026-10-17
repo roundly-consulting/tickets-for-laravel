@@ -112,4 +112,43 @@ Initial public release.
   `prune` and `for`, and field rules refuse database probes and unsafe regex patterns.
 - The `whereField()` and `whereFieldBetween()` query scopes (typed, one-sided ranges), and the ticket
   builder's `fields()`, `tags()`, `watchers()` and `attach()`.
+- An opt-in JSON API (`tickets.routes.enabled`, off by default; `routes/tickets.php`, publishable
+  with `tickets-routes`): tickets (list, file, read, update, delete, restore), transitions,
+  assignment and claims, replies, internal notes and message edits, custom field values, watchers,
+  tags, links, merge, attachments with short-lived signed URLs, the activity timeline, a bulk
+  endpoint (assign, unassign, transition, priority, tags — up to `tickets.routes.bulk.max`, a result
+  per ticket) and the category, field and tag admin endpoints. Errors answer `{message, code}`
+  (`ticket_closed` 409, `ticket_transition_denied` 422 with its denials, 429 with `Retry-After` for
+  a rate-limited transition, …) without touching the host's exception handler; the
+  `tickets-api` and `tickets-guest` rate limiters (`tickets.routes.rate_limit`,
+  `tickets.routes.guest.rate_limit`).
+- The ticket list on query-builder-for-laravel: allow-listed filters that are the Ticket query
+  scopes (status, status category, priority, category with descendants, assignee, requester,
+  project, tag, watching, overdue, due and created ranges, channel, merged, search, custom fields
+  and their ranges, trashed), sorts by date, number and priority weight, and pages up to
+  `tickets.routes.max_per_page`. New scopes `visibleTo`, `dueFrom`, `dueTo`, `createdFrom`,
+  `createdTo`, `viaChannel` and `search` (LIKE wildcards matched literally).
+- `Policies\TicketPolicy`, registered for the ticket model (`tickets.authorization.register_policy`,
+  swappable through `tickets.authorization.policy`): view, reply, note, the internal thread,
+  edits by the author or an agent, assignment through the `tickets.assign` ability, the requester
+  transitions (`tickets.authorization.requester_transitions`, `participants_can_transition`),
+  watchers, tags, links, merge and the `tickets.manage` ability; `self_service` and
+  `requester_can_edit` switches. Undefined abilities deny.
+- `Contracts\AgentScope` (`tickets.authorization.agent_scope`) narrows the tickets an agent works on;
+  `Tickets::visibleTo($user)` returns exactly the tickets the policy lets them view.
+- Role-aware API resources: requesters never see internal notes, held replies, internal activity,
+  the internal clock (`last_activity_at`), tags or watchers, and a guest's fields stay with agents.
+- Guest access through temporary signed links: `Tickets::for($ticket)->guestLink()` /
+  `Tickets::guests()->linkFor()` (`Contracts\GuestLinkGenerator`, `tickets.guests.link_generator`,
+  valid for `tickets.guests.link_ttl`), guest endpoints that embed signed action URLs (reply,
+  requester transitions, downloads) and answer every unusable link with one 403, and
+  `->revokeGuestAccess()` with `GuestAccessRevoked` — also on a merge and, with
+  `tickets.guests.revoke_on_close`, when a ticket closes.
+- Projects: `Tickets::project($project)` (`make`, `tickets`, `find`, `for`, `categories`, `tags`,
+  `fields`), and the `Concerns\HasTickets` (project) and `Concerns\RequestsTickets` (user) model
+  traits.
+- `FieldNotEditableException::errorCode()` (`unknown_field` / `field_not_editable`) and
+  `UnknownMorphAliasException::errorCode()`; `tickets:doctor` checks the policy setting, warns about
+  routes without an `auth` middleware and about guest links the default generator cannot mint;
+  `about` shows the routes and guest access.
 

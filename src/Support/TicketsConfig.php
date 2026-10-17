@@ -439,6 +439,108 @@ final class TicketsConfig
         return self::read()->boolean('tickets.authorization.requester_can_edit', true);
     }
 
+    /**
+     * Whether the guest endpoints are served (`tickets.guests.enabled`, with the routes on).
+     */
+    public static function guestsEnabled(): bool
+    {
+        return self::read()->boolean('tickets.guests.enabled', true);
+    }
+
+    /**
+     * How long a guest link stays valid (`tickets.guests.link_ttl`, an ISO-8601 duration).
+     */
+    public static function guestLinkTtl(): CarbonInterval
+    {
+        return Durations::parse(self::read()->string('tickets.guests.link_ttl', 'P30D'))
+            ?? throw InvalidTicketsConfigurationException::invalid('tickets.guests.link_ttl', 'an ISO-8601 duration such as P30D');
+    }
+
+    /**
+     * Whether closing a ticket revokes every guest link to it (`tickets.guests.revoke_on_close`).
+     */
+    public static function revokeGuestsOnClose(): bool
+    {
+        return self::read()->boolean('tickets.guests.revoke_on_close', false);
+    }
+
+    /**
+     * Whether the HTTP API is served (`tickets.routes.enabled`) — read exactly as the route
+     * switch reads it.
+     */
+    public static function routesEnabled(): bool
+    {
+        return self::read()->boolean('tickets.routes.enabled', true);
+    }
+
+    /**
+     * The URI prefix of every endpoint (`tickets.routes.prefix`; `/` for none).
+     */
+    public static function routePrefix(): string
+    {
+        $prefix = trim(self::read()->string('tickets.routes.prefix', 'api'), '/');
+
+        if (preg_match('#^[A-Za-z0-9_.\-/]*$#', $prefix) !== 1) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.routes.prefix', 'a URI prefix of letters, digits, dashes, dots and slashes');
+        }
+
+        return $prefix;
+    }
+
+    /**
+     * The middleware of the agent and requester endpoints (`tickets.routes.middleware`).
+     *
+     * @return list<string>
+     */
+    public static function routeMiddleware(): array
+    {
+        return self::read()->list('tickets.routes.middleware', ['api', 'auth', 'throttle:tickets-api']);
+    }
+
+    /**
+     * The middleware of the guest endpoints (`tickets.routes.guest.middleware`); the signed
+     * link check is always added after it.
+     *
+     * @return list<string>
+     */
+    public static function guestRouteMiddleware(): array
+    {
+        return self::read()->list('tickets.routes.guest.middleware', ['api', 'throttle:tickets-guest']);
+    }
+
+    /**
+     * The largest page a ticket list returns (`tickets.routes.max_per_page`).
+     */
+    public static function maxPerPage(): int
+    {
+        return self::read()->integer('tickets.routes.max_per_page', 100, min: 1, max: 1000);
+    }
+
+    /**
+     * Requests a minute per user on the `tickets-api` limiter (`tickets.routes.rate_limit`).
+     */
+    public static function apiRateLimit(): int
+    {
+        return self::read()->integer('tickets.routes.rate_limit', 120, min: 1);
+    }
+
+    /**
+     * Requests a minute per IP and ticket on the `tickets-guest` limiter
+     * (`tickets.routes.guest.rate_limit`).
+     */
+    public static function guestRateLimit(): int
+    {
+        return self::read()->integer('tickets.routes.guest.rate_limit', 30, min: 1);
+    }
+
+    /**
+     * The most tickets one bulk call takes (`tickets.routes.bulk.max`).
+     */
+    public static function bulkMax(): int
+    {
+        return self::read()->integer('tickets.routes.bulk.max', 100, min: 1, max: 1000);
+    }
+
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */
     public const string PREFIX_PATTERN = '/^[A-Z][A-Z0-9]{0,9}$/';
 

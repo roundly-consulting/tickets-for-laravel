@@ -421,6 +421,77 @@ class Ticket extends Model implements HasAttributesContract, HasMedia, Lifecycle
     }
 
     /**
+     * Due at or after the moment (inclusive — the API's `due_from`).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeDueFrom(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('due_at'), '>=', $at);
+    }
+
+    /**
+     * Due at or before the moment (inclusive — the API's `due_to`).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeDueTo(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('due_at'), '<=', $at);
+    }
+
+    /**
+     * Filed at or after the moment (inclusive — the API's `created_from`).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeCreatedFrom(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('created_at'), '>=', $at);
+    }
+
+    /**
+     * Filed at or before the moment (inclusive — the API's `created_to`).
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeCreatedTo(Builder $query, CarbonInterface $at): void
+    {
+        $query->where($query->qualifyColumn('created_at'), '<=', $at);
+    }
+
+    /**
+     * Came in through any of the channels.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeViaChannel(Builder $query, string ...$channels): void
+    {
+        $query->whereIn($query->qualifyColumn('channel'), array_values($channels));
+    }
+
+    /**
+     * Has the reference, or holds the text in its subject or description. Wildcards in the
+     * term (`%`, `_`) match themselves only; a blank term adds nothing.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeSearch(Builder $query, string $term): void
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return;
+        }
+
+        $query->where(static function (Builder $any) use ($term): void {
+            $any->where($any->qualifyColumn('reference'), mb_strtoupper($term))
+                ->whereLikeEscaped($any->qualifyColumn('subject'), $term, 'or')
+                ->whereLikeEscaped($any->qualifyColumn('description'), $term, 'or');
+        });
+    }
+
+    /**
      * Past the due date and still unresolved (Open, Active or Waiting — waiting counts:
      * manual dates are absolute).
      *

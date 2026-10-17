@@ -4,6 +4,7 @@ parameters:
         - src
         - database
         - config
+        - routes
         # Host-model traits are analysed only where a class uses them.
         - tests/Fixtures/Models/Agent.php
         - tests/Fixtures/Models/Desk.php

@@ -15,7 +15,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
  * (conversation edits); `assignee`, `watcher`, `tags` (names or slugs), `related` + `type`
  * (links), `target` + `reason` (merges), `media` (uuid), `keys` (custom field values);
  * `parent`, `reassign_to` (categories); `field`, `dry_run` (fields); `tag` (tags); `guest`,
- * `user` (guests).
+ * `user` (guests and guest links).
  */
 final readonly class RecordedTicketOperation
 {

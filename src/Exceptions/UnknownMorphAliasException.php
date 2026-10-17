@@ -10,18 +10,43 @@ namespace RoundlyConsulting\Tickets\Exceptions;
  */
 final class UnknownMorphAliasException extends TicketsException
 {
+    private string $kind = '';
+
     public static function alias(string $kind, string $alias): self
     {
-        return new self(self::translate('alias.unknown', ['kind' => $kind, 'alias' => $alias]));
+        return self::of($kind, self::translate('alias.unknown', ['kind' => $kind, 'alias' => $alias]));
     }
 
     public static function missing(string $kind, string $alias, int|string $key): self
     {
-        return new self(self::translate('alias.missing', ['kind' => $kind, 'alias' => $alias, 'key' => (string) $key]));
+        return self::of($kind, self::translate('alias.missing', ['kind' => $kind, 'alias' => $alias, 'key' => (string) $key]));
     }
 
     public static function unknownKind(string $kind): self
     {
-        return new self(self::translate('alias.unknown_kind', ['kind' => $kind]));
+        return self::of($kind, self::translate('alias.unknown_kind', ['kind' => $kind]));
+    }
+
+    /**
+     * The API error code: `unknown_requester_type`, `unknown_assignee_type`,
+     * `unknown_watcher_type` or `unknown_project_type`.
+     */
+    public function errorCode(): string
+    {
+        return match ($this->kind) {
+            'requesters' => 'unknown_requester_type',
+            'assignables' => 'unknown_assignee_type',
+            'watchables' => 'unknown_watcher_type',
+            'projects' => 'unknown_project_type',
+            default => 'unknown_type',
+        };
+    }
+
+    private static function of(string $kind, string $message): self
+    {
+        $exception = new self($message);
+        $exception->kind = $kind;
+
+        return $exception;
     }
 }

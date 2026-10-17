@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +12,7 @@ use RoundlyConsulting\Comments\Models\Comment;
 use RoundlyConsulting\MediaLibrary\Models\Media;
 use RoundlyConsulting\Tickets\Actions\Fields\DefineFieldAction;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
+use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
 use RoundlyConsulting\Tickets\DataTransferObjects\UpdateCategoryData;
@@ -163,7 +165,21 @@ describe('the fake', function (): void {
         'tag created' => [fn () => Tickets::tags()->findOrCreate('printer'), 'assertTagCreated', ['printer'], 'assertNoTagCreated'],
         'tag updated' => [fn () => Tickets::tags()->rename(fakeTag(), 'scanner'), 'assertTagUpdated', [], 'assertNoTagUpdated'],
         'tag deleted' => [fn () => Tickets::tags()->delete(fakeTag()), 'assertTagDeleted', [], 'assertNoTagDeleted'],
+        'guest link issued' => [fn () => Tickets::for(fakeGuestTicket())->guestLink(), 'assertGuestLinkIssued', ['TCK-1'], 'assertNoGuestLinkIssued'],
+        'guest link issued by the accessor' => [fn () => Tickets::guests()->linkFor(fakeGuestTicket()), 'assertGuestLinkIssued', ['TCK-1'], 'assertNoGuestLinkIssued'],
+        'guest access revoked' => [fn () => Tickets::for(fakeTicket())->asSystem()->revokeGuestAccess(), 'assertGuestAccessRevoked', ['TCK-1'], 'assertNoGuestAccessRevoked'],
     ]);
+
+    it('fails a guest-link assertion for another guest', function (): void {
+        $fake = Tickets::fake();
+        $ticket = fakeGuestTicket();
+        $other = TicketGuest::factory()->create();
+
+        Tickets::for($ticket)->guestLink();
+
+        expect(fn () => $fake->assertGuestLinkIssued($ticket, $other))->toThrow(ExpectationFailedException::class, 'none matched');
+        $fake->assertGuestLinkIssued($ticket);
+    });
 
     it('fails a work-management assertion whose operation ran on something else', function (): void {
         $fake = Tickets::fake();
@@ -330,6 +346,23 @@ function fakeAttachment(): Media
     $ticket = Ticket::query()->where('reference', 'TCK-1')->first() ?? fakeTicket();
 
     return Tickets::for($ticket)->asSystem()->attachments()->add(UploadedFile::fake()->createWithContent('a.txt', 'Some plain text.'));
+}
+
+/**
+ * A ticket a guest filed, with a link generator that needs no routes.
+ */
+function fakeGuestTicket(): Ticket
+{
+    app()->bind(GuestLinkGenerator::class, static fn (): GuestLinkGenerator => new class implements GuestLinkGenerator
+    {
+        public function for(Ticket $ticket, Model $recipient): string
+        {
+            return 'https://helpdesk.test/'.$ticket->reference;
+        }
+    });
+
+    return Ticket::query()->where('reference', 'TCK-1')->first()
+        ?? Tickets::make()->subject('faked')->guest(['name' => 'Jo', 'email' => 'jo@acme.test'])->asSystem()->create();
 }
 
 function fakeCategory(): TicketCategory

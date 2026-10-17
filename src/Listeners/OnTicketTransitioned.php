@@ -8,6 +8,7 @@ use BackedEnum;
 use Illuminate\Contracts\Events\Dispatcher;
 use RoundlyConsulting\Lifecycle\Enums\TransitionKind;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioned;
+use RoundlyConsulting\Tickets\Actions\Internal\BumpGuestAccessAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
@@ -25,18 +26,20 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * After commit, once per history row: `TicketStatusChanged`, then the category-entry events
  * (`TicketResolved`, `TicketClosed`, `TicketReopened`). The `initial` row is ignored — the
  * `created` activity covers it. Rollback and adoption rows never fire
- * `LifecycleTransitioning`, so their activity and conversation lock are written here, after
- * commit — the only hook lifecycle offers for them.
+ * `LifecycleTransitioning`, so their activity, conversation lock and close-time guest link
+ * revocation are written here, after commit — the only hook lifecycle offers for them.
  *
  * @internal
  */
 final readonly class OnTicketTransitioned
 {
+    use RevokesGuestAccessOnClose;
     use SyncsConversationLock;
 
     public function __construct(
         private RecordActivityAction $record,
         private ConversationLock $lock,
+        private BumpGuestAccessAction $bump,
         private Dispatcher $events,
     ) {}
 
@@ -59,6 +62,7 @@ final readonly class OnTicketTransitioned
                 ], static fn (mixed $value): bool => $value !== null), system: $event->system);
 
                 $this->syncConversationLock($this->lock, $ticket, $event->from, $event->to);
+                $this->revokeGuestAccessOnClose($this->bump, $ticket, $event->from, $event->to, $event->actor, $event->system);
             });
         }
 

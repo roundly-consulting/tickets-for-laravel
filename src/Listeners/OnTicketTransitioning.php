@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets\Listeners;
 
 use Carbon\CarbonImmutable;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
+use RoundlyConsulting\Tickets\Actions\Internal\BumpGuestAccessAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
@@ -16,19 +17,22 @@ use RoundlyConsulting\Tickets\Support\TransitionContext;
 
 /**
  * Inside the transition's transaction, right before lifecycle writes the state (so both are
- * atomic with it): the `status_changed` activity, the `last_activity_at` bump and the
- * conversation lock. Fires for user transitions, expiries and scheduled runs — rollbacks and
+ * atomic with it): the `status_changed` activity, the `last_activity_at` bump, the
+ * conversation lock and — entering Closed with `tickets.guests.revoke_on_close` — the guest
+ * link revocation. Fires for user transitions, expiries and scheduled runs — rollbacks and
  * adoptions fire only `LifecycleTransitioned` and are handled there.
  *
  * @internal
  */
 final readonly class OnTicketTransitioning
 {
+    use RevokesGuestAccessOnClose;
     use SyncsConversationLock;
 
     public function __construct(
         private RecordActivityAction $record,
         private ConversationLock $lock,
+        private BumpGuestAccessAction $bump,
     ) {}
 
     public function handle(LifecycleTransitioning $event): void
@@ -55,5 +59,6 @@ final readonly class OnTicketTransitioning
         $ticket->setAttribute('last_activity_at', $now)->syncOriginalAttribute('last_activity_at');
 
         $this->syncConversationLock($this->lock, $ticket, $event->from, $event->to);
+        $this->revokeGuestAccessOnClose($this->bump, $ticket, $event->from, $event->to, $event->actor ?? $context['actor'] ?? null, $event->system);
     }
 }

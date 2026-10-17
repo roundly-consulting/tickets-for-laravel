@@ -13,6 +13,7 @@ use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
@@ -116,3 +117,64 @@ it('refuses a broken work-management setting, naming the key', function (string 
 it('refuses an auto-watch trigger it does not know', function (): void {
     TicketsConfig::autoWatch('everyone');
 })->throws(InvalidTicketsConfigurationException::class, 'tickets.watchers.auto.everyone');
+
+it('reads the authorization, guest and route settings, blank as the default', function (): void {
+    foreach (['register_policy', 'policy', 'abilities.assign', 'abilities.manage', 'participants_can_transition', 'self_service', 'requester_can_edit'] as $key) {
+        config()->set('tickets.authorization.'.$key, '');
+    }
+
+    foreach (['enabled', 'link_ttl', 'revoke_on_close'] as $key) {
+        config()->set('tickets.guests.'.$key, '');
+    }
+
+    foreach (['prefix', 'max_per_page', 'rate_limit', 'guest.rate_limit', 'bulk.max'] as $key) {
+        config()->set('tickets.routes.'.$key, '');
+    }
+
+    config()->set('tickets.authorization.requester_transitions', null);
+
+    expect(TicketsConfig::registerPolicy())->toBeTrue()
+        ->and(TicketsConfig::policy())->toBe(TicketPolicy::class)
+        ->and(TicketsConfig::assignAbility())->toBe('tickets.assign')
+        ->and(TicketsConfig::manageAbility())->toBe('tickets.manage')
+        ->and(TicketsConfig::requesterTransitions())->toBe(['close', 'reopen'])
+        ->and(TicketsConfig::participantsCanTransition())->toBeFalse()
+        ->and(TicketsConfig::selfService())->toBeTrue()
+        ->and(TicketsConfig::requesterCanEdit())->toBeTrue()
+        ->and(TicketsConfig::guestsEnabled())->toBeTrue()
+        ->and(TicketsConfig::guestLinkTtl()->spec())->toBe('P30D')
+        ->and(TicketsConfig::revokeGuestsOnClose())->toBeFalse()
+        ->and(TicketsConfig::routePrefix())->toBe('api')
+        ->and(TicketsConfig::routeMiddleware())->toBe(['api', 'auth', 'throttle:tickets-api'])
+        ->and(TicketsConfig::guestRouteMiddleware())->toBe(['api', 'throttle:tickets-guest'])
+        ->and(TicketsConfig::maxPerPage())->toBe(100)
+        ->and(TicketsConfig::apiRateLimit())->toBe(120)
+        ->and(TicketsConfig::guestRateLimit())->toBe(30)
+        ->and(TicketsConfig::bulkMax())->toBe(100);
+});
+
+it('reads requester transitions from a list or a comma string, and [] as none', function (mixed $value, array $expected): void {
+    config()->set('tickets.authorization.requester_transitions', $value);
+
+    expect(TicketsConfig::requesterTransitions())->toBe($expected);
+})->with([
+    'a list' => [['close', ' reopen ', 'close'], ['close', 'reopen']],
+    'a comma string' => ['close, reopen', ['close', 'reopen']],
+    'a blank string' => ['', []],
+    'none' => [[], []],
+]);
+
+it('refuses a broken authorization, guest or route setting, naming the key', function (string $key, mixed $value, Closure $read): void {
+    config()->set($key, $value);
+
+    expect($read)->toThrow(InvalidTicketsConfigurationException::class, '['.$key.']');
+})->with([
+    'a policy outside the package policy' => ['tickets.authorization.policy', stdClass::class, fn () => TicketsConfig::policy()],
+    'requester transitions not a list' => ['tickets.authorization.requester_transitions', 42, fn () => TicketsConfig::requesterTransitions()],
+    'a requester transition that is no name' => ['tickets.authorization.requester_transitions', ['Close!'], fn () => TicketsConfig::requesterTransitions()],
+    'a link ttl that is no duration' => ['tickets.guests.link_ttl', '30 days', fn () => TicketsConfig::guestLinkTtl()],
+    'a prefix with a space' => ['tickets.routes.prefix', 'my api', fn () => TicketsConfig::routePrefix()],
+    'a page size too big' => ['tickets.routes.max_per_page', 5000, fn () => TicketsConfig::maxPerPage()],
+    'a bulk size of zero' => ['tickets.routes.bulk.max', 0, fn () => TicketsConfig::bulkMax()],
+    'a junk switch' => ['tickets.guests.enabled', 'maybe', fn () => TicketsConfig::guestsEnabled()],
+]);

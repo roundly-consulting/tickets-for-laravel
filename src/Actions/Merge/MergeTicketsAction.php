@@ -11,6 +11,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\CommentsManager;
 use RoundlyConsulting\MediaLibrary\MediaLibraryManager;
+use RoundlyConsulting\Tickets\Actions\Guests\RevokeGuestAccessAction;
 use RoundlyConsulting\Tickets\Actions\Internal\ApplyAutomationAction;
 use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
 use RoundlyConsulting\Tickets\Actions\Internal\ChangeTicketTagsAction;
@@ -50,7 +51,8 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  *  4. the target gains the source's tags (those its project allows);
  *  5. the source's attachments move to the target (`tickets.merge.move_attachments`);
  *  6. a `duplicates` link source → target;
- *  7. the source records `merged_into_id` and its guest links are revoked;
+ *  7. the source records `merged_into_id` and its guest links are revoked
+ *     (`RevokeGuestAccessAction`, so `GuestAccessRevoked` fires);
  *  8. the `Merged` automation dismisses the source (`merged:<target>`), which locks its
  *     conversation;
  *  9. `merged` / `merged_from` activities, and `TicketMerged` after commit.
@@ -69,6 +71,7 @@ final readonly class MergeTicketsAction
         private ApplyAutomationAction $automations,
         private RecordActivityAction $record,
         private MediaLibraryManager $media,
+        private RevokeGuestAccessAction $revokeGuestAccess,
         private Gate $gate,
         private Dispatcher $events,
     ) {}
@@ -107,11 +110,11 @@ final readonly class MergeTicketsAction
                 ]);
             }
 
-            $source->forceFill([
-                'merged_into_id' => $target->getKey(),
-                'guest_access_version' => $source->guest_access_version + 1,
-            ])->save();
+            $source->forceFill(['merged_into_id' => $target->getKey()])->save();
             $source->setRelation('mergedInto', $target);
+
+            // Every guest link to the source dies with it (`GuestAccessRevoked`).
+            $this->revokeGuestAccess->execute($source, $actor, $system);
 
             $this->automations->execute($source, Automation::Merged, $actor, 'merged:'.$target->reference);
 

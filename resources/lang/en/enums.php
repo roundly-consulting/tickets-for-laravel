@@ -158,5 +158,7 @@ return [
         'resolve_guest' => 'Resolve guest',
         'update_guest' => 'Update guest',
         'convert_guest' => 'Convert guest',
+        'issue_guest_link' => 'Issue guest link',
+        'revoke_guest_access' => 'Revoke guest access',
     ],
 ];

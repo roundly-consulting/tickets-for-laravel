@@ -191,6 +191,12 @@ describe('strict_writes', function (): void {
         $writers = [];
 
         foreach ($files as $file) {
+            // The HTTP layer only renders `status` (its writes go through the manager — pinned by
+            // the arch test), so it is not scanned.
+            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Http'.DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
             // The two mentions allowed declare it: the model's cast and its lifecycle map.
             if ($file->isFile() && preg_match("/['\"]status['\"]\s*+=>\s*+(?!AsLifecycleState|TicketsConfig::lifecycle)/", (string) file_get_contents($file->getPathname())) === 1) {
                 $writers[] = $file->getFilename();

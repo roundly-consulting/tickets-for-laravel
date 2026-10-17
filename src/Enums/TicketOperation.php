@@ -62,6 +62,8 @@ enum TicketOperation: string implements HasColor
     case ResolveGuest = 'resolve_guest';
     case UpdateGuest = 'update_guest';
     case ConvertGuest = 'convert_guest';
+    case IssueGuestLink = 'issue_guest_link';
+    case RevokeGuestAccess = 'revoke_guest_access';
 
     public function color(): string
     {
@@ -69,7 +71,7 @@ enum TicketOperation: string implements HasColor
             self::Create, self::CreateCategory, self::DefineField, self::Restore, self::RestoreCategory,
             self::RestoreField, self::CreateTag => 'green',
             self::Delete, self::DeleteCategory, self::DeleteComment, self::DeleteField, self::DeleteTag,
-            self::RemoveAttachment, self::PruneFields => 'red',
+            self::RemoveAttachment, self::PruneFields, self::RevokeGuestAccess => 'red',
             self::Merge => 'purple',
             self::Assign, self::Unassign, self::Claim => 'indigo',
             self::Reply, self::Note => 'blue',

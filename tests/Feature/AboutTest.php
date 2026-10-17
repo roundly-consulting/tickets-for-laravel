@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Artisan;
 it('renders its about section', function (): void {
     expect('tickets')->toLeakNoSecrets([], mustRender: [
         'Primary key type', 'Key type', 'bigint', 'Lifecycle', 'TicketLifecycle', 'Priority enum', 'TicketPriority',
+        'Routes', 'OFF', 'Guest access',
     ]);
 });
 
@@ -25,4 +26,6 @@ it('renders a broken setting as INVALID instead of failing the whole command', f
     'primary key type' => ['tickets.primary_key_type', 'uiid', 'Primary key type'],
     'lifecycle' => ['tickets.lifecycle', stdClass::class, 'Lifecycle'],
     'priority enum' => ['tickets.priority.enum', stdClass::class, 'Priority enum'],
+    'routes' => ['tickets.routes.enabled', 'maybe', 'Routes'],
+    'guest access' => ['tickets.guests.enabled', 'maybe', 'Guest access'],
 ]);
