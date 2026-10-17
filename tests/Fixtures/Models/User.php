@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Tickets\Tests\Fixtures\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use RoundlyConsulting\Tickets\Concerns\RequestsTickets;
 use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Models\Ticket;
 
@@ -18,6 +19,7 @@ use RoundlyConsulting\Tickets\Models\Ticket;
 final class User extends Authenticatable implements Assignee
 {
     use Notifiable;
+    use RequestsTickets;
 
     protected $table = 'users';
 

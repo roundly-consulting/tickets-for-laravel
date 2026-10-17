@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Tests\Fixtures\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Tickets\Concerns\HasTickets;
 use RoundlyConsulting\Tickets\Contracts\TicketProject;
 
 /**
@@ -14,6 +15,8 @@ use RoundlyConsulting\Tickets\Contracts\TicketProject;
  */
 final class Project extends Model implements TicketProject
 {
+    use HasTickets;
+
     protected $table = 'projects';
 
     protected $guarded = [];

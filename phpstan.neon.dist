@@ -7,6 +7,8 @@ parameters:
         # Host-model traits are analysed only where a class uses them.
         - tests/Fixtures/Models/Agent.php
         - tests/Fixtures/Models/Desk.php
+        - tests/Fixtures/Models/User.php
+        - tests/Fixtures/Models/Project.php
     # This package ships its own config/ dir; env() is correct there.
     configDirectories:
         - config

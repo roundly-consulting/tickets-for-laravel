@@ -6,15 +6,18 @@ namespace RoundlyConsulting\Tickets;
 
 use Closure;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Accessors\Categories;
 use RoundlyConsulting\Tickets\Accessors\Fields;
 use RoundlyConsulting\Tickets\Accessors\Guests;
 use RoundlyConsulting\Tickets\Accessors\Tags;
 use RoundlyConsulting\Tickets\Actions\Tickets\CreateTicketAction;
 use RoundlyConsulting\Tickets\Builders\TicketBuilder;
+use RoundlyConsulting\Tickets\Contracts\TicketProject;
 use RoundlyConsulting\Tickets\DataTransferObjects\CreateTicketData;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
+use RoundlyConsulting\Tickets\Handles\ProjectTickets;
 use RoundlyConsulting\Tickets\Handles\TicketHandle;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\TicketModels;
@@ -78,6 +81,15 @@ class TicketsManager
     public function for(Ticket|string $ticket): TicketHandle
     {
         return new TicketHandle($this, is_string($ticket) ? $this->findOrFail($ticket) : $ticket);
+    }
+
+    /**
+     * The tickets, categories, fields and tags of one project — a host model implementing
+     * {@see TicketProject}.
+     */
+    public function project(Model&TicketProject $project): ProjectTickets
+    {
+        return new ProjectTickets($this, $project);
     }
 
     /**
