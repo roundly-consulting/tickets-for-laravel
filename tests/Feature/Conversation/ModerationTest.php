@@ -24,10 +24,12 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
 use RoundlyConsulting\Tickets\Tests\Fixtures\MentionResolver;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Document;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\LegacyComment;
+use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Policies\RestrictiveCommentPolicy;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Policies\TicketFriendlyCommentPolicy;
+use RoundlyConsulting\Tickets\Tests\Fixtures\ProjectAgentScope;
 
 beforeEach(fn () => defineAgents());
 
@@ -162,6 +164,27 @@ describe('mentions', function (): void {
             ['Ada', 'Cc', 'Grace'],
         ],
     ]);
+
+    it('passes a note\'s mention only to an agent the agent scope lets work on the ticket', function (): void {
+        Event::fake([TicketMentioned::class]);
+        config()->set('tickets.authorization.agent_scope', ProjectAgentScope::class);
+        Project::query()->create(['name' => 'Support', 'key' => 'SUP']);
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        User::query()->create(['name' => 'Scoped', 'is_agent' => true]);
+        $ticket = modTicket();
+
+        // `Scoped` works on SUP tickets only; this one has no project, so they may not open it.
+        Tickets::for($ticket)->by($agent)->note('@Scoped @Grace a look, please.');
+
+        $mentioned = [];
+        Event::assertDispatched(TicketMentioned::class, static function (TicketMentioned $event) use (&$mentioned): bool {
+            $mentioned[] = $event->mentioned->getAttribute('name');
+
+            return true;
+        });
+
+        expect($mentioned)->toBe(['Grace']);
+    });
 
     it('drops a watcher\'s mention once watchers may not view', function (): void {
         Event::fake([TicketMentioned::class]);

@@ -9,7 +9,6 @@ use RoundlyConsulting\Comments\Events\CommentMentioned;
 use RoundlyConsulting\Tickets\Actions\Internal\AutoWatchAction;
 use RoundlyConsulting\Tickets\Events\TicketMentioned;
 use RoundlyConsulting\Tickets\Models\Ticket;
-use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
@@ -18,8 +17,9 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
 /**
  * Comments fires `CommentMentioned` for every approved comment — internal notes included —
  * and only when the host set `comments.mention_resolver`. For a ticket comment this turns it
- * into `TicketMentioned`, only for someone who may see that comment: an agent for an internal
- * note, anyone who can view the ticket for a public reply. Comments of other subjects pass
+ * into `TicketMentioned`, only for someone who may see that comment: an agent the agent scope
+ * lets work on the ticket for an internal note, anyone who can view the ticket for a public
+ * reply. Comments of other subjects pass
  * straight through.
  *
  * @internal
@@ -48,7 +48,7 @@ final readonly class OnCommentMentioned
         }
 
         $mayRead = TicketComments::isInternal($comment)
-            ? Agents::is($mentioned)
+            ? TicketVisibility::isAgentFor($mentioned, $ticket)
             : TicketVisibility::canView($mentioned, $ticket);
 
         if (! $mayRead) {
