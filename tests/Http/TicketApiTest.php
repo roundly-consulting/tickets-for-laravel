@@ -471,6 +471,36 @@ describe('admin endpoints', function (): void {
         expect(TicketField::query()->count())->toBe(1);
     });
 
+    it('refuses a default its own field would refuse, so the intake never breaks', function (array $definition): void {
+        $admin = apiAdmin();
+
+        $this->actingAs($admin)->postJson('/api/ticket-fields', $definition)->assertUnprocessable()
+            ->assertJsonValidationErrors($definition['type'] === 'multiselect' ? 'default.0' : 'default');
+
+        expect(TicketField::query()->count())->toBe(0);
+        $this->actingAs(apiUser())->postJson('/api/tickets', ['subject' => 'Printer jammed'])->assertCreated();
+    })->with([
+        'select default not an option' => [['key' => 'plan', 'type' => 'select', 'label' => 'Plan', 'options' => ['basic' => 'Basic', 'pro' => 'Pro'], 'default' => 'gold']],
+        'number default not a number' => [['key' => 'seats', 'type' => 'number', 'label' => 'Seats', 'default' => 'many']],
+        'default breaking the field rule' => [['key' => 'code', 'type' => 'text', 'label' => 'Code', 'rules' => ['max:3'], 'default' => 'TOO-LONG']],
+        'multiselect default not its options' => [['key' => 'tags', 'type' => 'multiselect', 'label' => 'Tags', 'options' => ['a' => 'A'], 'default' => ['b']]],
+    ]);
+
+    it('refuses an update that leaves the default invalid', function (array $change): void {
+        $admin = apiAdmin();
+        $field = Tickets::fields()->make('plan', FieldType::Select)->options(['basic' => 'Basic', 'pro' => 'Pro'])->default('basic')->define();
+
+        $this->actingAs($admin)->patchJson('/api/ticket-fields/'.$field->getKey(), $change)->assertUnprocessable()->assertJsonValidationErrors('default');
+
+        expect($field->fresh()?->default)->toBe('basic');
+        $this->actingAs(apiUser())->postJson('/api/tickets', ['subject' => 'Printer jammed'])->assertCreated();
+    })->with([
+        'a default not an option' => [['default' => 'gold']],
+        'options without the default' => [['options' => ['pro' => 'Pro']]],
+        'a type the default does not fit' => [['type' => 'number', 'options' => []]],
+        'a rule the default breaks' => [['rules' => ['max:3']]],
+    ]);
+
     it('reads and writes tags', function (): void {
         $admin = apiAdmin();
         $agent = apiAgent();

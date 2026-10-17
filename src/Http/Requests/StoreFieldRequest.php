@@ -12,7 +12,8 @@ use RoundlyConsulting\Tickets\Enums\FieldType;
 
 /**
  * `POST /ticket-fields` — a custom field definition. Its key, options and rules are checked by
- * the action (allow-listed rules only).
+ * the action (allow-listed rules only), and so is the default — against the field's own type,
+ * options and rules, a 422 keyed `default` like any other input.
  *
  * @internal
  */

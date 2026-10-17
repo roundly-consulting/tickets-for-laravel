@@ -15,9 +15,9 @@ use RoundlyConsulting\Tickets\Support\FieldInput;
 use RoundlyConsulting\Tickets\TicketsManager;
 
 /**
- * `Tickets::fields()->make($key, $type)` — fluent sugar over {@see FieldData}. The key and
- * the rules are validated at once, and a select type without options is refused before
- * anything is written; `define()` runs the full action, so the DTO form and this one produce
+ * `Tickets::fields()->make($key, $type)` — fluent sugar over {@see FieldData}. The key, the
+ * rules and the default are validated at once, and a select type without options is refused
+ * before anything is written; `define()` runs the full action, so the DTO form and this one produce
  * the same row. Without a label, the field is labelled with its key as a headline.
  */
 final class FieldBuilder
@@ -89,6 +89,7 @@ final class FieldBuilder
     {
         FieldInput::options($this->key, $this->type, $options);
         $this->options = $options;
+        $this->checkDefault();
 
         return $this;
     }
@@ -99,6 +100,7 @@ final class FieldBuilder
     public function rules(array $rules): self
     {
         $this->rules = FieldInput::rules($this->key, $rules);
+        $this->checkDefault();
 
         return $this;
     }
@@ -117,9 +119,14 @@ final class FieldBuilder
         return $this;
     }
 
+    /**
+     * A value the field itself accepts — checked now against the type, and against the options
+     * and rules as soon as they are known.
+     */
     public function default(mixed $value): self
     {
         $this->default = $value;
+        $this->checkDefault();
 
         return $this;
     }
@@ -182,6 +189,16 @@ final class FieldBuilder
         $this->category = $category;
 
         return $this;
+    }
+
+    private function checkDefault(): void
+    {
+        // A choice type's options may come after its default; they are checked once given.
+        if ($this->type->hasOptions() && $this->options === []) {
+            return;
+        }
+
+        FieldInput::assertDefault($this->key, $this->type, FieldInput::options($this->key, $this->type, $this->options), $this->rules, $this->default);
     }
 
     public function data(): FieldData

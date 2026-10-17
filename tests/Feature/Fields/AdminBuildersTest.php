@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Tickets\DataTransferObjects\CategoryData;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldData;
 use RoundlyConsulting\Tickets\Enums\FieldType;
@@ -123,6 +124,10 @@ describe('admin_builders_match_dtos', function (): void {
         'empty option list' => [fn () => Tickets::fields()->make('cause', FieldType::Select)->options([]), InvalidFieldException::class],
         'options on a text field' => [fn () => Tickets::fields()->make('note', FieldType::Text)->options(['a' => 'A']), InvalidFieldException::class],
         'disallowed rule' => [fn () => Tickets::fields()->make('note', FieldType::Text)->rules(['exists:users,id']), InvalidFieldException::class],
+        'default of another type' => [fn () => Tickets::fields()->make('seats', FieldType::Number)->default('many'), ValidationException::class],
+        'default not an option' => [fn () => Tickets::fields()->make('plan', FieldType::Select)->options(['basic' => 'Basic'])->default('gold'), ValidationException::class],
+        'options without the default' => [fn () => Tickets::fields()->make('plan', FieldType::Select)->default('gold')->options(['basic' => 'Basic']), ValidationException::class],
+        'a rule the default breaks' => [fn () => Tickets::fields()->make('code', FieldType::Text)->default('TOO-LONG')->rules(['max:3']), ValidationException::class],
         'empty category name' => [fn () => Tickets::categories()->make(''), InvalidCategoryException::class],
         'bad due offset' => [fn () => Tickets::categories()->make('x')->defaults(dueIn: 'tomorrow'), InvalidCategoryException::class],
         'bad default priority' => [fn () => Tickets::categories()->make('x')->defaults(priority: 'critical'), InvalidCategoryException::class],

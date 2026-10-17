@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Tickets\Support;
 
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Validation\Factory as ValidatorFactory;
 use Illuminate\Database\Eloquent\Builder;
+use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidFieldException;
 use RoundlyConsulting\Tickets\Models\TicketField;
@@ -75,6 +78,42 @@ final class FieldInput
         }
 
         return $stored;
+    }
+
+    /**
+     * A default the field itself would accept as a value — its type, options and rules — or a
+     * defaults-filled intake would refuse every new ticket of the scope. A ValidationException
+     * keyed `default`; null (no default) always passes.
+     *
+     * @param  list<array<string, mixed>>|null  $options  as stored (`[{value, label}]`)
+     * @param  list<string>  $rules  allow-listed
+     */
+    public static function assertDefault(string $key, FieldType $type, ?array $options, array $rules, mixed $default): void
+    {
+        if ($default === null) {
+            return;
+        }
+
+        $definition = new FieldDefinition(
+            id: 0,
+            key: $key,
+            type: $type,
+            label: [],
+            options: array_map(static fn (array $option): string => is_scalar($option['value'] ?? null) ? (string) $option['value'] : '', $options ?? []),
+            rules: $rules,
+            required: false,
+            encrypted: false,
+            default: null,
+            requesterVisible: false,
+            requesterEditable: false,
+            categoryId: null,
+        );
+
+        $name = Messages::attribute('default');
+
+        Container::getInstance()->make(ValidatorFactory::class)
+            ->make(['default' => $default], $definition->validationRules('default'), [], ['default' => $name, 'default.*' => $name])
+            ->validate();
     }
 
     /** The longest `regex:` pattern a field rule may carry. */

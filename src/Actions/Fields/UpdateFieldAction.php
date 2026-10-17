@@ -19,7 +19,8 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * Updates a field definition under the `lock:fields` advisory row. Once tickets hold values of
  * the field, its type and encryption are locked and its options may only grow — a select option
  * a value uses cannot go; a multiselect keeps every option (its values are json lists no query
- * can search).
+ * can search). The default must stay a value the changed field accepts (a ValidationException
+ * keyed `default`).
  */
 final readonly class UpdateFieldAction
 {
@@ -70,6 +71,15 @@ final readonly class UpdateFieldAction
                 ...(Optional::given($data->active) ? ['is_active' => $data->active] : []),
                 'type' => $type,
             ];
+
+            // The default as the changed field would take it as a value.
+            FieldInput::assertDefault(
+                $key,
+                $type,
+                array_key_exists('options', $changes) ? $changes['options'] : $field->options,
+                array_key_exists('rules', $changes) ? ($changes['rules'] ?? []) : ($field->rules ?? []),
+                array_key_exists('default', $changes) ? $changes['default'] : $field->default,
+            );
 
             $field->forceFill($changes)->save();
             $this->fields->flush();

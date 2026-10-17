@@ -11,7 +11,8 @@ use RoundlyConsulting\Tickets\Support\Optional;
 
 /**
  * `PATCH /ticket-fields/{field}` — only what is sent changes; the key, project and category
- * stay.
+ * stay. The action checks the default against the field as changed (a 422 keyed `default`), so
+ * a new type, options or rules can never leave a default the field would refuse.
  *
  * @internal
  */

@@ -24,6 +24,7 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * child category re-using its parent's key would give one value two definitions. No
  * portable partial unique index can hold that, so the check runs under `lock:fields`.
  *
+ * The default must be a value the field itself accepts (a ValidationException keyed `default`).
  * A key a deleted field of the scope still keeps values under is refused too: a new field would
  * show those values. Restore the old field, or prune its values (`Tickets::fields()->prune()`).
  */
@@ -39,6 +40,7 @@ final readonly class DefineFieldAction
         $label = FieldInput::label($key, $data->label);
         $options = FieldInput::options($key, $data->type, $data->options);
         $rules = FieldInput::rules($key, $data->rules);
+        FieldInput::assertDefault($key, $data->type, $options, $rules, $data->default);
         $class = TicketModels::field();
 
         return TicketTransaction::run(new $class, function () use ($class, $data, $key, $label, $options, $rules): TicketField {
