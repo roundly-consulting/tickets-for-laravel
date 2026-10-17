@@ -80,23 +80,54 @@ describe('tag admin', function (): void {
             ->and(Tickets::tags()->update($tag, new UpdateTagData(color: null))->color)->toBeNull();
     });
 
-    it('drops a deleted tag off its tickets and brings it back for its name', function (): void {
+    it('takes a deleted tag off its tickets, on the record, and brings the name back empty', function (): void {
+        Event::fake([TicketUntagged::class, TicketTagged::class]);
+        $agent = User::query()->create(['name' => 'Grace']);
         $ticket = tagTicket();
+        $other = tagTicket();
+        $trashed = tagTicket();
         $tag = Tickets::tags()->create('printer');
-        Tickets::for($ticket)->asSystem()->tags()->attach($tag);
+        $kept = Tickets::tags()->create('scanner');
+        foreach ([$ticket, $other, $trashed] as $carrier) {
+            Tickets::for($carrier)->asSystem()->tags()->attach([$tag, $kept]);
+        }
+        Tickets::for($trashed)->asSystem()->delete();
 
+        $this->actingAs($agent);
         Tickets::tags()->delete($tag);
 
-        expect(tagSlugs($ticket))->toBe([])
-            ->and(fn () => Tickets::tags()->rename(Tickets::tags()->create('scanner'), 'printer'))->toThrow(InvalidTagException::class);
+        $untagged = TicketActivity::query()->where('ticket_id', $ticket->id)->where('type', ActivityType::Untagged->value)->sole();
+        expect(tagSlugs($ticket))->toBe(['scanner'])
+            ->and(tagSlugs($other))->toBe(['scanner'])
+            ->and($tag->tickets()->withTrashed()->count())->toBe(0)
+            ->and($untagged->properties)->toBe(['added' => [], 'removed' => ['printer']])
+            ->and($untagged->actor_id)->toBe($agent->id)
+            ->and(fn () => Tickets::tags()->rename(Tickets::tags()->create('fax'), 'printer'))->toThrow(InvalidTagException::class);
+        Event::assertDispatchedTimes(TicketUntagged::class, 2);
 
+        // The name is the tag's for good (the row comes back) — its old tickets are not.
         $back = Tickets::tags()->create('Printer', color: '#123456');
 
         expect($back->is($tag))->toBeTrue()
             ->and($back->trashed())->toBeFalse()
             ->and($back->color)->toBe('#123456')
             ->and(TicketTag::withTrashed()->where('slug', 'like', 'printer%')->count())->toBe(1)
-            ->and(tagSlugs($ticket))->toBe(['printer']);
+            ->and(tagSlugs($ticket))->toBe(['scanner'])
+            ->and($back->tickets()->withTrashed()->count())->toBe(0);
+    });
+
+    it('never re-labels old tickets when one ticket gets a deleted tag\'s name', function (): void {
+        Event::fake([TicketTagged::class]);
+        $old = tagTicket();
+        Tickets::for($old)->asSystem()->tags()->attach('legacy');
+        Tickets::tags()->delete(Tickets::tags()->find('legacy') ?? throw new RuntimeException('no tag'));
+        $new = tagTicket();
+
+        Tickets::for($new)->asSystem()->tags()->attach('legacy');
+
+        expect(tagSlugs($old))->toBe([])
+            ->and(tagSlugs($new))->toBe(['legacy']);
+        Event::assertDispatchedTimes(TicketTagged::class, 2);
     });
 });
 

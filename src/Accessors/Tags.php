@@ -80,8 +80,9 @@ final readonly class Tags
     }
 
     /**
-     * Soft-delete a tag; it comes off every ticket's tag list, and its name stays taken (a
-     * re-create brings it back). Returns the trashed tag.
+     * Soft-delete a tag; it comes off every ticket's tag list (an `untagged` entry and
+     * `TicketUntagged` per live ticket), and its name stays taken (a re-create brings the tag
+     * back, on no ticket). Returns the trashed tag.
      */
     public function delete(TicketTag $tag): TicketTag
     {
