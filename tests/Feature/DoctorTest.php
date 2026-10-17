@@ -221,12 +221,16 @@ describe('attachment download URLs', function (): void {
     });
 
     it('reports every attachment disk that mints no temporary URLs once the stream route is off', function (): void {
+        // Both disks spelled out: whether the skeleton's `local` disk serves signed URLs differs
+        // between Laravel 12 and 13.
         config()->set('media.stream.enabled', 'off');
         config()->set('filesystems.disks.vault', ['driver' => 'local', 'root' => sys_get_temp_dir(), 'serve' => false]);
+        config()->set('filesystems.disks.archive', ['driver' => 'local', 'root' => sys_get_temp_dir(), 'serve' => false]);
         config()->set('tickets.attachments.disk', 'vault');
+        config()->set('comments.media.private_disk', 'archive');
 
         expect(doctorLevels('attachments'))->toBe(['disk' => 'ok', 'temporary_urls' => 'warning'])
-            ->and(doctorMessages('attachments')[1])->toContain('the disks vault, local mint no temporary URLs');
+            ->and(doctorMessages('attachments')[1])->toContain('the disks vault, archive mint no temporary URLs');
 
         config()->set('tickets.routes.enabled', 'on');
 
