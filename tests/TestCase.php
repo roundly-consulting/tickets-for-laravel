@@ -19,11 +19,14 @@ use RoundlyConsulting\Testing\PackageTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Project;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Team;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
+use RoundlyConsulting\Tickets\Tests\Support\KeepsMigratedSchema;
 use RoundlyConsulting\Tickets\TicketsServiceProvider;
 use RoundlyConsulting\Translatable\TranslatableServiceProvider;
 
 abstract class TestCase extends PackageTestCase
 {
+    use KeepsMigratedSchema;
+
     /**
      * Every provider tickets hard-requires (and what they require in turn), in registration
      * order. A host auto-discovers these; the suite lists them so its environment is real —
