@@ -11,6 +11,7 @@ use RoundlyConsulting\Tickets\Enums\AuthorRole;
 use RoundlyConsulting\Tickets\Enums\Automation;
 use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Enums\LinkType;
+use RoundlyConsulting\Tickets\Enums\NotificationType;
 use RoundlyConsulting\Tickets\Enums\StatusCategory;
 use RoundlyConsulting\Tickets\Enums\TicketChannel;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
@@ -20,7 +21,7 @@ use RoundlyConsulting\Tickets\Enums\TicketStatus;
 $enums = [
     TicketStatus::class, StatusCategory::class, Automation::class, TicketPriority::class, FieldType::class,
     LinkType::class, ActivityType::class, ActivityVisibility::class, AuthorRole::class, TicketChannel::class,
-    TicketOperation::class,
+    TicketOperation::class, NotificationType::class,
 ];
 
 it('gives every case a colour and a translated label in both languages', function (string $enum): void {
@@ -34,6 +35,17 @@ it('gives every case a colour and a translated label in both languages', functio
         }
     }
 })->with($enums);
+
+it('names the packaged class of every notification type, and which reach the requester side', function (): void {
+    foreach (NotificationType::cases() as $type) {
+        expect((new ReflectionClass($type->defaultClass()))->newInstanceWithoutConstructor()->type())->toBe($type);
+    }
+
+    expect(array_values(array_map(
+        static fn (NotificationType $type): string => $type->value,
+        array_filter(NotificationType::cases(), static fn (NotificationType $type): bool => $type->reachesRequesters()),
+    )))->toBe(['created', 'replied', 'status_changed', 'merged']);
+});
 
 it('maps every shipped status to its category', function (): void {
     expect(array_map(static fn (TicketStatus $status): string => $status->category()->value, TicketStatus::cases()))

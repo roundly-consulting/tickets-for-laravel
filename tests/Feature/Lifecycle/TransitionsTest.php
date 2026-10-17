@@ -191,9 +191,10 @@ describe('strict_writes', function (): void {
         $writers = [];
 
         foreach ($files as $file) {
-            // The HTTP layer only renders `status` (its writes go through the manager — pinned by
-            // the arch test), so it is not scanned.
-            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Http'.DIRECTORY_SEPARATOR)) {
+            // The HTTP layer and the notifications only render `status` (the API's writes go
+            // through the manager — pinned by the arch test), so they are not scanned.
+            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Http'.DIRECTORY_SEPARATOR)
+                || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Notifications'.DIRECTORY_SEPARATOR)) {
                 continue;
             }
 

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Tickets\Http\Resources;
 
 use Illuminate\Database\Eloquent\Model;
-use RoundlyConsulting\Tickets\Contracts\Assignee;
 use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
+use RoundlyConsulting\Tickets\Support\DisplayName;
 use RoundlyConsulting\Tickets\Support\MorphAliases;
 
 /**
@@ -86,16 +86,6 @@ final class Party
 
     public static function name(Model $model): ?string
     {
-        if ($model instanceof TicketGuest) {
-            return $model->displayName();
-        }
-
-        if ($model instanceof Assignee) {
-            return $model->ticketAssigneeName();
-        }
-
-        $name = $model->getAttribute('name');
-
-        return is_string($name) ? $name : null;
+        return DisplayName::of($model);
     }
 }

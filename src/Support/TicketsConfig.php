@@ -12,10 +12,12 @@ use RoundlyConsulting\PackageToolkit\Support\Config;
 use RoundlyConsulting\PackageToolkit\Support\ConfigValidator;
 use RoundlyConsulting\Tickets\Contracts\Priority;
 use RoundlyConsulting\Tickets\Contracts\TicketLifecycle as TicketLifecycleContract;
+use RoundlyConsulting\Tickets\Enums\NotificationType;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLifecycleException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
+use RoundlyConsulting\Tickets\Notifications\TicketNotification;
 use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 
 /**
@@ -555,6 +557,138 @@ final class TicketsConfig
 
         return Durations::parse($value)
             ?? throw InvalidTicketsConfigurationException::invalid('tickets.due.soon_window', 'an ISO-8601 duration (PT4H, P1D) or off');
+    }
+
+    /**
+     * Whether the package sends notifications at all (`tickets.notifications.enabled`).
+     */
+    public static function notificationsEnabled(): bool
+    {
+        return self::read()->boolean('tickets.notifications.enabled', true);
+    }
+
+    /**
+     * The channels every notification goes out on (`tickets.notifications.channels`).
+     *
+     * @return list<string>
+     */
+    public static function notificationChannels(): array
+    {
+        return self::read()->list(
+            'tickets.notifications.channels',
+            ['mail'],
+            static fn (string $channel): bool => trim($channel) !== '',
+        );
+    }
+
+    /**
+     * The queue notifications are pushed to (`tickets.notifications.queue`), or null for the
+     * connection's default queue.
+     */
+    public static function notificationQueue(): ?string
+    {
+        $queue = trim(self::read()->string('tickets.notifications.queue', ''));
+
+        return $queue === '' ? null : $queue;
+    }
+
+    /**
+     * Whether the one who acted is notified of their own change too
+     * (`tickets.notifications.notify_actor`).
+     */
+    public static function notifyActor(): bool
+    {
+        return self::read()->boolean('tickets.notifications.notify_actor', false);
+    }
+
+    /**
+     * Whether guest requesters and guest watchers are notified (`tickets.notifications.guests`).
+     */
+    public static function notifyGuests(): bool
+    {
+        return self::read()->boolean('tickets.notifications.guests', true);
+    }
+
+    /**
+     * Whether any notification may go to a guest: notifications on, guests notified, and a type
+     * that reaches the requester side switched on.
+     */
+    public static function notifiesGuests(): bool
+    {
+        if (! self::notificationsEnabled() || ! self::notifyGuests()) {
+            return false;
+        }
+
+        foreach (NotificationType::cases() as $type) {
+            if ($type->reachesRequesters() && self::notification($type) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The link a signed-in recipient's mail opens for the ticket (`tickets.notifications.url`,
+     * `{reference}` filled in), or null when none is configured.
+     */
+    public static function notificationUrl(string $reference): ?string
+    {
+        $template = trim(self::read()->string('tickets.notifications.url', ''));
+
+        if ($template === '') {
+            return null;
+        }
+
+        $url = str_replace('{reference}', rawurlencode($reference), $template);
+
+        if (filter_var($url, FILTER_VALIDATE_URL) === false || preg_match('#^https?://#i', $url) !== 1) {
+            throw InvalidTicketsConfigurationException::invalid('tickets.notifications.url', 'an http(s) URL, with {reference} where the ticket reference goes');
+        }
+
+        return $url;
+    }
+
+    /**
+     * The class sent for a notification type (`tickets.notifications.types.*`): the packaged
+     * class or one extending it; null when the type is switched off (`false`). Blank is the
+     * packaged class.
+     *
+     * @return class-string<TicketNotification>|null
+     */
+    public static function notification(NotificationType $type): ?string
+    {
+        // Read key by key: each type is a leaf of its own.
+        $configured = match ($type) {
+            NotificationType::Created => config('tickets.notifications.types.created'),
+            NotificationType::Assigned => config('tickets.notifications.types.assigned'),
+            NotificationType::Replied => config('tickets.notifications.types.replied'),
+            NotificationType::RequesterReplied => config('tickets.notifications.types.requester_replied'),
+            NotificationType::NoteAdded => config('tickets.notifications.types.note_added'),
+            NotificationType::Mentioned => config('tickets.notifications.types.mentioned'),
+            NotificationType::StatusChanged => config('tickets.notifications.types.status_changed'),
+            NotificationType::Overdue => config('tickets.notifications.types.overdue'),
+            NotificationType::DueSoon => config('tickets.notifications.types.due_soon'),
+            NotificationType::Merged => config('tickets.notifications.types.merged'),
+        };
+
+        $key = 'tickets.notifications.types.'.$type->value;
+
+        if ($configured === null || (is_string($configured) && trim($configured) === '')) {
+            return $type->defaultClass();
+        }
+
+        if ($configured === false || (is_string($configured) && in_array(strtolower(trim($configured)), ['false', 'off', '0', 'no'], true))) {
+            return null;
+        }
+
+        $base = $type->defaultClass();
+
+        if (! is_string($configured) || ! class_exists($configured) || ! is_a($configured, $base, true)) {
+            throw InvalidTicketsConfigurationException::invalid($key, 'false or a class extending '.$base);
+        }
+
+        return $configured;
     }
 
     /** A reference prefix: an upper-case letter, then up to nine upper-case letters or digits. */

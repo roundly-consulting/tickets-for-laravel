@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Enums\TicketStatus;
 use RoundlyConsulting\Tickets\Events\TicketAssigned;
@@ -11,6 +12,7 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidAssigneeException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketActivity;
+use RoundlyConsulting\Tickets\Notifications\TicketAssignedNotification;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Agent;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Desk;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\Document;
@@ -95,10 +97,11 @@ describe('assignment_rules', function (): void {
             ->and($ticket->fresh()?->assignee_type)->toBeNull();
     });
 
-    it('assigns a team, whose members are the ones to notify', function (): void {
-        Event::fake([TicketAssigned::class]);
+    it('assigns a team, whose members are the ones notified', function (): void {
+        Notification::fake();
         $team = Team::query()->create(['name' => 'Hardware']);
         $members = [workAgent(), workAgent('Linus')];
+        $outsider = workAgent('Ken');
         $team->members()->attach(array_map(static fn (User $member): int => $member->id, $members));
         $ticket = workTicket();
 
@@ -107,7 +110,14 @@ describe('assignment_rules', function (): void {
         expect($ticket->assignee?->is($team))->toBeTrue()
             ->and(collect($team->ticketNotifiables())->pluck('name')->all())->toBe(['Grace', 'Linus']);
 
-        Event::assertDispatched(TicketAssigned::class, static fn (TicketAssigned $event): bool => $event->assignee->is($team));
+        foreach ($members as $member) {
+            Notification::assertSentTo($member, TicketAssignedNotification::class, static fn (TicketAssignedNotification $notification): bool => $notification->ticket->is($ticket)
+                && $notification->assignee->is($team)
+                && $notification->toMail($member)->introLines[0] === 'Ticket '.$ticket->reference.' — “Laptop will not boot” — was assigned to Hardware.');
+        }
+
+        Notification::assertNotSentTo($outsider, TicketAssignedNotification::class);
+        Notification::assertSentToTimes($members[0], TicketAssignedNotification::class, 1);
     });
 
     it('unassigns, once', function (): void {

@@ -155,3 +155,16 @@ Initial public release.
 - `Tickets::sweep()` and `php artisan tickets:sweep`: `TicketOverdue` and `TicketDueSoon`
   (`tickets.due.soon_window`, `PT4H` by default) exactly once per due date, safe under concurrent
   sweeps; a `SweepResult`, an `overdue` activity entry and `Tickets::fake()->assertSwept()`.
+- Notifications (`tickets.notifications`, on by default, `['mail']`): the requester's receipt for a
+  new ticket, the assignment (to whoever `Contracts\Assignee::ticketNotifiables()` names — a team's
+  members), a help-desk reply (to the requester and the watchers who are not agents), a requester's
+  reply and an internal note (to the assignee and the agents watching), a mention, a ticket
+  resolved, closed or reopened, overdue, due soon, and merged. Queued after commit
+  (`tickets.notifications.queue`) on `tickets.notifications.channels`, in English and Slovak, with
+  a `toArray()` for the database channel. Internal content reaches only agents the agent scope
+  lets work on the ticket, every recipient is visibility-checked again on delivery, the one who
+  acted is left out (`notify_actor`), and a failing notification is reported, never thrown.
+  Guests get a fresh signed link (`tickets.notifications.guests`); everyone else a button to
+  `tickets.notifications.url`. Each type is a swappable class or `false`
+  (`tickets.notifications.types.*`), and what people wrote is shown as text, never as Markdown.
+- `about` shows whether notifications are on, and on which channels.

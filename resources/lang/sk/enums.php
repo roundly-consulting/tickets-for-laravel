@@ -162,4 +162,17 @@ return [
         'revoke_guest_access' => 'Odvolanie prístupu hostí',
         'sweep' => 'Kontrola termínov',
     ],
+
+    'notification_type' => [
+        'created' => 'Prijatie tiketu',
+        'assigned' => 'Priradenie',
+        'replied' => 'Odpoveď',
+        'requester_replied' => 'Odpoveď žiadateľa',
+        'note_added' => 'Interná poznámka',
+        'mentioned' => 'Zmienka',
+        'status_changed' => 'Zmena stavu',
+        'overdue' => 'Po termíne',
+        'due_soon' => 'Blíži sa termín',
+        'merged' => 'Zlúčenie',
+    ],
 ];

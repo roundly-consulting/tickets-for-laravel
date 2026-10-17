@@ -162,4 +162,17 @@ return [
         'revoke_guest_access' => 'Revoke guest access',
         'sweep' => 'Sweep due dates',
     ],
+
+    'notification_type' => [
+        'created' => 'Ticket received',
+        'assigned' => 'Assigned',
+        'replied' => 'Reply',
+        'requester_replied' => 'Requester reply',
+        'note_added' => 'Internal note',
+        'mentioned' => 'Mention',
+        'status_changed' => 'Status change',
+        'overdue' => 'Overdue',
+        'due_soon' => 'Due soon',
+        'merged' => 'Merged',
+    ],
 ];

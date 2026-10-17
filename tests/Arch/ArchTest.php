@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Testing\Arch\ArchPresets;
+use RoundlyConsulting\Tickets\Enums\NotificationType;
 use RoundlyConsulting\Tickets\Lifecycle\TicketLifecycle;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -23,7 +24,9 @@ ArchPresets::strictTypes('RoundlyConsulting\Tickets');
  *  - TicketsManager, the facade root TicketsFake extends — an injected manager must still
  *    type-check under Tickets::fake();
  *  - TicketLifecycle, which a host extends to adjust one rule of the shipped statuses;
- *  - TicketPolicy, which `tickets.authorization.policy` swaps for a subclass.
+ *  - TicketPolicy, which `tickets.authorization.policy` swaps for a subclass;
+ *  - the notification classes, which `tickets.notifications.types` swaps for subclasses (a
+ *    replacement must extend the packaged class — `is_a`, pinned in NotificationsTest).
  */
 ArchPresets::finalByDefault('RoundlyConsulting\Tickets', [
     Ticket::class,
@@ -34,6 +37,7 @@ ArchPresets::finalByDefault('RoundlyConsulting\Tickets', [
     TicketsManager::class,
     TicketLifecycle::class,
     TicketPolicy::class,
+    ...array_map(static fn (NotificationType $type): string => $type->defaultClass(), NotificationType::cases()),
 ]);
 
 ArchPresets::swappableModelsAreNotFinal([

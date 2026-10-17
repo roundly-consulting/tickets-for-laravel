@@ -12,6 +12,16 @@ use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Models\TicketField;
 use RoundlyConsulting\Tickets\Models\TicketGuest;
 use RoundlyConsulting\Tickets\Models\TicketTag;
+use RoundlyConsulting\Tickets\Notifications\TicketAssignedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketCreatedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketDueSoonNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketMentionedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketMergedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketNoteAddedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketOverdueNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketRepliedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketRequesterRepliedNotification;
+use RoundlyConsulting\Tickets\Notifications\TicketStatusChangedNotification;
 use RoundlyConsulting\Tickets\Policies\TicketPolicy;
 
 return [
@@ -411,6 +421,49 @@ return [
         ],
         'bulk' => [
             'max' => 100,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    |
+    | Queued after the change commits, on `channels` (`database` needs your
+    | notifications table) and `queue` (blank = the default queue). Nobody is
+    | told about what they cannot see: internal notes reach agents only, and
+    | every recipient is checked against the ticket's visibility — again when
+    | the queue delivers. The one who acted is left out unless `notify_actor`
+    | (the requester's own `created` receipt always goes out).
+    |
+    | `guests`: mail guest requesters and guest watchers, with a fresh signed
+    | link — it needs a guest link generator (the guest routes, or your own).
+    | `url`: the link a signed-in recipient's mail opens, `{reference}` filled
+    | in (https://help.example.com/tickets/{reference}); blank = no button.
+    |
+    | Each type is a class: extend the packaged one to change it, or set it to
+    | false to switch that notification off.
+    |
+    */
+
+    'notifications' => [
+        'enabled' => env('TICKETS_NOTIFICATIONS', 'on'),
+        'channels' => ['mail'],
+        'queue' => env('TICKETS_NOTIFICATIONS_QUEUE'),
+        'notify_actor' => env('TICKETS_NOTIFY_ACTOR', 'off'),
+        'guests' => env('TICKETS_NOTIFY_GUESTS', 'on'),
+        'url' => env('TICKETS_NOTIFICATIONS_URL'),
+        'types' => [
+            'created' => TicketCreatedNotification::class,
+            'assigned' => TicketAssignedNotification::class,
+            'replied' => TicketRepliedNotification::class,
+            'requester_replied' => TicketRequesterRepliedNotification::class,
+            'note_added' => TicketNoteAddedNotification::class,
+            'mentioned' => TicketMentionedNotification::class,
+            'status_changed' => TicketStatusChangedNotification::class,
+            'overdue' => TicketOverdueNotification::class,
+            'due_soon' => TicketDueSoonNotification::class,
+            'merged' => TicketMergedNotification::class,
         ],
     ],
 

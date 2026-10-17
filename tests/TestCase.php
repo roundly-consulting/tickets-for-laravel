@@ -76,6 +76,9 @@ abstract class TestCase extends PackageTestCase
     protected function configBeforeBoot(): array
     {
         return [
+            // Notifications are on by default and the queue is sync: mail goes to memory, never to
+            // a log file in the shared Testbench skeleton.
+            'mail.default' => 'array',
             'media.disk' => 'local',
             'media.image_driver' => 'gd',
             'tickets.requesters' => ['user' => User::class],

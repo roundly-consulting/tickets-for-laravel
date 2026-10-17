@@ -36,6 +36,7 @@ use RoundlyConsulting\Tickets\Guests\SignedRouteLinkGenerator;
 use RoundlyConsulting\Tickets\Listeners\OnCommentMentioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioned;
 use RoundlyConsulting\Tickets\Listeners\OnTicketTransitioning;
+use RoundlyConsulting\Tickets\Listeners\SendTicketNotifications;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 
@@ -62,6 +63,9 @@ final class TicketsServiceProvider extends PackageServiceProvider
                 'Routes' => self::orInvalid(static fn (): string => TicketsConfig::routesEnabled() ? 'ON' : 'OFF'),
                 'Guest access' => self::orInvalid(static fn (): string => TicketsConfig::guestsEnabled() && TicketsConfig::routesEnabled() ? 'ON' : 'OFF'),
                 'Auto-close' => self::orInvalid(static fn (): string => TicketsConfig::autoCloseAfter()?->spec() ?? 'OFF'),
+                'Notifications' => self::orInvalid(static fn (): string => TicketsConfig::notificationsEnabled()
+                    ? 'ON ('.implode(', ', TicketsConfig::notificationChannels()).')'
+                    : 'OFF'),
             ]);
     }
 
@@ -100,6 +104,11 @@ final class TicketsServiceProvider extends PackageServiceProvider
         // Comments → tickets: a mention in a ticket comment becomes TicketMentioned, only for
         // someone who may read that comment (an internal note reaches agents only).
         $events->listen(CommentMentioned::class, [OnCommentMentioned::class, 'handle']);
+
+        // Tickets → notifications (`tickets.notifications`), each event after its commit.
+        foreach (SendTicketNotifications::EVENTS as $event => $handler) {
+            $events->listen($event, [SendTicketNotifications::class, $handler]);
+        }
 
         $this->registerPolicy();
         $this->defineRateLimiters();
