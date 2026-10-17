@@ -22,8 +22,9 @@ return new class extends Migration
             // enforced by the action under the `lock:fields` advisory row (no portable
             // partial unique index exists).
             $table->string('key', 64)->index();
-            $table->jsonb('label');
-            $table->jsonb('help')->nullable();
+            // Locale maps (translatable-for-laravel's macro: a jsonb column).
+            $table->translatable('label');
+            $table->translatable('help')->nullable();
             $table->string('type', 32);
             $table->jsonb('options')->nullable();
             $table->jsonb('rules')->nullable();

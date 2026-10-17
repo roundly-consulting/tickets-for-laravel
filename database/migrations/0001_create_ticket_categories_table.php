@@ -18,9 +18,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('parent_id')->nullable()->constrained('ticket_categories')->nullOnDelete();
             $table->morphKey('project', $keyType, nullable: true);
-            // Locale maps — the same jsonb column translatable's `translatable()` macro emits.
-            $table->jsonb('name');
-            $table->jsonb('description')->nullable();
+            // Locale maps (translatable-for-laravel's macro: a jsonb column).
+            $table->translatable('name');
+            $table->translatable('description')->nullable();
             $table->string('slug', 191);
             $table->string('default_priority', 32)->nullable();
             // A morph spelled out by hand: `morphKey('default_assignee')` would name its index
