@@ -21,7 +21,9 @@ use RoundlyConsulting\Tickets\Support\TicketModels;
 
 /**
  * `/ticket-categories` — anyone signed in reads the tree (global, plus a project's with
- * `?project=alias:key`); the manage ability writes it.
+ * `?project=alias:key`); the manage ability writes it. An inactive category (and its subtree)
+ * is an agent's to see, as an inactive field is: anyone else gets the categories they can file
+ * into, and 404 for an inactive one.
  *
  * @internal
  */
@@ -32,7 +34,9 @@ final class CategoryController extends Controller
         $viewer = $this->viewer($request);
         $this->authorize($viewer, 'viewAny', [TicketModels::ticket()]);
 
-        return TicketCategoryResource::collection($this->manager()->categories()->tree(self::resolve(MorphAliases::PROJECTS, $request->projectReference())));
+        $tree = $this->manager()->categories()->tree(self::resolve(MorphAliases::PROJECTS, $request->projectReference()));
+
+        return TicketCategoryResource::collection($viewer->isAgent() ? $tree : $tree->where('is_active', true)->values());
     }
 
     public function store(StoreCategoryRequest $request): JsonResponse
@@ -59,8 +63,13 @@ final class CategoryController extends Controller
     {
         $viewer = $this->viewer($request);
         $this->authorize($viewer, 'viewAny', [TicketModels::ticket()]);
+        $model = self::category($category);
 
-        return new TicketCategoryResource(self::category($category));
+        if (! $viewer->isAgent() && ! $model->is_active) {
+            throw TicketRecordNotFoundException::category($category);
+        }
+
+        return new TicketCategoryResource($model);
     }
 
     public function update(UpdateCategoryRequest $request, string $category): TicketCategoryResource

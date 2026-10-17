@@ -444,6 +444,23 @@ describe('admin endpoints', function (): void {
         $this->actingAs($admin)->getJson('/api/ticket-categories/999')->assertNotFound()->assertJson(['code' => 'category_not_found']);
     });
 
+    it('shows inactive categories to agents only, as it does inactive fields', function (): void {
+        $agent = apiAgent();
+        $user = apiUser();
+        $root = Tickets::categories()->make('Hardware')->create();
+        $retired = Tickets::categories()->make('Fax machines')->under($root)->active(false)->create();
+        Tickets::categories()->make('Fax toner')->under($retired)->create();
+        $gone = Tickets::categories()->make('Pagers')->active(false)->create();
+
+        $names = static fn (array $tree): array => collect($tree)->flatMap(fn (array $node): array => [$node['name'], ...collect($node['children'] ?? [])->flatMap(fn (array $child): array => [$child['name'], ...collect($child['children'] ?? [])->pluck('name')->all()])->all()])->all();
+
+        expect($names($this->actingAs($user)->getJson('/api/ticket-categories')->assertOk()->json('data')))->toBe(['Hardware'])
+            ->and($names($this->actingAs($agent)->getJson('/api/ticket-categories')->assertOk()->json('data')))->toBe(['Hardware', 'Fax machines', 'Fax toner', 'Pagers']);
+        $this->actingAs($user)->getJson('/api/ticket-categories/'.$retired->getKey())->assertNotFound()->assertJson(['code' => 'category_not_found']);
+        $this->actingAs($user)->getJson('/api/ticket-categories/'.$gone->getKey())->assertNotFound();
+        $this->actingAs($agent)->getJson('/api/ticket-categories/'.$retired->getKey())->assertOk()->assertJsonPath('data.is_active', false);
+    });
+
     it('reads and writes field definitions', function (): void {
         $admin = apiAdmin();
         $user = apiUser();

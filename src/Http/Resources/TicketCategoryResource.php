@@ -10,8 +10,9 @@ use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 
 /**
- * A category with its loaded children, recursively — the tree. Agents also see every translation
- * and the defaults a new ticket takes from it.
+ * A category with its loaded children, recursively — the tree. Agents also see every translation,
+ * the defaults a new ticket takes from it and the inactive children (with their subtrees), which
+ * anyone else can't file into and never sees.
  *
  * @property TicketCategory $resource
  *
@@ -52,6 +53,7 @@ final class TicketCategoryResource extends JsonResource
 
         if ($category->relationLoaded('children')) {
             $data['children'] = $category->children
+                ->filter(static fn (TicketCategory $child): bool => $agent || $child->is_active)
                 ->map(static fn (TicketCategory $child): array => (new self($child))->toArray($request))
                 ->values()
                 ->all();
