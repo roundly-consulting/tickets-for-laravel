@@ -29,6 +29,12 @@ return new class extends Migration
             $table->foreignId('user_id');
         });
 
+        Schema::create('documents', function (Blueprint $table): void {
+            $table->id();
+            $table->string('status', 32)->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('projects', function (Blueprint $table): void {
             $table->id();
             $table->string('name');

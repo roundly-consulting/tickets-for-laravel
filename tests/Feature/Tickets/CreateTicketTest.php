@@ -63,7 +63,8 @@ it('files a ticket through the builder with everything the caller gives', functi
         ->and($ticket->number)->toBe(1)
         ->and($ticket->sequence_scope)->toBe('global')
         ->and($ticket->subject)->toBe('Printer on floor 3 is jammed')
-        ->and($ticket->status)->toBe(TicketStatus::New)
+        // Assigning a new ticket opens it — the `Assigned` automation.
+        ->and($ticket->status)->toBe(TicketStatus::Open)
         ->and($ticket->priority)->toBe('high')
         ->and($ticket->channel)->toBe('web')
         ->and($ticket->requester->is($user))->toBeTrue()
@@ -71,7 +72,7 @@ it('files a ticket through the builder with everything the caller gives', functi
         ->and($ticket->assigned_at)->not->toBeNull()
         ->and($ticket->due_at?->equalTo($due))->toBeTrue()
         ->and($ticket->last_activity_at)->not->toBeNull()
-        ->and($ticket->activities->pluck('type')->all())->toBe([ActivityType::Created, ActivityType::Assigned])
+        ->and($ticket->activities->pluck('type')->all())->toBe([ActivityType::Created, ActivityType::Assigned, ActivityType::StatusChanged])
         ->and($ticket->activities->first()?->actor?->is($agent))->toBeTrue();
 
     Event::assertDispatched(TicketCreated::class, static fn (TicketCreated $event): bool => $event->ticket->is($ticket) && $event->actor?->is($agent) === true);
