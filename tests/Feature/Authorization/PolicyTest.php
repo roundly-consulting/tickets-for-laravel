@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Support\Facades\Gate;
 use RoundlyConsulting\Comments\Facades\Comments;
+use RoundlyConsulting\Tickets\Enums\FieldType;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
@@ -102,14 +103,30 @@ describe('the policy', function (): void {
 
         config()->set('tickets.authorization.requester_can_edit', 'off');
 
+        // No attributes asks whether they may edit anything at all: with the subject and the
+        // description locked, only an active field of this ticket they may set says yes.
         expect($update($requester, ['subject']))->toBeFalse()
             ->and($update($requester, []))->toBeFalse()
             ->and($update($requester, ['fields']))->toBeTrue();
 
+        $printers = Tickets::categories()->make('Printers')->create();
+        Tickets::fields()->make('asset_tag', FieldType::Text)->define();
+        Tickets::fields()->make('old_serial', FieldType::Text)->requesterEditable()->inactive()->define();
+        Tickets::fields()->make('toner', FieldType::Text)->requesterEditable()->category($printers)->define();
+
+        expect($update($requester, []))->toBeFalse();
+
+        Tickets::fields()->make('room', FieldType::Text)->requesterEditable()->define();
+
+        expect($update($requester, []))->toBeTrue()
+            ->and($update($requester, ['subject']))->toBeFalse()
+            ->and($update($watcher, []))->toBeFalse();
+
         config()->set('tickets.authorization.requester_can_edit', 'on');
         Tickets::for($ticket)->by($agent)->resolve();
 
-        expect($update($requester, ['subject']))->toBeFalse();
+        expect($update($requester, ['subject']))->toBeFalse()
+            ->and($update($requester, []))->toBeFalse();
     });
 
     it('limits the requester side to the requester transitions', function (): void {

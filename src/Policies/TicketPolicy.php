@@ -10,7 +10,9 @@ use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Comments\Models\Comment;
+use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Enums\StatusCategory;
+use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\Agents;
 use RoundlyConsulting\Tickets\Support\Messages;
@@ -65,7 +67,9 @@ class TicketPolicy
      *
      * @param  list<string>  $attributes  what the update touches (`subject`, `description`,
      *                                    `priority`, `category`, `due_at`, `requester`, `fields`,
-     *                                    `attachments`); none = may they edit at all
+     *                                    `attachments`); none = may they edit anything at
+     *                                    all — the subject and description, or an active field
+     *                                    of the ticket's field set that is `requester_editable`
      */
     public function update(Model $user, Ticket $ticket, array $attributes = []): bool
     {
@@ -80,7 +84,7 @@ class TicketPolicy
         $editable = TicketsConfig::requesterCanEdit() ? ['subject', 'description', 'fields'] : ['fields'];
 
         if ($attributes === []) {
-            return TicketsConfig::requesterCanEdit();
+            return TicketsConfig::requesterCanEdit() || self::hasRequesterEditableField($ticket);
         }
 
         return array_diff($attributes, $editable) === [];
@@ -259,6 +263,16 @@ class TicketPolicy
     protected static function unresolved(Ticket $ticket): bool
     {
         return $ticket->statusCategory()?->isUnresolved() ?? true;
+    }
+
+    /**
+     * Whether the ticket's field set has an active field its requester may set.
+     */
+    protected static function hasRequesterEditableField(Ticket $ticket): bool
+    {
+        $fields = Container::getInstance()->make(FieldSetResolver::class)->forTicket($ticket);
+
+        return array_filter($fields, static fn (FieldDefinition $field): bool => $field->requesterEditable) !== [];
     }
 
     protected static function notFound(Ticket $ticket): Response

@@ -22,6 +22,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
   `filter[due_to]=…` and, on a datetime custom field, `filter[fields.<key>.to]=…` and
   `whereFieldBetween($key, $from, '2026-10-17')` used to stop at midnight and leave out everything
   later that day. A datetime bound keeps its exact moment.
+- `TicketPolicy::update()` asked without attributes (`@can('update', $ticket)`) now answers whether
+  the requester may edit anything at all: with `requester_can_edit` off it is true while the ticket
+  has an active, applicable `requester_editable` field. It used to say no although the requester
+  could still set that field.
 
 ## 1.0.0 - 2026-10-17
 
