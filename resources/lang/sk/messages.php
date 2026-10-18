@@ -9,6 +9,7 @@ return [
         'invalid_key' => 'Pole :attribute musí byť kľúč záznamu.',
         'invalid_translations' => 'Pole :attribute musí byť text alebo mapa jazykov na texty.',
         'forbidden' => 'Na túto akciu nemáte oprávnenie.',
+        'trashed' => 'Tiket je odstránený. Pred zmenou ho obnovte.',
     ],
 
     'config' => [

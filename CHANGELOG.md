@@ -6,6 +6,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+### Fixed
+
+- `GET /tickets/{ticket}/activity` no longer shows agents a PHP class name: every person in an
+  entry's `properties` (`to`, `from`, `watcher` of `assigned`, `unassigned`, `requester_changed`,
+  `watcher_added`, `watcher_removed`) now renders as `{type: <alias>, id}`, the alias from
+  `tickets.requesters` / `assignables` / `watchables` (`null` outside them). On a host without a
+  morph map agents used to get `{type: "App\\Models\\User", id}`. Everyone else still gets
+  `{type: <alias>}` alone — now also for a stored pair without a key.
+- API error messages no longer name a PHP class: `InvalidAssigneeException` (not an `Assignee`,
+  ineligible) and `InvalidProjectException` (not a `TicketProject`) name the model by its class
+  basename (`The model [User] is not eligible to be assigned this ticket.`), and the `409
+  ticket_trashed` answer to lifecycle's `SubjectTrashedException` uses the package's own message
+  (`tickets::messages.http.trashed`, en + sk) instead of lifecycle's, which carried the ticket's
+  class and key.
+
 ## 1.0.1 - 2026-10-17
 
 ### Fixed

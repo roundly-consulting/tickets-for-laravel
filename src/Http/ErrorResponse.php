@@ -53,7 +53,8 @@ final class ErrorResponse
         return match (true) {
             $exception instanceof AuthorizationException => self::authorization($exception),
             $exception instanceof TransitionDeniedException => self::transitionDenied($exception),
-            $exception instanceof SubjectTrashedException => new ApiError(409, 'ticket_trashed', $exception->getMessage()),
+            // lifecycle's message names the subject's class and key: the client gets its own.
+            $exception instanceof SubjectTrashedException => new ApiError(409, 'ticket_trashed', Messages::get('http.trashed')),
             $exception instanceof CommentRejectedException => new ApiError(422, 'comment_rejected', $exception->getMessage()),
             $exception instanceof InvalidCommentBodyException => new ApiError(422, 'invalid_comment_body', $exception->getMessage()),
             $exception instanceof CommentsLockedException => new ApiError(409, 'ticket_closed', $exception->getMessage()),

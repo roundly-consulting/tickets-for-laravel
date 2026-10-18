@@ -9,6 +9,7 @@ return [
         'invalid_key' => 'The :attribute must be a record key.',
         'invalid_translations' => 'The :attribute must be a text or a map of locale to text.',
         'forbidden' => 'You may not do that.',
+        'trashed' => 'The ticket is deleted. Restore it before changing it.',
     ],
 
     'config' => [

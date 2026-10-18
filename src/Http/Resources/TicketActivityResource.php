@@ -12,8 +12,9 @@ use RoundlyConsulting\Tickets\Support\MorphAliases;
 
 /**
  * One entry of the activity timeline. Nobody but an agent is handed an internal entry (the
- * controller reads the public timeline for them), and for them every `{type, id}` in the
- * properties shows as an alias only — no class name, no key of someone else's record.
+ * controller reads the public timeline for them). Every `{type, id}` in the properties shows its
+ * type as the alias (null outside the alias lists) — never the stored morph class: an agent keeps
+ * the key, everyone else gets the alias only, no key of someone else's record.
  *
  * @property TicketActivity $resource
  *
@@ -37,24 +38,27 @@ final class TicketActivityResource extends JsonResource
             'system' => $activity->is_system,
             'actor' => Party::person($activity->actor_type === null ? null : $activity->actor, $viewer, $agent),
             ...($agent ? ['visibility' => $activity->visibility->value] : []),
-            'properties' => $agent ? ($activity->properties ?? []) : self::public($activity->properties ?? []),
+            'properties' => self::properties($activity->properties ?? [], keepKeys: $agent),
             'occurred_at' => Present::date($activity->occurred_at),
         ];
     }
 
     /**
-     * The properties with every `{type, id}` pair reduced to the type's alias.
+     * The properties with every `{type, id}` pair's type turned into its alias — the key kept for
+     * an agent, dropped for everyone else.
      *
      * @param  array<array-key, mixed>  $properties
      * @return array<array-key, mixed>
      */
-    private static function public(array $properties): array
+    private static function properties(array $properties, bool $keepKeys): array
     {
-        if (isset($properties['type'], $properties['id']) && is_string($properties['type']) && count($properties) === 2) {
-            return ['type' => self::alias($properties['type'])];
+        if (count($properties) === 2 && array_key_exists('id', $properties) && is_string($properties['type'] ?? null)) {
+            $alias = self::alias($properties['type']);
+
+            return $keepKeys ? ['type' => $alias, 'id' => $properties['id']] : ['type' => $alias];
         }
 
-        return array_map(static fn (mixed $value): mixed => is_array($value) ? self::public($value) : $value, $properties);
+        return array_map(static fn (mixed $value): mixed => is_array($value) ? self::properties($value, $keepKeys) : $value, $properties);
     }
 
     private static function alias(string $morph): ?string
