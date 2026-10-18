@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+## 1.0.2 - 2026-10-18
+
 ### Fixed
 
 - `GET /tickets/{ticket}/activity` no longer shows agents a PHP class name: every person in an
