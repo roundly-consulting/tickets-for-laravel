@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+## 1.0.3 - 2026-10-20
+
 ### Changed
 
 - Maintenance: requires package-toolkit `^1.4.0`.
@@ -13,6 +15,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ### Fixed
 
 - The opt-in API stays off when its switch is not set (missing from a published config or `null`); it used to load.
+- `tickets:doctor` and `php artisan about` read the switch the same way: when a published
+  `config/tickets.php` has no `routes.enabled`, `about` shows Routes `OFF` and the doctor's
+  missing-key warning says the HTTP API is off (`TICKETS_ROUTES=on` serves it) instead of
+  saying it is served.
 
 ## 1.0.2 - 2026-10-18
 
