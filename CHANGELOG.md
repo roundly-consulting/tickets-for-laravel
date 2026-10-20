@@ -6,6 +6,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+### Changed
+
+- Maintenance: requires package-toolkit `^1.4.0`.
+
+### Fixed
+
+- The opt-in API stays off when its switch is not set (missing from a published config or `null`); it used to load.
+
 ## 1.0.2 - 2026-10-18
 
 ### Fixed

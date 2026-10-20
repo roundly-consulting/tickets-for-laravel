@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use RoundlyConsulting\Tickets\Tests\Fixtures\HttpTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\SwappedModelsTestCase;
+use RoundlyConsulting\Tickets\Tests\Fixtures\TrimmedRoutesConfigTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UlidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Fixtures\UuidKeyTestCase;
 use RoundlyConsulting\Tickets\Tests\Install\InstallTestCase;
@@ -18,6 +19,9 @@ uses(TestCase::class)->in('Arch', 'Feature', 'Unit', 'RealEngine');
 
 // The HTTP API: its routes load at boot, so they are switched on before it.
 uses(HttpTestCase::class)->in('Http');
+
+// A host config that lost `tickets.routes.enabled`: set before boot, as a published file would.
+uses(TrimmedRoutesConfigTestCase::class)->in('RoutesSwitch');
 
 // `tickets:install` publishes into a per-test sandbox, never the shared Testbench skeleton.
 uses(InstallTestCase::class)->in('Install');

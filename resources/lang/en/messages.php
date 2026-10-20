@@ -149,7 +149,7 @@ return [
         'policy_ok' => 'The ticket policy is [:class].',
         'routes_off' => 'The HTTP API is off (tickets.routes.enabled).',
         'config_ok' => 'The published config holds every key whose absence would open something up.',
-        'config_routes_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so it reads as on — the HTTP API is served. Add the key (TICKETS_ROUTES, off by default).',
+        'config_routes_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so it stays unset — the HTTP API is off. Add the key (TICKETS_ROUTES=on serves it).',
         'config_guests_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so it reads as on — guests are accepted. Add the key (TICKETS_GUESTS).',
         'config_mimes_missing' => 'The published config/tickets.php has no [:key]: the package fills only missing top-level keys, so attachments take the shipped allow-list. Add the key to keep your own list in one place.',
         'routes_on' => 'The HTTP API is on, behind authentication.',

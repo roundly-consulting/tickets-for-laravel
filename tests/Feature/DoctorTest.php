@@ -254,13 +254,13 @@ describe('attachment download URLs', function (): void {
 });
 
 describe('published config', function (): void {
-    it('passes a config that holds every key whose absence would open something up', function (): void {
+    it('passes a config that holds every key a published config must keep', function (): void {
         expect(doctorLevels('config'))->toBe(['keys' => 'ok']);
     });
 
     it('warns of every such key a published config dropped', function (): void {
         // mergeConfigFrom fills only missing top-level keys, so a nested key a published file
-        // lacks stays missing: the API reads as on, the mime list as the shipped one.
+        // lacks stays missing: the API stays off, guests read as on, the mime list as the shipped one.
         config()->set('tickets.routes', ['prefix' => 'api']);
         config()->set('tickets.guests', array_diff_key(config('tickets.guests'), ['enabled' => true]));
         config()->set('tickets.attachments', ['bucket' => 'attachments', 'disk' => 'local', 'max_kb' => 10240]);
@@ -268,7 +268,7 @@ describe('published config', function (): void {
         $checks = doctorReport('config')['checks'];
 
         expect(array_column($checks, 'level'))->toBe(['warning', 'warning', 'warning'])
-            ->and($checks[0]['message'])->toContain('tickets.routes.enabled')->toContain('on')
+            ->and($checks[0]['message'])->toContain('tickets.routes.enabled')->toContain('the HTTP API is off')
             ->and($checks[1]['message'])->toContain('tickets.guests.enabled')
             ->and($checks[2]['message'])->toContain('tickets.attachments.mimes');
     });

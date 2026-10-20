@@ -149,7 +149,7 @@ return [
         'policy_ok' => 'Politika tiketov je [:class].',
         'routes_off' => 'HTTP API je vypnuté (tickets.routes.enabled).',
         'config_ok' => 'Publikovaná konfigurácia obsahuje každý kľúč, ktorého absencia by niečo otvorila.',
-        'config_routes_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto sa číta ako zapnuté — HTTP API je dostupné. Doplňte kľúč (TICKETS_ROUTES, predvolene vypnuté).',
+        'config_routes_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto zostáva nenastavený — HTTP API je vypnuté. Doplňte kľúč (TICKETS_ROUTES=on ho sprístupní).',
         'config_guests_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto sa číta ako zapnuté — hostia sú prijímaní. Doplňte kľúč (TICKETS_GUESTS).',
         'config_mimes_missing' => 'Publikovaný config/tickets.php neobsahuje [:key]: balík dopĺňa iba chýbajúce kľúče najvyššej úrovne, preto prílohy prijímajú dodaný zoznam povolených typov. Doplňte kľúč, aby ste svoj zoznam mali na jednom mieste.',
         'routes_on' => 'HTTP API je zapnuté a chránené prihlásením.',

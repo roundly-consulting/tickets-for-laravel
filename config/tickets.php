@@ -412,7 +412,7 @@ return [
     */
 
     'routes' => [
-        // Blank means off: the route switch reads a blank value as on.
+        // Opt-in: blank stays off, as does a switch that is not set.
         'enabled' => env('TICKETS_ROUTES') ?: 'off',
         'prefix' => env('TICKETS_ROUTES_PREFIX', 'api'),
         'middleware' => ['api', 'auth', 'throttle:tickets-api'],

@@ -53,7 +53,9 @@ final class TicketsServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasMigrations()
             ->hasTranslations()
-            ->hasRoutes('tickets.php', 'tickets.routes.enabled')
+            // Opt-in: a switch that is not set (missing from a published config whose `routes` merge
+            // is shallow, `null`, blank, a bare `env()` unset) keeps the API off.
+            ->hasRoutes('tickets.php', 'tickets.routes.enabled', enabledByDefault: false)
             ->hasCommands([InstallCommand::class, DoctorCommand::class, SweepCommand::class, PruneFieldsCommand::class])
             ->contributesToAbout(static fn (): array => [
                 'Primary key type' => self::orInvalid(static fn (): string => KeyType::fromConfig('tickets.primary_key_type')->value),

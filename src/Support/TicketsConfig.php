@@ -486,11 +486,11 @@ final class TicketsConfig
 
     /**
      * Whether the HTTP API is served (`tickets.routes.enabled`) — read exactly as the route
-     * switch reads it.
+     * switch reads it: a switch that is not set (missing, `null`, blank) is off.
      */
     public static function routesEnabled(): bool
     {
-        return self::read()->boolean('tickets.routes.enabled', true);
+        return self::read()->boolean('tickets.routes.enabled', false);
     }
 
     /**

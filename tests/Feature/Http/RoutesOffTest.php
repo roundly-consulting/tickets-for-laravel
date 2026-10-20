@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use RoundlyConsulting\Tickets\Contracts\GuestLinkGenerator;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
+use RoundlyConsulting\Tickets\TicketsServiceProvider;
 
 it('ships the API off: no route is served by default', function (): void {
     expect(config('tickets.routes.enabled'))->toBe('off')
@@ -26,6 +29,51 @@ it('reads a blank TICKETS_ROUTES as off, never as the route switch’s blank-mea
     'blank' => ['', 'off'],
     'on' => ['on', 'on'],
 ]);
+
+/**
+ * Boot the provider again over the current config, as a host app would, and list the API's
+ * routes it registered.
+ *
+ * @return list<string>
+ */
+function ticketsRoutesAfterBoot(): array
+{
+    $provider = new TicketsServiceProvider(app());
+    $provider->register();
+    $provider->boot();
+
+    return collect(Route::getRoutes()->getRoutes())->map(static fn ($route): string => (string) $route->getName())
+        ->filter(static fn (string $name): bool => str_starts_with($name, 'tickets.'))->values()->all();
+}
+
+it('keeps the API off when its switch is not set', function (string $shape): void {
+    match ($shape) {
+        'a routes array without the switch' => config()->set('tickets.routes', ['prefix' => 'api']),
+        'null' => config()->set('tickets.routes.enabled', null),
+        'a blank value' => config()->set('tickets.routes.enabled', ''),
+        'a bare env() with the variable unset' => config()->set('tickets.routes.enabled', env('TICKETS_ROUTES_NEVER_SET_IN_TESTS')),
+    };
+
+    expect(ticketsRoutesAfterBoot())->toBe([])
+        ->and(TicketsConfig::routesEnabled())->toBeFalse()
+        ->and(RateLimiter::limiter('tickets-api'))->toBeNull()
+        ->and(RateLimiter::limiter('tickets-guest'))->toBeNull();
+})->with(['a routes array without the switch', 'null', 'a blank value', 'a bare env() with the variable unset']);
+
+it('still turns the API on with an explicit switch, and keeps it off with an explicit off', function (): void {
+    config()->set('tickets.routes.enabled', 'off');
+
+    expect(ticketsRoutesAfterBoot())->toBe([])
+        ->and(TicketsConfig::routesEnabled())->toBeFalse()
+        ->and(RateLimiter::limiter('tickets-api'))->toBeNull();
+
+    config()->set('tickets.routes.enabled', 'on');
+
+    expect(ticketsRoutesAfterBoot())->toContain('tickets.index', 'tickets.guest.show')
+        ->and(TicketsConfig::routesEnabled())->toBeTrue()
+        ->and(RateLimiter::limiter('tickets-api'))->not->toBeNull()
+        ->and(RateLimiter::limiter('tickets-guest'))->not->toBeNull();
+});
 
 it('refuses to mint a guest link without the guest routes', function (): void {
     $ticket = Tickets::make()->subject('A')->guest(['name' => 'Jo', 'email' => 'jo@acme.test'])->asSystem()->create();

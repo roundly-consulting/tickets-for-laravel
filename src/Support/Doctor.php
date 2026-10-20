@@ -58,9 +58,10 @@ final class Doctor
     }
 
     /**
-     * The nested keys whose absence opens something up. `mergeConfigFrom` fills only missing
-     * top-level keys, so a published `config/tickets.php` whose `routes` array lacks `enabled`
-     * keeps lacking it — and the toolkit's route switch reads that as on.
+     * The nested keys a published `config/tickets.php` must keep to say what it means.
+     * `mergeConfigFrom` fills only missing top-level keys, so a `routes` array that lacks
+     * `enabled` keeps lacking it — the API then stays off, guests read as on and attachments
+     * take the shipped allow-list.
      *
      * @return list<DoctorCheck>
      */
