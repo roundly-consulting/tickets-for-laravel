@@ -25,7 +25,7 @@ projects — behind one facade, with an opt-in JSON API and mail notifications i
 
 ## Installation
 
-Requires PHP 8.4, Laravel 12 or 13, and a MySQL or PostgreSQL database.
+Requires PHP 8.4, Laravel 13, and a MySQL or PostgreSQL database.
 
 ```bash
 composer require roundly-consulting/tickets-for-laravel
