@@ -127,6 +127,7 @@ return [
         'too_deep' => 'The link chain is deeper than :max levels and cannot be checked for cycles.',
         'not_linked' => 'There is no :type link with ticket [:reference] here.',
         'not_found' => 'Link [:link] is not a link of ticket [:reference].',
+        'blocked_start' => 'Ticket [:reference] cannot be started while unresolved tickets block it: :blockers.',
     ],
 
     'merge' => [

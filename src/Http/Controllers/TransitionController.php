@@ -14,6 +14,7 @@ use RoundlyConsulting\Tickets\Http\Requests\TransitionRequest;
 use RoundlyConsulting\Tickets\Http\Resources\TicketResource;
 use RoundlyConsulting\Tickets\Http\Viewer;
 use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Support\StartBlockers;
 
 /**
  * `/tickets/{ticket}/transitions` — what the viewer may do with the status now, and doing it.
@@ -56,7 +57,7 @@ final class TransitionController extends Controller
         $available = [];
 
         foreach ($transitions as $transition) {
-            if ($may($transition->name)) {
+            if ($may($transition->name) && ! StartBlockers::refuse($ticket, $transition->name)) {
                 $available[] = self::present($transition);
             }
         }

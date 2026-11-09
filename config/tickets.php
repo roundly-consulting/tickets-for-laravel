@@ -156,7 +156,10 @@ return [
     | `tickets:sweep` (schedule it every five minutes) flags each unresolved
     | ticket past its due date once (TicketOverdue), and once more when it
     | comes within `soon_window` of it (TicketDueSoon) — an ISO-8601 duration,
-    | or `off`. Moving a due date re-arms both.
+    | or `off`. Moving a due date re-arms both. `skip_categories` lists the
+    | unresolved status categories the sweep leaves alone (`open`, `active`,
+    | `waiting`), e.g. ['waiting'] so tickets parked on the requester raise no
+    | due-date events; [] sweeps them all.
     |
     */
 
@@ -167,6 +170,7 @@ return [
     'due' => [
         'resolver' => CategoryDueDateResolver::class,
         'soon_window' => env('TICKETS_DUE_SOON_WINDOW', 'PT4H'),
+        'skip_categories' => [],
     ],
 
     /*
@@ -331,7 +335,9 @@ return [
     | `tags.free_form`: an unknown tag name is created on the fly; off = only
     | existing tags attach. `links.cross_project` allows links between tickets
     | of different projects; `links.max_depth` bounds the cycle check of
-    | `blocks` and `parent_of`. `merge.cross_project` allows merging across
+    | `blocks` and `parent_of`; `links.blockers_prevent_start` refuses to start
+    | a ticket (enter an Active-category state) while an unresolved ticket
+    | blocks it. `merge.cross_project` allows merging across
     | projects; `merge.move_attachments` moves the source's attachments.
     |
     */
@@ -343,6 +349,7 @@ return [
     'links' => [
         'cross_project' => env('TICKETS_LINKS_CROSS_PROJECT', 'on'),
         'max_depth' => 50,
+        'blockers_prevent_start' => env('TICKETS_LINKS_BLOCKERS_PREVENT_START', 'off'),
     ],
 
     'merge' => [

@@ -26,6 +26,7 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLinkException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidWatcherException;
 use RoundlyConsulting\Tickets\Exceptions\TicketAccessDeniedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketAttachmentNotFoundException;
+use RoundlyConsulting\Tickets\Exceptions\TicketBlockedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketClosedException;
 use RoundlyConsulting\Tickets\Exceptions\TicketCommentNotFoundException;
 use RoundlyConsulting\Tickets\Exceptions\TicketNotFoundException;
@@ -82,6 +83,7 @@ final class ErrorResponse
             $exception instanceof TicketRecordNotFoundException => [404, $exception->errorCode()],
             $exception instanceof TicketClosedException => [409, 'ticket_closed'],
             $exception instanceof TicketTrashedException => [409, 'ticket_trashed'],
+            $exception instanceof TicketBlockedException => [409, 'ticket_blocked'],
             $exception instanceof FieldTypeLockedException => [409, 'field_type_locked'],
             $exception instanceof DuplicateTicketReferenceException => [409, 'duplicate_reference'],
             $exception instanceof TicketAccessDeniedException => [403, 'access_denied'],

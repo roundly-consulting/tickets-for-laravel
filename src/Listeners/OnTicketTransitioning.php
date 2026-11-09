@@ -7,6 +7,7 @@ namespace RoundlyConsulting\Tickets\Listeners;
 use Carbon\CarbonImmutable;
 use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
 use RoundlyConsulting\Tickets\Actions\Internal\BumpGuestAccessAction;
+use RoundlyConsulting\Tickets\Actions\Internal\GuardTicketStartAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
@@ -17,7 +18,8 @@ use RoundlyConsulting\Tickets\Support\TransitionContext;
 
 /**
  * Inside the transition's transaction, right before lifecycle writes the state (so both are
- * atomic with it): the `status_changed` activity, the `last_activity_at` bump, the
+ * atomic with it): the blocked-start guard (`tickets.links.blockers_prevent_start`), the
+ * `status_changed` activity, the `last_activity_at` bump, the
  * conversation lock and — entering Closed with `tickets.guests.revoke_on_close` — the guest
  * link revocation. Fires for user transitions, expiries and scheduled runs — rollbacks and
  * adoptions fire only `LifecycleTransitioned` and are handled there.
@@ -33,6 +35,7 @@ final readonly class OnTicketTransitioning
         private RecordActivityAction $record,
         private ConversationLock $lock,
         private BumpGuestAccessAction $bump,
+        private GuardTicketStartAction $guardStart,
     ) {}
 
     public function handle(LifecycleTransitioning $event): void
@@ -42,6 +45,9 @@ final readonly class OnTicketTransitioning
         if (! $ticket instanceof Ticket || ! is_a($ticket, TicketModels::ticket()) || $event->lifecycle !== 'status') {
             return;
         }
+
+        // First, so a refused start writes nothing before the transaction rolls back.
+        $this->guardStart->execute($ticket, $event->from, $event->to);
 
         $context = TransitionContext::current();
 

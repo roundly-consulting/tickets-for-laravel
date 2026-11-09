@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\DB;
 use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Enums\LinkType;
+use RoundlyConsulting\Tickets\Enums\TicketStatus;
 use RoundlyConsulting\Tickets\Exceptions\InvalidCategoryException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLinkException;
+use RoundlyConsulting\Tickets\Exceptions\TicketBlockedException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
@@ -177,5 +179,57 @@ describe('overdue_fires_once', function (): void {
         expect($parent->overdue)->toBe(1)
             ->and($racer->outcome())->toBe('0')
             ->and($ticket->activities()->where('type', ActivityType::Overdue->value)->count())->toBe(1);
+    })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
+});
+
+describe('blocked_start', function (): void {
+    it('refuses a start that waited on a blocks link being added to the ticket', function (): void {
+        defineAgents();
+        config()->set('tickets.links.blockers_prevent_start', 'on');
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $ticket = Tickets::make()->subject('ticket')->requester($agent)->asSystem()->create();
+        $blocker = Tickets::make()->subject('blocker')->requester($agent)->asSystem()->create();
+        $racer = new Racer;
+
+        DB::transaction(function () use ($ticket, $blocker, $agent, $racer): void {
+            Tickets::for($blocker)->asSystem()->links()->add($ticket, LinkType::Blocks);
+
+            // The racer waits on the ticket row the link holds, then reads the committed link.
+            $racer->run(static function () use ($ticket, $agent): string {
+                try {
+                    Tickets::for(Ticket::on('racer')->findOrFail($ticket->id))->by(User::on('racer')->findOrFail($agent->id))->start();
+
+                    return 'started';
+                } catch (TicketBlockedException $exception) {
+                    return 'blocked: '.implode(',', $exception->blockers());
+                }
+            })->waitUntilBlockedOrDone();
+        });
+
+        expect($racer->outcome())->toBe('blocked: TCK-2')
+            ->and($ticket->fresh()?->status)->toBe(TicketStatus::New);
+    })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
+
+    it('decides a start racing its blocker\'s reopen on the committed state, without waiting on the blocker', function (): void {
+        defineAgents();
+        config()->set('tickets.links.blockers_prevent_start', 'on');
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $ticket = Tickets::make()->subject('ticket')->requester($agent)->asSystem()->create();
+        $blocker = Tickets::make()->subject('blocker')->requester($agent)->asSystem()->create();
+        Tickets::for($blocker)->asSystem()->links()->add($ticket, LinkType::Blocks);
+        Tickets::for($blocker)->by($agent)->resolve();
+        $racer = new Racer;
+
+        DB::transaction(function () use ($ticket, $blocker, $agent, $racer): void {
+            Tickets::for($blocker)->by($agent)->reopen();
+
+            // Uncommitted: the racer still reads the blocker as resolved — the start comes first.
+            $racer->run(static fn (): string => Tickets::for(Ticket::on('racer')->findOrFail($ticket->id))
+                ->by(User::on('racer')->findOrFail($agent->id))->start()->status()->value)->waitUntilBlockedOrDone();
+        });
+
+        expect($racer->outcome())->toBe('in_progress')
+            ->and($blocker->fresh()?->status)->toBe(TicketStatus::Open)
+            ->and(fn () => Tickets::for(Ticket::query()->findOrFail($ticket->id))->by($agent)->wait()->start())->toThrow(TicketBlockedException::class);
     })->skip(fn (): bool => ! Racer::available(), 'needs a real engine and pcntl')->group('real-engine');
 });

@@ -6,6 +6,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## Unreleased
 
+### Added
+
+- `tickets.due.skip_categories`: the unresolved status categories `tickets:sweep` leaves alone (e.g. `['waiting']`, so tickets waiting on the requester or a third party raise no `TicketOverdue` / `TicketDueSoon`). Default `[]` — every unresolved ticket is swept, as before. `tickets:doctor` reports a value that is not `open`, `active` or `waiting`.
+- `tickets.links.blockers_prevent_start` (`TICKETS_LINKS_BLOCKERS_PREVENT_START`, default `off`): refuses to start a ticket — enter an Active-category state — while an unresolved, not trashed ticket `blocks` it, with the new `TicketBlockedException` (`blockers()` lists their references; the API answers 409 `ticket_blocked`; en + sk message). Every path into Active is guarded, the check runs under the ticket lock, `can()` / `allowedTransitions()` / `GET …/transitions` leave the refused start out, and an automation that would start a blocked ticket is skipped.
+
 ## 2.0.0 - 2026-11-07
 
 ### Changed

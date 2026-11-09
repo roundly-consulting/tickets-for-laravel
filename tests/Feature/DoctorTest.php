@@ -316,4 +316,10 @@ describe('due dates', function (): void {
 
         expect(doctorLevels('due'))->toBe(['soon_window' => 'error', 'auto_close' => 'error', 'schedule' => 'ok']);
     });
+
+    it('reports a skipped due-sweep category that is not an unresolved one', function (): void {
+        config()->set('tickets.due.skip_categories', ['waiting', 'resolved']);
+
+        expect(doctorLevels('due'))->toBe(['skip_categories' => 'error', 'schedule' => 'ok']);
+    });
 });

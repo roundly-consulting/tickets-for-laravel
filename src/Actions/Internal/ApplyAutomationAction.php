@@ -10,6 +10,7 @@ use RoundlyConsulting\Lifecycle\LifecycleManager;
 use RoundlyConsulting\Tickets\Enums\Automation;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\LifecycleContract;
+use RoundlyConsulting\Tickets\Support\StartBlockers;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TransitionContext;
 
@@ -17,8 +18,9 @@ use RoundlyConsulting\Tickets\Support\TransitionContext;
  * Applies the transition the configured lifecycle maps an automation to, as the system —
  * `asSystem()`, never `by(null)`, so a host lifecycle's actor rules never judge the requester
  * whose reply triggered it. The triggering actor is recorded in the activity entry. Nothing
- * happens when the lifecycle switched the automation off (null) or the transition cannot
- * leave the current state. Runs inside the calling action's transaction.
+ * happens when the lifecycle switched the automation off (null), the transition cannot
+ * leave the current state, or it would start a ticket an open blocker holds back
+ * (`tickets.links.blockers_prevent_start`). Runs inside the calling action's transaction.
  *
  * @internal
  */
@@ -41,7 +43,7 @@ final readonly class ApplyAutomationAction
 
         $handle = $this->lifecycles->for($ticket, 'status')->asSystem()->because($reason ?? 'automation:'.$automation->value);
 
-        if (! $handle->can($transition)) {
+        if (! $handle->can($transition) || StartBlockers::refuse($ticket, $transition)) {
             return null;
         }
 

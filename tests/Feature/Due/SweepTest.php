@@ -9,12 +9,14 @@ use PHPUnit\Framework\ExpectationFailedException;
 use RoundlyConsulting\Tickets\Actions\Due\SweepDueDatesAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\StatusCategory;
 use RoundlyConsulting\Tickets\Events\TicketDueSoon;
 use RoundlyConsulting\Tickets\Events\TicketOverdue;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
 use RoundlyConsulting\Tickets\Facades\Tickets;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\DueFlags;
+use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Tests\Fixtures\Models\User;
 use RoundlyConsulting\Tickets\TicketsManager;
 
@@ -169,6 +171,63 @@ describe('overdue_fires_once', function (): void {
 
         Event::assertDispatchedTimes(TicketOverdue::class, 205);
     });
+});
+
+describe('skipped categories', function (): void {
+    it('leaves the configured categories alone, and sweeps a ticket once it leaves them', function (): void {
+        Event::fake([TicketOverdue::class, TicketDueSoon::class]);
+        config()->set('tickets.due.skip_categories', ['waiting']);
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        $waiting = dueTicket();
+        $soon = dueTicket('2030-01-01 14:00:00');
+        $open = dueTicket();
+        Tickets::for($waiting)->by($agent)->wait();
+        Tickets::for($soon)->by($agent)->hold('parts');
+
+        $result = sweepAt('2030-01-01 13:00:00');
+
+        expect($result->overdue)->toBe(1)
+            ->and($result->dueSoon)->toBe(0)
+            ->and($waiting->fresh()?->overdue_notified_at)->toBeNull();
+
+        Event::assertDispatched(TicketOverdue::class, static fn (TicketOverdue $event): bool => $event->ticket->is($open));
+        Event::assertNotDispatched(TicketDueSoon::class);
+
+        Tickets::for($waiting)->by($agent)->resume();
+
+        expect(sweepAt('2030-01-01 13:05:00')->overdue)->toBe(1);
+
+        Event::assertDispatched(TicketOverdue::class, static fn (TicketOverdue $event): bool => $event->ticket->is($waiting));
+    });
+
+    it('sweeps every unresolved category by default', function (): void {
+        $agent = User::query()->create(['name' => 'Grace', 'is_agent' => true]);
+        Tickets::for(dueTicket())->by($agent)->wait();
+        Tickets::for(dueTicket())->by($agent)->start();
+        dueTicket();
+
+        expect(TicketsConfig::dueSkippedCategories())->toBe([])
+            ->and(sweepAt('2030-01-01 13:00:00')->overdue)->toBe(3);
+    });
+
+    it('reads an env comma list, once per category', function (): void {
+        config()->set('tickets.due.skip_categories', ' waiting, active,waiting ');
+
+        expect(TicketsConfig::dueSkippedCategories())->toBe([StatusCategory::Waiting, StatusCategory::Active]);
+    });
+
+    it('sweeps nothing when every unresolved category is skipped', function (): void {
+        config()->set('tickets.due.skip_categories', ['open', 'active', 'waiting']);
+        dueTicket();
+
+        expect(sweepAt('2030-01-01 13:00:00')->overdue)->toBe(0);
+    });
+
+    it('refuses a value that is not an unresolved category', function (string $value): void {
+        config()->set('tickets.due.skip_categories', [$value]);
+
+        expect(fn () => Tickets::sweep())->toThrow(InvalidTicketsConfigurationException::class, 'tickets.due.skip_categories');
+    })->with(['resolved', 'closed', 'Waiting', 'paused']);
 });
 
 describe('due soon', function (): void {

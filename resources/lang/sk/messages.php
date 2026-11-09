@@ -127,6 +127,7 @@ return [
         'too_deep' => 'Reťazec prepojení je hlbší ako :max úrovní a nemožno ho skontrolovať na cykly.',
         'not_linked' => 'Prepojenie :type s tiketom [:reference] tu neexistuje.',
         'not_found' => 'Prepojenie [:link] nepatrí k tiketu [:reference].',
+        'blocked_start' => 'Tiket [:reference] nemožno začať riešiť, kým ho blokujú nevyriešené tikety: :blockers.',
     ],
 
     'merge' => [

@@ -492,7 +492,7 @@ final class Doctor
     }
 
     /**
-     * Due dates and auto-close: both durations valid, and the reminder of the two scheduled
+     * Due dates and auto-close: both durations and the skipped categories valid, and the reminder of the two scheduled
      * sweeps that drive them.
      *
      * @return list<DoctorCheck>
@@ -501,7 +501,7 @@ final class Doctor
     {
         $checks = [];
 
-        foreach (['soon_window' => TicketsConfig::dueSoonWindow(...), 'auto_close' => TicketsConfig::autoCloseAfter(...)] as $code => $read) {
+        foreach (['soon_window' => TicketsConfig::dueSoonWindow(...), 'skip_categories' => TicketsConfig::dueSkippedCategories(...), 'auto_close' => TicketsConfig::autoCloseAfter(...)] as $code => $read) {
             try {
                 $read();
             } catch (InvalidTicketsConfigurationException $exception) {

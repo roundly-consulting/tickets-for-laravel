@@ -13,6 +13,7 @@ use RoundlyConsulting\PackageToolkit\Support\ConfigValidator;
 use RoundlyConsulting\Tickets\Contracts\Priority;
 use RoundlyConsulting\Tickets\Contracts\TicketLifecycle as TicketLifecycleContract;
 use RoundlyConsulting\Tickets\Enums\NotificationType;
+use RoundlyConsulting\Tickets\Enums\StatusCategory;
 use RoundlyConsulting\Tickets\Enums\TicketPriority;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketLifecycleException;
 use RoundlyConsulting\Tickets\Exceptions\InvalidTicketsConfigurationException;
@@ -272,6 +273,16 @@ final class TicketsConfig
     public static function maxLinkDepth(): int
     {
         return self::read()->integer('tickets.links.max_depth', 50, min: 1, max: 1000);
+    }
+
+    /**
+     * Whether an open blocker stops a ticket from starting (`tickets.links.blockers_prevent_start`):
+     * entering an Active-category state is refused while a `blocks` link points at the ticket
+     * from an unresolved, not trashed one.
+     */
+    public static function blockersPreventStart(): bool
+    {
+        return self::read()->boolean('tickets.links.blockers_prevent_start', false);
     }
 
     /**
@@ -575,6 +586,21 @@ final class TicketsConfig
 
         return Durations::parse($value)
             ?? throw InvalidTicketsConfigurationException::invalid('tickets.due.soon_window', 'an ISO-8601 duration (PT4H, P1D) or off');
+    }
+
+    /**
+     * The unresolved status categories `tickets:sweep` leaves alone (`tickets.due.skip_categories`,
+     * e.g. `['waiting']`) — `[]`, the default, sweeps every unresolved ticket.
+     *
+     * @return list<StatusCategory>
+     */
+    public static function dueSkippedCategories(): array
+    {
+        $allowed = array_map(static fn (StatusCategory $category): string => $category->value, StatusCategory::unresolved());
+
+        $values = self::read()->list('tickets.due.skip_categories', [], static fn (string $value): bool => in_array($value, $allowed, true));
+
+        return array_map(StatusCategory::from(...), array_values(array_unique($values)));
     }
 
     /**

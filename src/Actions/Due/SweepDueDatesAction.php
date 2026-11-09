@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\SweepResult;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
+use RoundlyConsulting\Tickets\Enums\StatusCategory;
 use RoundlyConsulting\Tickets\Events\TicketDueSoon;
 use RoundlyConsulting\Tickets\Events\TicketOverdue;
 use RoundlyConsulting\Tickets\Models\Ticket;
@@ -21,7 +22,7 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
 
 /**
  * The due-date sweep behind `tickets:sweep` (schedule it every five minutes). Over the unresolved
- * tickets, in id-ordered chunks:
+ * tickets — minus the categories in `tickets.due.skip_categories` — in id-ordered chunks:
  *
  *  - past the due date → `TicketOverdue` and an `overdue` activity entry;
  *  - within `tickets.due.soon_window` of it → `TicketDueSoon`.
@@ -67,8 +68,14 @@ final readonly class SweepDueDatesAction
     private function sweep(Closure $constrain, Closure $flag): int
     {
         $flagged = 0;
+        $skipped = TicketsConfig::dueSkippedCategories();
+        $categories = array_values(array_filter(StatusCategory::unresolved(), static fn (StatusCategory $category): bool => ! in_array($category, $skipped, true)));
 
-        $constrain(TicketModels::ticket()::query()->unresolved())
+        if ($categories === []) {
+            return 0;
+        }
+
+        $constrain(TicketModels::ticket()::query()->withStatusCategory(...$categories))
             ->chunkById(self::CHUNK, static function (iterable $tickets) use ($flag, &$flagged): void {
                 foreach ($tickets as $ticket) {
                     $flagged += $flag($ticket) ? 1 : 0;

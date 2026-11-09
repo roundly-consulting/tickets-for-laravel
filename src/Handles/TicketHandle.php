@@ -51,6 +51,7 @@ use RoundlyConsulting\Tickets\Models\TicketActivity;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Messages;
+use RoundlyConsulting\Tickets\Support\StartBlockers;
 use RoundlyConsulting\Tickets\Support\TicketComments;
 use RoundlyConsulting\Tickets\Support\TicketsConfig;
 use RoundlyConsulting\Tickets\Support\TicketStates;
@@ -290,21 +291,25 @@ final readonly class TicketHandle
     }
 
     /**
-     * Whether the transition is allowed from the current state for this handle's actor.
+     * Whether the transition is allowed from the current state for this handle's actor — false,
+     * too, for a start an open blocker refuses (`tickets.links.blockers_prevent_start`).
      */
     public function can(string $transition): bool
     {
-        return $this->lifecycle()->can($transition);
+        return $this->lifecycle()->can($transition) && ! StartBlockers::refuse($this->ticket, $transition);
     }
 
     /**
-     * The names of the transitions this handle's actor may apply now.
+     * The names of the transitions this handle's actor may apply now (a start an open blocker
+     * refuses left out).
      *
      * @return list<string>
      */
     public function allowedTransitions(): array
     {
-        return array_map(static fn (AvailableTransition $transition): string => $transition->name, $this->lifecycle()->allowedTransitions());
+        $names = array_map(static fn (AvailableTransition $transition): string => $transition->name, $this->lifecycle()->allowedTransitions());
+
+        return array_values(array_filter($names, fn (string $name): bool => ! StartBlockers::refuse($this->ticket, $name)));
     }
 
     /**
