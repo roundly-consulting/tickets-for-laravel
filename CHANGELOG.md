@@ -4,6 +4,12 @@ All notable changes to `tickets-for-laravel` are documented in this file. The fo
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- Mentions on ticket comments work under `Model::preventLazyLoading()`: the `CommentMentioned` listener eager-loads the mention's comment, ticket, mentioned person and the comment's author instead of lazy-loading them, which threw `LazyLoadingViolationException` whenever a comment mentioned more than one person (and silently dropped the `mentioned` notification for re-fetched mentions).
+
 ## 2.1.0 - 2026-11-09
 
 ### Added

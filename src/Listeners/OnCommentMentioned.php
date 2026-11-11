@@ -22,6 +22,11 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
  * reply. Comments of other subjects pass
  * straight through.
  *
+ * Everything it reads is loaded here, never lazily: comments fires the event once per row of
+ * one mentions query (and a host may replay re-fetched ones), so under
+ * `Model::preventLazyLoading()` every mention carries the flag. The comment's author goes along
+ * too — the mention notification names them.
+ *
  * @internal
  */
 final readonly class OnCommentMentioned
@@ -33,7 +38,7 @@ final readonly class OnCommentMentioned
 
     public function handle(CommentMentioned $event): void
     {
-        $mention = $event->mention;
+        $mention = $event->mention->loadMissing(['comment.commentable', 'mentionable']);
         $comment = $mention->comment;
         $mentioned = $mention->mentionable;
 
@@ -54,6 +59,8 @@ final readonly class OnCommentMentioned
         if (! $mayRead) {
             return;
         }
+
+        $comment->loadMissing('actor');
 
         if (TicketsConfig::autoWatch('mentioned')) {
             $this->watch->execute($ticket, $mentioned);
