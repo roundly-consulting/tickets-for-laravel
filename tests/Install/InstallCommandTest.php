@@ -33,7 +33,7 @@ it('publishes the config and every migration — each package\'s in its own orde
     $ours = array_values(array_filter($migrations, static fn (string $name): bool => str_contains($name, 'ticket')));
 
     expect(is_file(config_path('tickets.php')))->toBeTrue()
-        ->and($migrations)->toHaveCount(28)
+        ->and($migrations)->toHaveCount(32)
         ->and($migrations)->toContain('create_media_table.php', 'create_likes_table.php', 'create_reports_table.php', '0001_create_approvals_table.php',
             '0001_create_lifecycle_states_table.php', 'create_attributes_table.php', 'create_attribute_revisions_table.php')
         ->and($ours)->toBe([
