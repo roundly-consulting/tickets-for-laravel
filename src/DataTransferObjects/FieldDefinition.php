@@ -84,13 +84,14 @@ final readonly class FieldDefinition
 
     /**
      * The validation rules of a value, keyed as `$prefix` (and `$prefix.*` for the items of a
-     * multiselect).
+     * multiselect). `$deferRequired` (a ticket whose required fields are deferred) lets a
+     * required field be left empty; a value that is given still meets every other rule.
      *
      * @return array<string, list<mixed>>
      */
-    public function validationRules(string $prefix): array
+    public function validationRules(string $prefix, bool $deferRequired = false): array
     {
-        $presence = $this->required ? ['required'] : ['nullable'];
+        $presence = $this->required && ! $deferRequired ? ['required'] : ['nullable'];
 
         $rules = match ($this->type) {
             FieldType::Text => ['string', 'max:255'],

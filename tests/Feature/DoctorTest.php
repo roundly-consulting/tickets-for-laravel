@@ -317,6 +317,16 @@ describe('due dates', function (): void {
         expect(doctorLevels('due'))->toBe(['soon_window' => 'error', 'auto_close' => 'error', 'schedule' => 'ok']);
     });
 
+    it('reports a deferred-fields state the lifecycle does not declare', function (): void {
+        config()->set('tickets.fields.defer_required_in', ['new', 'draft']);
+
+        expect(doctorLevels('lifecycle'))->toHaveKey('defer_required_in', 'error');
+
+        config()->set('tickets.fields.defer_required_in', ['new']);
+
+        expect(doctorLevels('lifecycle'))->not->toHaveKey('defer_required_in');
+    });
+
     it('reports a skipped due-sweep category that is not an unresolved one', function (): void {
         config()->set('tickets.due.skip_categories', ['waiting', 'resolved']);
 

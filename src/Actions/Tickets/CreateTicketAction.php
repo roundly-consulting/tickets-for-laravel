@@ -33,6 +33,7 @@ use RoundlyConsulting\Tickets\Exceptions\InvalidProjectException;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
 use RoundlyConsulting\Tickets\Support\Assignees;
+use RoundlyConsulting\Tickets\Support\DeferredFields;
 use RoundlyConsulting\Tickets\Support\GuestDirectory;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketModels;
@@ -47,7 +48,8 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * due date are picked on the stored ticket (the agent scope, the assignment strategy and the
  * due-date resolver never see an unsaved one) and the `created` activity is written; then the requester and assignee start watching
  * (`tickets.watchers.auto`), the custom field values are written (their defaults filled, the
- * required ones enforced), the tags, watchers and attachments added. `TicketCreated` follows
+ * required ones enforced — unless the initial state defers them, `tickets.fields.defer_required_in`,
+ * or the caller did), the tags, watchers and attachments added. `TicketCreated` follows
  * the commit.
  */
 final readonly class CreateTicketAction
@@ -149,10 +151,17 @@ final readonly class CreateTicketAction
                 $this->watch->execute($ticket, $requester);
             }
 
-            $this->fields->execute($ticket, $data->fields, $actor);
+            // A ticket filed in a deferred state (`tickets.fields.defer_required_in`) or with
+            // `deferRequiredFields` may leave its required fields empty for now.
+            $deferred = $data->deferRequiredFields || DeferredFields::for($ticket);
+
+            $this->fields->execute($ticket, $data->fields, $actor, $deferred);
             $this->fields->applyDefaults($ticket);
-            // Only what the creator may write: an agent-only required field waits for an agent.
-            $this->fields->assertRequiredFilled($ticket, $actor);
+
+            if (! $deferred) {
+                // Only what the creator may write: an agent-only required field waits for an agent.
+                $this->fields->assertRequiredFilled($ticket, $actor);
+            }
 
             if ($tags !== []) {
                 $this->tags->execute($ticket, $tags, [], $actor, $data->system);

@@ -9,9 +9,11 @@ use RoundlyConsulting\Lifecycle\Events\LifecycleTransitioning;
 use RoundlyConsulting\Tickets\Actions\Internal\BumpGuestAccessAction;
 use RoundlyConsulting\Tickets\Actions\Internal\GuardTicketStartAction;
 use RoundlyConsulting\Tickets\Actions\Internal\RecordActivityAction;
+use RoundlyConsulting\Tickets\Actions\Internal\WriteFieldValuesAction;
 use RoundlyConsulting\Tickets\Contracts\ConversationLock;
 use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Support\DeferredFields;
 use RoundlyConsulting\Tickets\Support\TicketModels;
 use RoundlyConsulting\Tickets\Support\TicketStates;
 use RoundlyConsulting\Tickets\Support\TransitionContext;
@@ -19,6 +21,7 @@ use RoundlyConsulting\Tickets\Support\TransitionContext;
 /**
  * Inside the transition's transaction, right before lifecycle writes the state (so both are
  * atomic with it): the blocked-start guard (`tickets.links.blockers_prevent_start`), the
+ * required custom fields on leaving a deferred state (`tickets.fields.defer_required_in`), the
  * `status_changed` activity, the `last_activity_at` bump, the
  * conversation lock and — entering Closed with `tickets.guests.revoke_on_close` — the guest
  * link revocation. Fires for user transitions, expiries and scheduled runs — rollbacks and
@@ -36,6 +39,7 @@ final readonly class OnTicketTransitioning
         private ConversationLock $lock,
         private BumpGuestAccessAction $bump,
         private GuardTicketStartAction $guardStart,
+        private WriteFieldValuesAction $fields,
     ) {}
 
     public function handle(LifecycleTransitioning $event): void
@@ -50,6 +54,12 @@ final readonly class OnTicketTransitioning
         $this->guardStart->execute($ticket, $event->from, $event->to);
 
         $context = TransitionContext::current();
+
+        // Leaving a deferred state: the required fields fall due, owed as the mover owes them
+        // (the system — automations, expiries — owes every one).
+        if (DeferredFields::leaving($event->from, $event->to)) {
+            $this->fields->assertRequiredFilled($ticket, $event->system ? null : $event->actor ?? $context['actor'] ?? null);
+        }
 
         $this->record->execute($ticket, ActivityType::StatusChanged, $event->actor ?? $context['actor'] ?? null, array_filter([
             'transition' => $event->transition,

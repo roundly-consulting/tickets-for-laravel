@@ -28,6 +28,10 @@ final readonly class CreateTicketData
      *                                                  from user input
      * @param  array<string, mixed>  $meta  host-owned metadata (a CRM id, a source URL); the package
      *                                      never writes into it and never shows it in the API
+     * @param  bool  $deferRequiredFields  file it with required custom fields still empty, whatever
+     *                                     its initial state; they are checked later by
+     *                                     `Tickets::for($ticket)->fields()->assertRequired()` or
+     *                                     the next write that owes them
      */
     public function __construct(
         public string $subject,
@@ -46,5 +50,6 @@ final readonly class CreateTicketData
         public array $watchers = [],
         public array $attachments = [],
         public array $meta = [],
+        public bool $deferRequiredFields = false,
     ) {}
 }

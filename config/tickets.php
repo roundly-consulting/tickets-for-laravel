@@ -237,6 +237,11 @@ return [
     | validation rules a custom field definition may carry — never a database
     | probe (`exists`, `unique`) or a closure.
     |
+    | `defer_required_in` lists lifecycle states (stored values, e.g.
+    | `['draft']`) in which a ticket may be saved with required custom fields
+    | still empty. Given values are still validated and defaults still filled;
+    | the required ones fall due when the ticket moves to a state not listed.
+    |
     */
 
     'categories' => [
@@ -245,6 +250,7 @@ return [
 
     'fields' => [
         'allowed_rules' => ['min', 'max', 'between', 'regex', 'digits', 'digits_between', 'alpha', 'alpha_num', 'alpha_dash', 'starts_with', 'ends_with'],
+        'defer_required_in' => [],
     ],
 
     /*

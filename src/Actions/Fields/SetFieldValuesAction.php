@@ -12,6 +12,7 @@ use RoundlyConsulting\Tickets\Enums\ActivityType;
 use RoundlyConsulting\Tickets\Events\TicketFieldsChanged;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
+use RoundlyConsulting\Tickets\Support\DeferredFields;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
@@ -20,7 +21,9 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
  * Sets custom field values of a ticket — keys of its own field set only, each validated
  * against its field; a null clears a value. Someone who is not an agent may only set
  * `requester_editable` fields. An agent (or the system) must leave every required field filled,
- * the agent-only ones a self-service ticket was filed without included. The activity entry and
+ * the agent-only ones a self-service ticket was filed without included. While the ticket's state
+ * defers them (`tickets.fields.defer_required_in`) a required field may be left or cleared
+ * empty, and they fall due when the ticket leaves that state. The activity entry and
  * the event name the keys, never a value.
  */
 final readonly class SetFieldValuesAction
@@ -44,8 +47,9 @@ final readonly class SetFieldValuesAction
             $keys = $this->write->execute($ticket, $values, $actor);
 
             // An agent (or the system) writing fields owes every required one — the agent-only
-            // ones a self-service ticket was filed without included.
-            if ($actor === null || TicketVisibility::isAgentFor($actor, $ticket)) {
+            // ones a self-service ticket was filed without included — unless the ticket's state
+            // defers them.
+            if (! DeferredFields::for($ticket) && ($actor === null || TicketVisibility::isAgentFor($actor, $ticket))) {
                 $this->write->assertRequiredFilled($ticket);
             }
 

@@ -60,6 +60,8 @@ final class TicketBuilder
     /** @var array<string, mixed> */
     private array $meta = [];
 
+    private bool $deferRequiredFields = false;
+
     public function __construct(
         private readonly TicketsManager $manager,
     ) {}
@@ -200,6 +202,18 @@ final class TicketBuilder
     }
 
     /**
+     * File it with required custom fields still empty — for a host without a draft state
+     * (`tickets.fields.defer_required_in`). Given values are still validated and defaults still
+     * applied; check the required ones later with `Tickets::for($ticket)->fields()->assertRequired()`.
+     */
+    public function deferRequiredFields(bool $defer = true): self
+    {
+        $this->deferRequiredFields = $defer;
+
+        return $this;
+    }
+
+    /**
      * Who files it (default: the authenticated user, with `tickets.actor.from_auth`).
      */
     public function by(?Model $actor): self
@@ -247,6 +261,7 @@ final class TicketBuilder
             watchers: $this->watchers,
             attachments: $this->attachments,
             meta: $this->meta,
+            deferRequiredFields: $this->deferRequiredFields,
         );
     }
 

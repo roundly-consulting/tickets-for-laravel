@@ -8,6 +8,7 @@ use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Tickets\Actions\Fields\ForgetFieldValuesAction;
 use RoundlyConsulting\Tickets\Actions\Fields\SetFieldValuesAction;
+use RoundlyConsulting\Tickets\Actions\Internal\WriteFieldValuesAction;
 use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Enums\TicketOperation;
 use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
@@ -66,6 +67,30 @@ final readonly class TicketFields
     }
 
     /**
+     * Refuse the ticket while it misses a value of a required field — a `ValidationException`
+     * keyed `fields.<key>`, worded with the field's label — whatever its state defers. Owed by
+     * `$actor` (else the handle's `by()` actor; else the system): someone who is not an agent
+     * for the ticket owes only the `requester_editable` fields, an agent or the system every one.
+     */
+    public function assertRequired(?Model $actor = null): static
+    {
+        Container::getInstance()->make(WriteFieldValuesAction::class)->assertRequiredFilled($this->ticket, $this->owedBy($actor));
+
+        return $this;
+    }
+
+    /**
+     * The keys of the required fields the ticket holds no value for, in field order — of those
+     * owed as {@see self::assertRequired()} reads them. `[]` when nothing is missing.
+     *
+     * @return list<string>
+     */
+    public function missing(?Model $actor = null): array
+    {
+        return array_keys(Container::getInstance()->make(WriteFieldValuesAction::class)->missingRequired($this->ticket, $this->owedBy($actor)));
+    }
+
+    /**
      * The value of one of the ticket's fields (its default when unset), or null for a key no
      * field of the ticket has.
      */
@@ -107,5 +132,10 @@ final readonly class TicketFields
     public function ticket(): Ticket
     {
         return $this->ticket;
+    }
+
+    private function owedBy(?Model $actor): ?Model
+    {
+        return $actor ?? ($this->system ? null : $this->actor);
     }
 }

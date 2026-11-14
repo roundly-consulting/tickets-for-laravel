@@ -167,6 +167,12 @@ final class Doctor
             'class' => TicketsConfig::lifecycle(),
         ]), 'ok');
 
+        try {
+            TicketsConfig::deferRequiredIn();
+        } catch (InvalidTicketsConfigurationException $exception) {
+            $checks[] = new DoctorCheck('lifecycle', 'defer_required_in', $exception->getMessage(), 'error');
+        }
+
         $supported = LifecycleContract::supportedConveniences();
 
         $checks[] = new DoctorCheck('lifecycle', 'conveniences', Messages::get('doctor.conveniences', [

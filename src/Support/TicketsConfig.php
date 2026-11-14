@@ -176,6 +176,24 @@ final class TicketsConfig
     }
 
     /**
+     * The stored values of the lifecycle states in which a ticket owes no required custom field
+     * yet (`tickets.fields.defer_required_in`, e.g. `['draft']`) — `[]`, the default, defers
+     * nothing. Each one must be a state the configured lifecycle declares.
+     *
+     * @return list<string>
+     */
+    public static function deferRequiredIn(): array
+    {
+        $values = self::read()->list(
+            'tickets.fields.defer_required_in',
+            [],
+            static fn (string $value): bool => TicketStates::definition()->hasState($value),
+        );
+
+        return array_values(array_unique($values));
+    }
+
+    /**
      * How long a resolved ticket waits before lifecycle's sweep closes it
      * (`tickets.auto_close.after`: an ISO-8601 duration, or `off` for never). Read when a
      * ticket enters Resolved, so a change applies to later resolutions only.

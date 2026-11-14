@@ -13,6 +13,7 @@ use RoundlyConsulting\Tickets\Events\TicketCategoryChanged;
 use RoundlyConsulting\Tickets\Models\Ticket;
 use RoundlyConsulting\Tickets\Models\TicketCategory;
 use RoundlyConsulting\Tickets\Support\ActorResolver;
+use RoundlyConsulting\Tickets\Support\DeferredFields;
 use RoundlyConsulting\Tickets\Support\TicketInput;
 use RoundlyConsulting\Tickets\Support\TicketLocker;
 use RoundlyConsulting\Tickets\Support\TicketTransaction;
@@ -22,7 +23,7 @@ use RoundlyConsulting\Tickets\Support\TicketTransaction;
  * must be active and global or of the ticket's project. Category defaults are applied at
  * creation only — never again on a move. A field the new category makes required must already
  * hold a value (for a mover who is no agent, only the requester-editable ones), or the move is
- * refused. The same category again is a no-op.
+ * refused — unless the ticket's state defers them (`tickets.fields.defer_required_in`). The same category again is a no-op.
  */
 final readonly class ChangeCategoryAction
 {
@@ -50,8 +51,11 @@ final readonly class ChangeCategoryAction
             $ticket->forceFill(['category_id' => $toKey])->save();
             $ticket->unsetRelation('category');
 
-            // The new category may bring required fields the ticket has no value for.
-            $this->fields->assertRequiredFilled($ticket, $actor);
+            // The new category may bring required fields the ticket has no value for — owed now,
+            // unless the ticket's state defers them.
+            if (! DeferredFields::for($ticket)) {
+                $this->fields->assertRequiredFilled($ticket, $actor);
+            }
 
             $this->record->execute($ticket, ActivityType::CategoryChanged, $actor, ['from' => $from, 'to' => $toKey], $system);
             $this->events->dispatch(new TicketCategoryChanged($ticket, $from, $toKey, $actor));

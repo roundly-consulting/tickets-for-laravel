@@ -11,6 +11,7 @@ use RoundlyConsulting\Tickets\DataTransferObjects\FieldDefinition;
 use RoundlyConsulting\Tickets\Exceptions\FieldNotEditableException;
 use RoundlyConsulting\Tickets\Fields\FieldSetResolver;
 use RoundlyConsulting\Tickets\Models\Ticket;
+use RoundlyConsulting\Tickets\Support\DeferredFields;
 use RoundlyConsulting\Tickets\Support\TicketVisibility;
 
 /**
@@ -21,7 +22,9 @@ use RoundlyConsulting\Tickets\Support\TicketVisibility;
  *  - a writer who is not an agent for the ticket (nor the system) may only touch
  *    `requester_editable` fields;
  *  - every value is validated against its field (type, options, required, the allow-listed
- *    rules), errors keyed `fields.<key>` and worded with the field's label;
+ *    rules), errors keyed `fields.<key>` and worded with the field's label — while the
+ *    ticket's required fields are deferred (`tickets.fields.defer_required_in`, or
+ *    `$deferRequired`), a required field may be left empty;
  *  - a null clears the value.
  *
  * Returns the keys written — never the values.
@@ -40,11 +43,13 @@ final readonly class WriteFieldValuesAction
      * @param  array<string, mixed>  $values
      * @return list<string>
      */
-    public function execute(Ticket $ticket, array $values, ?Model $actor): array
+    public function execute(Ticket $ticket, array $values, ?Model $actor, bool $deferRequired = false): array
     {
         if ($values === []) {
             return [];
         }
+
+        $deferRequired = $deferRequired || DeferredFields::for($ticket);
 
         $fields = $this->fields->forTicket($ticket);
         $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
@@ -58,7 +63,7 @@ final readonly class WriteFieldValuesAction
                 throw FieldNotEditableException::notEditable($field->key);
             }
 
-            $rules = [...$rules, ...$field->validationRules('fields.'.$field->key)];
+            $rules = [...$rules, ...$field->validationRules('fields.'.$field->key, $deferRequired)];
             $names = [...$names, ...self::names($field)];
         }
 
@@ -99,17 +104,42 @@ final readonly class WriteFieldValuesAction
 
     /**
      * Refuse a ticket that misses a value of a required field of its field set — at creation,
-     * when a category change makes a field newly required, and when an agent writes fields. Only
-     * what `$actor` may write is owed: a writer who is not an agent for the ticket (a requester
-     * filing for themselves) owes the `requester_editable` fields, never one they can neither
-     * see nor set; an agent or the system (null) owes every one.
+     * when a category change makes a field newly required, when an agent writes fields and when
+     * the ticket leaves a deferred state (`tickets.fields.defer_required_in`). Only what `$actor`
+     * may write is owed: a writer who is not an agent for the ticket (a requester filing for
+     * themselves) owes the `requester_editable` fields, never one they can neither see nor set;
+     * an agent or the system (null) owes every one. Errors are keyed `fields.<key>`.
      */
     public function assertRequiredFilled(Ticket $ticket, ?Model $actor = null): void
     {
-        $ticket->unsetRelation('attachedAttributes');
-        $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
+        $missing = $this->missingRequired($ticket, $actor);
+
+        if ($missing === []) {
+            return;
+        }
+
         $rules = [];
         $names = [];
+
+        foreach ($missing as $field) {
+            $rules['fields.'.$field->key] = ['required'];
+            $names = [...$names, ...self::names($field)];
+        }
+
+        $this->validator->make(['fields' => []], $rules, [], $names)->validate();
+    }
+
+    /**
+     * The required fields of the ticket's field set it holds no value for, in field order — of
+     * those `$actor` owes ({@see self::assertRequiredFilled()}).
+     *
+     * @return array<string, FieldDefinition>
+     */
+    public function missingRequired(Ticket $ticket, ?Model $actor = null): array
+    {
+        $ticket->unsetRelation('attachedAttributes');
+        $limited = $actor !== null && ! TicketVisibility::isAgentFor($actor, $ticket);
+        $missing = [];
 
         foreach ($this->fields->forTicket($ticket) as $field) {
             if ($limited && ! $field->requesterEditable) {
@@ -117,14 +147,11 @@ final readonly class WriteFieldValuesAction
             }
 
             if ($field->required && $ticket->getAttachedAttribute($field->key)?->value === null) {
-                $rules['fields.'.$field->key] = ['required'];
-                $names = [...$names, ...self::names($field)];
+                $missing[$field->key] = $field;
             }
         }
 
-        if ($rules !== []) {
-            $this->validator->make(['fields' => []], $rules, [], $names)->validate();
-        }
+        return $missing;
     }
 
     /**

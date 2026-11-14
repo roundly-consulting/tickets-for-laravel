@@ -4,6 +4,14 @@ All notable changes to `tickets-for-laravel` are documented in this file. The fo
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- `tickets.fields.defer_required_in` (default `[]`): lifecycle states (e.g. `['draft']`) in which a ticket may be saved with required custom fields still empty. Creation, `categorize()` and `fields()->set()` / `forget()` skip the required check there; given values are still validated and defaults still filled. A transition out of a listed state into one not listed checks the required fields first — the usual `ValidationException` keyed `fields.<key>` (422), the ticket keeps its state — and an automation that would leave a draft unfilled is skipped. `tickets:doctor` reports a state the lifecycle does not declare. The default changes nothing.
+- `Tickets::make()->deferRequiredFields()` (`CreateTicketData::$deferRequiredFields`): file one ticket with its required fields empty, for hosts without a draft state.
+- `Tickets::for($ticket)->fields()->assertRequired(?Model $actor = null)` and `->missing(?Model $actor = null)`: check the required fields on demand — a requester owes only the `requester_editable` ones, an agent or the system every one.
+
 ## 2.1.1 - 2026-11-11
 
 ### Fixed
